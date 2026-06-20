@@ -25,3 +25,14 @@ export type Profile = {
   avatar_url: string | null;
   updated_at: string;
 };
+
+export type Post = {
+  id: string;
+  content: string;
+  created_at: string;
+  profiles: {
+    full_name: string | null;
+    school_name: string | null;
+    avatar_url: string | null;
+  } | null;
+};

@@ -15,3 +15,13 @@ export type MainTabParamList = {
   Volunteer: undefined;
   Profile: undefined;
 };
+
+export type Profile = {
+  id: string;
+  full_name: string | null;
+  school_name: string | null;
+  grade: string | null;
+  interests: string[];
+  avatar_url: string | null;
+  updated_at: string;
+};

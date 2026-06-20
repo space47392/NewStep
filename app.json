@@ -21,7 +21,13 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow NewStep to access your photos to set a profile picture."
+        }
+      ]
     ]
   }
 }

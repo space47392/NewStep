@@ -1,10 +1,17 @@
 import { createClient } from '@supabase/supabase-js';
 import * as SecureStore from 'expo-secure-store';
 
-// ─── Replace these with your actual values from supabase.com → Project Settings → API ───
-const SUPABASE_URL = 'https://nlrgfbrdzqevvykegxmv.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5scmdmYnJkenFldnZ5a2VneG12Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE5NjYyNTksImV4cCI6MjA5NzU0MjI1OX0.5jSx0V-31IP0MaB3qT_j1F12H707SoHdQ6Vmo6fNsmA';
-// ─────────────────────────────────────────────────────────────────────────────────────────
+// Values come from .env (see .env.example for the template) — never hardcode them here
+const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  throw new Error(
+    'Missing Supabase env vars. Create a .env file in the project root with ' +
+      'EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY (see .env.example), ' +
+      'then restart the dev server.'
+  );
+}
 
 // SecureStore adapter so Supabase can persist the auth session on-device
 const ExpoSecureStoreAdapter = {

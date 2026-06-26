@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
+import { registerForPushNotifications } from '../lib/notifications';
 
 type AuthContextType = {
   session: Session | null;
@@ -34,6 +35,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    // Re-registers on every login (and on app reopen with a persisted session) —
+    // harmless if it runs more than once, since it just overwrites the same token.
+    if (session?.user) {
+      registerForPushNotifications(session.user.id).catch((err) => console.warn('Push registration failed', err));
+    }
+  }, [session?.user?.id]);
 
   const signOut = async () => {
     await supabase.auth.signOut();

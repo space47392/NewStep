@@ -15,7 +15,10 @@
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
-      }
+      },
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -27,7 +30,19 @@
         {
           "photosPermission": "Allow NewStep to access your photos to set a profile picture."
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#6C63FF"
+        }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "90a9f12d-e416-48fa-9fc4-56ecfd197fce"
+      }
+    },
+    "owner": "space47392"
   }
 }

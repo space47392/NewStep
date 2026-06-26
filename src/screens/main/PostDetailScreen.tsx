@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -11,18 +11,19 @@ import {
   Alert,
   StyleSheet,
 } from 'react-native';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { fetchComments, addComment, subscribeToComments } from '../../lib/comments';
-import { volunteerToHelp, markPostCompleted } from '../../lib/posts';
+import { volunteerToHelp, markPostCompleted, fetchPostById, deletePost } from '../../lib/posts';
 import { getOrCreateConversation } from '../../lib/chat';
 import { formatRelativeTime } from '../../lib/time';
 import Avatar from '../../components/Avatar';
 import EmptyState from '../../components/EmptyState';
 import PrimaryButton from '../../components/PrimaryButton';
 import FadeInView from '../../components/FadeInView';
+import ActionSheet, { ActionSheetAction } from '../../components/ActionSheet';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
 import { CATEGORY_STYLES } from '../../constants/categoryStyles';
 import { MainStackParamList, Comment } from '../../types';
@@ -42,6 +43,17 @@ export default function PostDetailScreen() {
   const [volunteering, setVolunteering] = useState(false);
   const [completing, setCompleting] = useState(false);
   const [messaging, setMessaging] = useState(false);
+  const [menuVisible, setMenuVisible] = useState(false);
+
+  // Refetch just the post (not comments) whenever this screen regains focus, so
+  // returning from editing shows the new content immediately.
+  useFocusEffect(
+    useCallback(() => {
+      fetchPostById(route.params.post.id)
+        .then(setPost)
+        .catch(() => {});
+    }, [route.params.post.id])
+  );
 
   useEffect(() => {
     let isMounted = true;
@@ -122,6 +134,38 @@ export default function PostDetailScreen() {
     }
   };
 
+  const isAuthor = user?.id === post.author_id;
+
+  const handleEditPost = () => {
+    navigation.navigate('CreatePost', { post });
+  };
+
+  const handleDeletePost = () => {
+    Alert.alert('Delete post?', 'This cannot be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deletePost(post.id);
+            navigation.goBack();
+          } catch (err) {
+            const message = err instanceof Error ? err.message : 'Could not delete post.';
+            Alert.alert('Error', message);
+          }
+        },
+      },
+    ]);
+  };
+
+  const menuActions: ActionSheetAction[] = isAuthor
+    ? [
+        { label: 'Edit Post', icon: 'create-outline', onPress: handleEditPost },
+        { label: 'Delete Post', icon: 'trash-outline', destructive: true, onPress: handleDeletePost },
+      ]
+    : [];
+
   const handleSend = async () => {
     const trimmed = commentText.trim();
     if (!trimmed || !user) return;
@@ -140,10 +184,17 @@ export default function PostDetailScreen() {
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-        <Ionicons name="arrow-back" size={20} color={colors.primary} />
-        <Text style={styles.backText}>Back</Text>
-      </TouchableOpacity>
+      <View style={styles.topBar}>
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+          <Ionicons name="arrow-back" size={20} color={colors.primary} />
+          <Text style={styles.backText}>Back</Text>
+        </TouchableOpacity>
+        {isAuthor && (
+          <TouchableOpacity style={styles.menuButton} onPress={() => setMenuVisible(true)}>
+            <Ionicons name="ellipsis-horizontal" size={20} color={colors.textMid} />
+          </TouchableOpacity>
+        )}
+      </View>
 
       <FlatList
         data={comments}
@@ -254,6 +305,8 @@ export default function PostDetailScreen() {
           {sending ? <ActivityIndicator color="#fff" /> : <Ionicons name="send" size={18} color="#fff" />}
         </TouchableOpacity>
       </View>
+
+      <ActionSheet visible={menuVisible} onClose={() => setMenuVisible(false)} actions={menuActions} />
     </KeyboardAvoidingView>
   );
 }
@@ -263,18 +316,26 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.sm,
+  },
   backButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.sm,
   },
   backText: {
     fontFamily: fontFamily.semibold,
     color: colors.primary,
     fontSize: fontSize.md,
+  },
+  menuButton: {
+    padding: spacing.xs,
   },
   list: {
     paddingHorizontal: spacing.lg,

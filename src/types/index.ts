@@ -18,7 +18,7 @@ export type MainTabParamList = {
 
 export type MainStackParamList = {
   Tabs: undefined;
-  CreatePost: undefined;
+  CreatePost: { post?: Post } | undefined;
   PostDetail: { post: Post };
   Conversation: { conversationId: string; otherUser: ChatProfile };
 };

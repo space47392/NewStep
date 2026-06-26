@@ -1,24 +1,29 @@
-import { useCallback, useEffect, useState } from 'react';
-import { View, Text, FlatList, RefreshControl, TouchableOpacity, StyleSheet } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useCallback, useRef, useState } from 'react';
+import { View, Text, FlatList, RefreshControl, TouchableOpacity, Alert, StyleSheet } from 'react-native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
-import { fetchPosts } from '../../lib/posts';
+import { useAuth } from '../../contexts/AuthContext';
+import { fetchPosts, deletePost } from '../../lib/posts';
 import { formatRelativeTime } from '../../lib/time';
 import Avatar from '../../components/Avatar';
 import EmptyState from '../../components/EmptyState';
 import LoadingScreen from '../../components/LoadingScreen';
 import FadeInView from '../../components/FadeInView';
+import ActionSheet, { ActionSheetAction } from '../../components/ActionSheet';
 import { Post, MainStackParamList } from '../../types';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
 import { CATEGORY_STYLES } from '../../constants/categoryStyles';
 
 export default function FeedScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
+  const { user } = useAuth();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [menuPost, setMenuPost] = useState<Post | null>(null);
+  const hasLoadedOnce = useRef(false);
 
   const loadPosts = useCallback(async () => {
     try {
@@ -30,18 +35,55 @@ export default function FeedScreen() {
     }
   }, []);
 
-  useEffect(() => {
-    (async () => {
-      await loadPosts();
-      setLoading(false);
-    })();
-  }, [loadPosts]);
+  // Refetch every time this tab gains focus (e.g. returning from editing a post),
+  // but only show the full-screen spinner the very first time — later refreshes
+  // happen quietly behind the existing list so editing doesn't cause a jarring reload.
+  useFocusEffect(
+    useCallback(() => {
+      (async () => {
+        if (!hasLoadedOnce.current) setLoading(true);
+        await loadPosts();
+        setLoading(false);
+        hasLoadedOnce.current = true;
+      })();
+    }, [loadPosts])
+  );
 
   const handleRefresh = async () => {
     setRefreshing(true);
     await loadPosts();
     setRefreshing(false);
   };
+
+  const handleEditPost = (post: Post) => {
+    navigation.navigate('CreatePost', { post });
+  };
+
+  const handleDeletePost = (post: Post) => {
+    Alert.alert('Delete post?', 'This cannot be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deletePost(post.id);
+            setPosts((prev) => prev.filter((p) => p.id !== post.id));
+          } catch (err) {
+            const message = err instanceof Error ? err.message : 'Could not delete post.';
+            Alert.alert('Error', message);
+          }
+        },
+      },
+    ]);
+  };
+
+  const menuActions: ActionSheetAction[] = menuPost
+    ? [
+        { label: 'Edit Post', icon: 'create-outline', onPress: () => handleEditPost(menuPost) },
+        { label: 'Delete Post', icon: 'trash-outline', destructive: true, onPress: () => handleDeletePost(menuPost) },
+      ]
+    : [];
 
   if (loading) {
     return <LoadingScreen />;
@@ -69,6 +111,7 @@ export default function FeedScreen() {
         }
         renderItem={({ item, index }) => {
           const category = CATEGORY_STYLES[item.category];
+          const isAuthor = user?.id === item.author_id;
           return (
             <FadeInView delay={Math.min(index, 6) * 40}>
               <TouchableOpacity
@@ -85,6 +128,17 @@ export default function FeedScreen() {
                     ) : null}
                   </View>
                   <Text style={styles.timestamp}>{formatRelativeTime(item.created_at)}</Text>
+                  {isAuthor && (
+                    <TouchableOpacity
+                      style={styles.menuButton}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        setMenuPost(item);
+                      }}
+                    >
+                      <Ionicons name="ellipsis-horizontal" size={18} color={colors.textMid} />
+                    </TouchableOpacity>
+                  )}
                 </View>
 
                 <View style={[styles.categoryBadge, { backgroundColor: category.bg }]}>
@@ -116,6 +170,8 @@ export default function FeedScreen() {
       <TouchableOpacity style={styles.fab} activeOpacity={0.85} onPress={() => navigation.navigate('CreatePost')}>
         <Ionicons name="add" size={28} color="#fff" />
       </TouchableOpacity>
+
+      <ActionSheet visible={menuPost !== null} onClose={() => setMenuPost(null)} actions={menuActions} />
     </View>
   );
 }
@@ -183,6 +239,10 @@ const styles = StyleSheet.create({
   cardHeaderText: {
     flex: 1,
     marginLeft: spacing.sm,
+  },
+  menuButton: {
+    padding: spacing.xs,
+    marginLeft: spacing.xs,
   },
   name: {
     fontFamily: fontFamily.semibold,

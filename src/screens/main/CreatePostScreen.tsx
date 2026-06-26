@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Alert } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
-import { createPost } from '../../lib/posts';
+import { createPost, editPost } from '../../lib/posts';
 import PrimaryButton from '../../components/PrimaryButton';
 import FadeInView from '../../components/FadeInView';
 import { colors, spacing, radius, fontSize, fontFamily } from '../../constants/theme';
@@ -16,13 +16,15 @@ const MAX_LENGTH = 500;
 
 export default function CreatePostScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
+  const route = useRoute<RouteProp<MainStackParamList, 'CreatePost'>>();
+  const editingPost = route.params?.post;
   const { user } = useAuth();
 
-  const [content, setContent] = useState('');
-  const [category, setCategory] = useState<PostCategory>('Looking for Friends');
+  const [content, setContent] = useState(editingPost?.content ?? '');
+  const [category, setCategory] = useState<PostCategory>(editingPost?.category ?? 'Looking for Friends');
   const [posting, setPosting] = useState(false);
 
-  const handlePost = async () => {
+  const handleSubmit = async () => {
     if (!content.trim()) {
       Alert.alert('Empty post', 'Write something before posting.');
       return;
@@ -31,11 +33,15 @@ export default function CreatePostScreen() {
 
     setPosting(true);
     try {
-      await createPost({ authorId: user.id, content: content.trim(), category });
+      if (editingPost) {
+        await editPost({ postId: editingPost.id, content: content.trim(), category });
+      } else {
+        await createPost({ authorId: user.id, content: content.trim(), category });
+      }
       navigation.goBack();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Something went wrong.';
-      Alert.alert('Could not post', message);
+      Alert.alert(editingPost ? 'Could not save changes' : 'Could not post', message);
     } finally {
       setPosting(false);
     }
@@ -47,7 +53,7 @@ export default function CreatePostScreen() {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeButton}>
           <Ionicons name="close" size={22} color={colors.textMid} />
         </TouchableOpacity>
-        <Text style={styles.title}>New Post</Text>
+        <Text style={styles.title}>{editingPost ? 'Edit Post' : 'New Post'}</Text>
         <View style={styles.closeSpacer} />
       </View>
 
@@ -88,7 +94,12 @@ export default function CreatePostScreen() {
           {content.length}/{MAX_LENGTH}
         </Text>
 
-        <PrimaryButton title="Post" icon="paper-plane-outline" onPress={handlePost} loading={posting} />
+        <PrimaryButton
+          title={editingPost ? 'Save Changes' : 'Post'}
+          icon={editingPost ? 'checkmark-outline' : 'paper-plane-outline'}
+          onPress={handleSubmit}
+          loading={posting}
+        />
       </FadeInView>
     </KeyboardAvoidingView>
   );

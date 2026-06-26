@@ -32,6 +32,13 @@ export async function fetchPosts(): Promise<Post[]> {
   return (data ?? []) as unknown as Post[];
 }
 
+export async function fetchPostById(postId: string): Promise<Post> {
+  const { data, error } = await supabase.from('posts').select(POST_SELECT).eq('id', postId).single();
+
+  if (error) throw error;
+  return data as unknown as Post;
+}
+
 export async function createPost(params: {
   authorId: string;
   content: string;
@@ -69,4 +76,25 @@ export async function markPostCompleted(postId: string): Promise<Post> {
 
   if (error) throw error;
   return data as unknown as Post;
+}
+
+// Goes through the edit_post() RPC rather than a plain client-side update — see
+// posts_edit_delete.sql for why a general RLS policy isn't safe to add here.
+export async function editPost(params: {
+  postId: string;
+  content: string;
+  category: PostCategory;
+}): Promise<void> {
+  const { error } = await supabase.rpc('edit_post', {
+    p_post_id: params.postId,
+    p_content: params.content,
+    p_category: params.category,
+  });
+
+  if (error) throw error;
+}
+
+export async function deletePost(postId: string): Promise<void> {
+  const { error } = await supabase.from('posts').delete().eq('id', postId);
+  if (error) throw error;
 }

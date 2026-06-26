@@ -16,6 +16,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../contexts/AuthContext';
 import { fetchComments, addComment, subscribeToComments } from '../../lib/comments';
+import { volunteerToHelp } from '../../lib/posts';
 import { formatRelativeTime } from '../../lib/time';
 import { colors, spacing, radius, fontSize } from '../../constants/theme';
 import { MainStackParamList, Comment } from '../../types';
@@ -23,13 +24,16 @@ import { MainStackParamList, Comment } from '../../types';
 export default function PostDetailScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
   const route = useRoute<RouteProp<MainStackParamList, 'PostDetail'>>();
-  const { post } = route.params;
   const { user } = useAuth();
 
+  // Local copy so the screen can reflect the new status/helper after volunteering,
+  // since route.params.post is just a snapshot from when the feed card was tapped.
+  const [post, setPost] = useState(route.params.post);
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
   const [commentText, setCommentText] = useState('');
   const [sending, setSending] = useState(false);
+  const [volunteering, setVolunteering] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -55,6 +59,23 @@ export default function PostDetailScreen() {
       unsubscribe();
     };
   }, [post.id]);
+
+  const canVolunteer = post.category === 'Need Help' && post.status === 'open' && post.author_id !== user?.id;
+  const showHelper = post.category === 'Need Help' && post.status === 'accepted' && post.helper;
+
+  const handleVolunteer = async () => {
+    if (!user) return;
+    setVolunteering(true);
+    try {
+      const updated = await volunteerToHelp({ postId: post.id, helperId: user.id });
+      setPost(updated);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Could not volunteer to help.';
+      Alert.alert('Error', message);
+    } finally {
+      setVolunteering(false);
+    }
+  };
 
   const handleSend = async () => {
     const trimmed = commentText.trim();
@@ -105,6 +126,40 @@ export default function PostDetailScreen() {
               <Text style={styles.categoryText}>{post.category}</Text>
             </View>
             <Text style={styles.postContent}>{post.content}</Text>
+
+            {canVolunteer && (
+              <TouchableOpacity
+                style={[styles.volunteerButton, volunteering && styles.buttonDisabled]}
+                onPress={handleVolunteer}
+                disabled={volunteering}
+              >
+                {volunteering ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.volunteerButtonText}>Volunteer to Help</Text>
+                )}
+              </TouchableOpacity>
+            )}
+
+            {showHelper && post.helper && (
+              <View style={styles.helperCard}>
+                <Text style={styles.helperLabel}>✓ Helper</Text>
+                <View style={styles.helperRow}>
+                  {post.helper.avatar_url ? (
+                    <Image source={{ uri: post.helper.avatar_url }} style={styles.helperAvatar} />
+                  ) : (
+                    <View style={[styles.helperAvatar, styles.avatarPlaceholder]} />
+                  )}
+                  <View>
+                    <Text style={styles.helperName}>{post.helper.full_name ?? 'Unknown'}</Text>
+                    {post.helper.school_name ? (
+                      <Text style={styles.helperSchool}>{post.helper.school_name}</Text>
+                    ) : null}
+                  </View>
+                </View>
+              </View>
+            )}
+
             <Text style={styles.commentsLabel}>
               {loading ? 'Loading comments...' : `${comments.length} Comment${comments.length === 1 ? '' : 's'}`}
             </Text>
@@ -202,6 +257,49 @@ const styles = StyleSheet.create({
     color: colors.textDark,
   },
   school: {
+    fontSize: fontSize.xs,
+    color: colors.textMid,
+  },
+  volunteerButton: {
+    backgroundColor: colors.primary,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm,
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  volunteerButtonText: {
+    color: '#fff',
+    fontSize: fontSize.md,
+    fontWeight: '700',
+  },
+  helperCard: {
+    backgroundColor: colors.primaryLight,
+    borderRadius: radius.md,
+    padding: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  helperLabel: {
+    fontSize: fontSize.xs,
+    fontWeight: '700',
+    color: colors.success,
+    marginBottom: spacing.xs,
+  },
+  helperRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  helperAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: radius.full,
+    marginRight: spacing.sm,
+  },
+  helperName: {
+    fontSize: fontSize.sm,
+    fontWeight: '700',
+    color: colors.textDark,
+  },
+  helperSchool: {
     fontSize: fontSize.xs,
     color: colors.textMid,
   },

@@ -93,6 +93,11 @@ export default function FeedScreen() {
               <Text style={styles.categoryText}>{item.category}</Text>
             </View>
             <Text style={styles.content}>{item.content}</Text>
+            {item.category === 'Need Help' && item.status === 'accepted' && item.helper ? (
+              <Text style={styles.helperNotice}>
+                ✓ {item.helper.full_name ?? 'Someone'} is helping
+              </Text>
+            ) : null}
             <Text style={styles.viewComments}>View Comments</Text>
           </TouchableOpacity>
         )}
@@ -209,6 +214,12 @@ const styles = StyleSheet.create({
   viewComments: {
     fontSize: fontSize.sm,
     color: colors.primary,
+    fontWeight: '600',
+    marginTop: spacing.sm,
+  },
+  helperNotice: {
+    fontSize: fontSize.sm,
+    color: colors.success,
     fontWeight: '600',
     marginTop: spacing.sm,
   },

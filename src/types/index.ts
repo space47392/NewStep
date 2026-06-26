@@ -34,12 +34,21 @@ export type Profile = {
 
 export type PostCategory = 'Need Help' | 'School Question' | 'Looking for Friends';
 
+export type PostStatus = 'open' | 'accepted';
+
 export type Post = {
   id: string;
+  author_id: string;
   content: string;
   category: PostCategory;
+  status: PostStatus;
   created_at: string;
   profiles: {
+    full_name: string | null;
+    school_name: string | null;
+    avatar_url: string | null;
+  } | null;
+  helper: {
     full_name: string | null;
     school_name: string | null;
     avatar_url: string | null;

@@ -13,20 +13,9 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { fetchPosts } from '../../lib/posts';
+import { formatRelativeTime } from '../../lib/time';
 import { Post, MainStackParamList } from '../../types';
 import { colors, spacing, radius, fontSize } from '../../constants/theme';
-
-function formatRelativeTime(dateString: string): string {
-  const diffMs = Date.now() - new Date(dateString).getTime();
-  const diffMin = Math.floor(diffMs / 60000);
-  if (diffMin < 1) return 'Just now';
-  if (diffMin < 60) return `${diffMin}m ago`;
-  const diffHr = Math.floor(diffMin / 60);
-  if (diffHr < 24) return `${diffHr}h ago`;
-  const diffDay = Math.floor(diffHr / 24);
-  if (diffDay < 7) return `${diffDay}d ago`;
-  return new Date(dateString).toLocaleDateString();
-}
 
 export default function FeedScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
@@ -82,7 +71,10 @@ export default function FeedScreen() {
           </View>
         }
         renderItem={({ item }) => (
-          <View style={styles.card}>
+          <TouchableOpacity
+            style={styles.card}
+            onPress={() => navigation.navigate('PostDetail', { post: item })}
+          >
             <View style={styles.cardHeader}>
               {item.profiles?.avatar_url ? (
                 <Image source={{ uri: item.profiles.avatar_url }} style={styles.avatar} />
@@ -101,7 +93,8 @@ export default function FeedScreen() {
               <Text style={styles.categoryText}>{item.category}</Text>
             </View>
             <Text style={styles.content}>{item.content}</Text>
-          </View>
+            <Text style={styles.viewComments}>View Comments</Text>
+          </TouchableOpacity>
         )}
       />
 
@@ -212,5 +205,11 @@ const styles = StyleSheet.create({
     fontSize: fontSize.md,
     color: colors.textDark,
     lineHeight: 20,
+  },
+  viewComments: {
+    fontSize: fontSize.sm,
+    color: colors.primary,
+    fontWeight: '600',
+    marginTop: spacing.sm,
   },
 });

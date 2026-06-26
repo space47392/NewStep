@@ -1,0 +1,313 @@
+import { useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  Image,
+  FlatList,
+  TextInput,
+  TouchableOpacity,
+  KeyboardAvoidingView,
+  Platform,
+  ActivityIndicator,
+  Alert,
+  StyleSheet,
+} from 'react-native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useAuth } from '../../contexts/AuthContext';
+import { fetchComments, addComment, subscribeToComments } from '../../lib/comments';
+import { formatRelativeTime } from '../../lib/time';
+import { colors, spacing, radius, fontSize } from '../../constants/theme';
+import { MainStackParamList, Comment } from '../../types';
+
+export default function PostDetailScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
+  const route = useRoute<RouteProp<MainStackParamList, 'PostDetail'>>();
+  const { post } = route.params;
+  const { user } = useAuth();
+
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [commentText, setCommentText] = useState('');
+  const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    (async () => {
+      try {
+        const data = await fetchComments(post.id);
+        if (isMounted) setComments(data);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Could not load comments.';
+        Alert.alert('Error', message);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    })();
+
+    const unsubscribe = subscribeToComments(post.id, (comment) => {
+      setComments((prev) => [...prev, comment]);
+    });
+
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
+  }, [post.id]);
+
+  const handleSend = async () => {
+    const trimmed = commentText.trim();
+    if (!trimmed || !user) return;
+
+    setSending(true);
+    try {
+      await addComment({ postId: post.id, authorId: user.id, content: trimmed });
+      setCommentText(''); // the new comment arrives via the real-time subscription above
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Could not post comment.';
+      Alert.alert('Error', message);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+        <Text style={styles.backText}>← Back</Text>
+      </TouchableOpacity>
+
+      <FlatList
+        data={comments}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.list}
+        ListHeaderComponent={
+          <View style={styles.postCard}>
+            <View style={styles.postHeader}>
+              {post.profiles?.avatar_url ? (
+                <Image source={{ uri: post.profiles.avatar_url }} style={styles.avatar} />
+              ) : (
+                <View style={[styles.avatar, styles.avatarPlaceholder]} />
+              )}
+              <View style={styles.postHeaderText}>
+                <Text style={styles.name}>{post.profiles?.full_name ?? 'Unknown'}</Text>
+                {post.profiles?.school_name ? (
+                  <Text style={styles.school}>{post.profiles.school_name}</Text>
+                ) : null}
+              </View>
+              <Text style={styles.timestamp}>{formatRelativeTime(post.created_at)}</Text>
+            </View>
+            <View style={styles.categoryBadge}>
+              <Text style={styles.categoryText}>{post.category}</Text>
+            </View>
+            <Text style={styles.postContent}>{post.content}</Text>
+            <Text style={styles.commentsLabel}>
+              {loading ? 'Loading comments...' : `${comments.length} Comment${comments.length === 1 ? '' : 's'}`}
+            </Text>
+          </View>
+        }
+        ListEmptyComponent={
+          !loading ? (
+            <Text style={styles.emptyText}>No comments yet. Start the conversation!</Text>
+          ) : null
+        }
+        renderItem={({ item }) => (
+          <View style={styles.commentRow}>
+            {item.profiles?.avatar_url ? (
+              <Image source={{ uri: item.profiles.avatar_url }} style={styles.commentAvatar} />
+            ) : (
+              <View style={[styles.commentAvatar, styles.avatarPlaceholder]} />
+            )}
+            <View style={styles.commentBubble}>
+              <Text style={styles.commentName}>{item.profiles?.full_name ?? 'Unknown'}</Text>
+              <Text style={styles.commentContent}>{item.content}</Text>
+              <Text style={styles.commentTimestamp}>{formatRelativeTime(item.created_at)}</Text>
+            </View>
+          </View>
+        )}
+      />
+
+      <View style={styles.inputRow}>
+        <TextInput
+          style={styles.input}
+          placeholder="Write a comment..."
+          placeholderTextColor={colors.textLight}
+          value={commentText}
+          onChangeText={setCommentText}
+          multiline
+        />
+        <TouchableOpacity
+          style={[styles.sendButton, sending && styles.buttonDisabled]}
+          onPress={handleSend}
+          disabled={sending}
+        >
+          {sending ? <ActivityIndicator color="#fff" /> : <Text style={styles.sendButtonText}>Send</Text>}
+        </TouchableOpacity>
+      </View>
+    </KeyboardAvoidingView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  backButton: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.sm,
+  },
+  backText: {
+    color: colors.primary,
+    fontSize: fontSize.md,
+    fontWeight: '600',
+  },
+  list: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.lg,
+  },
+  postCard: {
+    backgroundColor: colors.cardBg,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  postHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.full,
+  },
+  avatarPlaceholder: {
+    backgroundColor: colors.primaryLight,
+  },
+  postHeaderText: {
+    flex: 1,
+    marginLeft: spacing.sm,
+  },
+  name: {
+    fontSize: fontSize.md,
+    fontWeight: '700',
+    color: colors.textDark,
+  },
+  school: {
+    fontSize: fontSize.xs,
+    color: colors.textMid,
+  },
+  timestamp: {
+    fontSize: fontSize.xs,
+    color: colors.textLight,
+  },
+  categoryBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.primaryLight,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    marginBottom: spacing.xs,
+  },
+  categoryText: {
+    color: colors.primary,
+    fontSize: fontSize.xs,
+    fontWeight: '700',
+  },
+  postContent: {
+    fontSize: fontSize.md,
+    color: colors.textDark,
+    lineHeight: 20,
+    marginBottom: spacing.md,
+  },
+  commentsLabel: {
+    fontSize: fontSize.sm,
+    fontWeight: '600',
+    color: colors.textMid,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: spacing.sm,
+  },
+  emptyText: {
+    textAlign: 'center',
+    color: colors.textMid,
+    fontSize: fontSize.md,
+    marginTop: spacing.lg,
+  },
+  commentRow: {
+    flexDirection: 'row',
+    marginBottom: spacing.md,
+  },
+  commentAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: radius.full,
+    marginRight: spacing.sm,
+  },
+  commentBubble: {
+    flex: 1,
+    backgroundColor: colors.cardBg,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.sm,
+  },
+  commentName: {
+    fontSize: fontSize.sm,
+    fontWeight: '700',
+    color: colors.textDark,
+  },
+  commentContent: {
+    fontSize: fontSize.sm,
+    color: colors.textDark,
+    marginTop: 2,
+  },
+  commentTimestamp: {
+    fontSize: fontSize.xs,
+    color: colors.textLight,
+    marginTop: spacing.xs,
+  },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    padding: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    backgroundColor: colors.cardBg,
+  },
+  input: {
+    flex: 1,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    fontSize: fontSize.md,
+    color: colors.textDark,
+    maxHeight: 100,
+    marginRight: spacing.sm,
+  },
+  sendButton: {
+    backgroundColor: colors.primary,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    justifyContent: 'center',
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  sendButtonText: {
+    color: '#fff',
+    fontWeight: '700',
+  },
+});

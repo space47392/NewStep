@@ -19,6 +19,7 @@ export type MainTabParamList = {
 export type MainStackParamList = {
   Tabs: undefined;
   CreatePost: undefined;
+  PostDetail: { post: Post };
 };
 
 export type Profile = {
@@ -41,6 +42,17 @@ export type Post = {
   profiles: {
     full_name: string | null;
     school_name: string | null;
+    avatar_url: string | null;
+  } | null;
+};
+
+export type Comment = {
+  id: string;
+  post_id: string;
+  content: string;
+  created_at: string;
+  profiles: {
+    full_name: string | null;
     avatar_url: string | null;
   } | null;
 };

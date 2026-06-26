@@ -1,21 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
-import {
-  View,
-  Text,
-  Image,
-  FlatList,
-  RefreshControl,
-  ActivityIndicator,
-  TouchableOpacity,
-  StyleSheet,
-} from 'react-native';
+import { View, Text, FlatList, RefreshControl, TouchableOpacity, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { fetchPosts } from '../../lib/posts';
 import { formatRelativeTime } from '../../lib/time';
+import Avatar from '../../components/Avatar';
+import EmptyState from '../../components/EmptyState';
+import LoadingScreen from '../../components/LoadingScreen';
+import FadeInView from '../../components/FadeInView';
 import { Post, MainStackParamList } from '../../types';
-import { colors, spacing, radius, fontSize } from '../../constants/theme';
+import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
+import { CATEGORY_STYLES } from '../../constants/categoryStyles';
 
 export default function FeedScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
@@ -48,11 +44,7 @@ export default function FeedScreen() {
   };
 
   if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
+    return <LoadingScreen />;
   }
 
   return (
@@ -61,49 +53,67 @@ export default function FeedScreen() {
         data={posts}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
-        ListHeaderComponent={<Text style={styles.title}>Community Feed</Text>}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyText}>
-              {errorMessage ?? 'No posts yet. Be the first to share something!'}
-            </Text>
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />}
+        ListHeaderComponent={
+          <View style={styles.headerRow}>
+            <Text style={styles.title}>Community Feed 👋</Text>
+            <Text style={styles.subtitle}>See what's happening at your school</Text>
           </View>
         }
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={styles.card}
-            onPress={() => navigation.navigate('PostDetail', { post: item })}
-          >
-            <View style={styles.cardHeader}>
-              {item.profiles?.avatar_url ? (
-                <Image source={{ uri: item.profiles.avatar_url }} style={styles.avatar} />
-              ) : (
-                <View style={[styles.avatar, styles.avatarPlaceholder]} />
-              )}
-              <View style={styles.cardHeaderText}>
-                <Text style={styles.name}>{item.profiles?.full_name ?? 'Unknown'}</Text>
-                {item.profiles?.school_name ? (
-                  <Text style={styles.school}>{item.profiles.school_name}</Text>
+        ListEmptyComponent={
+          <EmptyState
+            icon="newspaper-outline"
+            title="No posts yet"
+            subtitle={errorMessage ?? 'Be the first to share something with your school community!'}
+          />
+        }
+        renderItem={({ item, index }) => {
+          const category = CATEGORY_STYLES[item.category];
+          return (
+            <FadeInView delay={Math.min(index, 6) * 40}>
+              <TouchableOpacity
+                style={styles.card}
+                activeOpacity={0.85}
+                onPress={() => navigation.navigate('PostDetail', { post: item })}
+              >
+                <View style={styles.cardHeader}>
+                  <Avatar uri={item.profiles?.avatar_url} size={42} />
+                  <View style={styles.cardHeaderText}>
+                    <Text style={styles.name}>{item.profiles?.full_name ?? 'Unknown'}</Text>
+                    {item.profiles?.school_name ? (
+                      <Text style={styles.school}>{item.profiles.school_name}</Text>
+                    ) : null}
+                  </View>
+                  <Text style={styles.timestamp}>{formatRelativeTime(item.created_at)}</Text>
+                </View>
+
+                <View style={[styles.categoryBadge, { backgroundColor: category.bg }]}>
+                  <Ionicons name={category.icon} size={12} color={category.text} />
+                  <Text style={[styles.categoryText, { color: category.text }]}>{item.category}</Text>
+                </View>
+
+                <Text style={styles.content}>{item.content}</Text>
+
+                {item.category === 'Need Help' && item.status !== 'open' && item.helper ? (
+                  <View style={styles.helperNotice}>
+                    <Ionicons name="checkmark-circle" size={14} color={colors.success} />
+                    <Text style={styles.helperNoticeText}>
+                      {item.helper.full_name ?? 'Someone'} {item.status === 'completed' ? 'helped' : 'is helping'}
+                    </Text>
+                  </View>
                 ) : null}
-              </View>
-              <Text style={styles.timestamp}>{formatRelativeTime(item.created_at)}</Text>
-            </View>
-            <View style={styles.categoryBadge}>
-              <Text style={styles.categoryText}>{item.category}</Text>
-            </View>
-            <Text style={styles.content}>{item.content}</Text>
-            {item.category === 'Need Help' && item.status === 'accepted' && item.helper ? (
-              <Text style={styles.helperNotice}>
-                ✓ {item.helper.full_name ?? 'Someone'} is helping
-              </Text>
-            ) : null}
-            <Text style={styles.viewComments}>View Comments</Text>
-          </TouchableOpacity>
-        )}
+
+                <View style={styles.cardFooter}>
+                  <Ionicons name="chatbubble-outline" size={14} color={colors.primary} />
+                  <Text style={styles.viewComments}>View Comments</Text>
+                </View>
+              </TouchableOpacity>
+            </FadeInView>
+          );
+        }}
       />
 
-      <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate('CreatePost')}>
+      <TouchableOpacity style={styles.fab} activeOpacity={0.85} onPress={() => navigation.navigate('CreatePost')}>
         <Ionicons name="add" size={28} color="#fff" />
       </TouchableOpacity>
     </View>
@@ -115,112 +125,106 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.background,
-  },
   list: {
     padding: spacing.lg,
+  },
+  headerRow: {
+    marginBottom: spacing.lg,
+  },
+  title: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.xxl,
+    color: colors.textDark,
+  },
+  subtitle: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    color: colors.textMid,
+    marginTop: 2,
   },
   fab: {
     position: 'absolute',
     right: spacing.lg,
     bottom: spacing.lg,
-    width: 56,
-    height: 56,
+    width: 58,
+    height: 58,
     borderRadius: radius.full,
     backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
+    ...shadow.floating,
   },
   categoryBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     alignSelf: 'flex-start',
-    backgroundColor: colors.primaryLight,
     borderRadius: radius.full,
     paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    marginBottom: spacing.xs,
+    paddingVertical: 4,
+    marginBottom: spacing.sm,
   },
   categoryText: {
-    color: colors.primary,
+    fontFamily: fontFamily.bold,
     fontSize: fontSize.xs,
-    fontWeight: '700',
-  },
-  title: {
-    fontSize: fontSize.xl,
-    fontWeight: '700',
-    color: colors.textDark,
-    marginBottom: spacing.lg,
-  },
-  empty: {
-    paddingTop: spacing.xxl,
-    alignItems: 'center',
-  },
-  emptyText: {
-    color: colors.textMid,
-    fontSize: fontSize.md,
-    textAlign: 'center',
   },
   card: {
     backgroundColor: colors.cardBg,
     borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
     padding: spacing.md,
     marginBottom: spacing.md,
+    ...shadow.card,
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: spacing.sm,
   },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: radius.full,
-  },
-  avatarPlaceholder: {
-    backgroundColor: colors.primaryLight,
-  },
   cardHeaderText: {
     flex: 1,
     marginLeft: spacing.sm,
   },
   name: {
+    fontFamily: fontFamily.semibold,
     fontSize: fontSize.md,
-    fontWeight: '700',
     color: colors.textDark,
   },
   school: {
+    fontFamily: fontFamily.regular,
     fontSize: fontSize.xs,
     color: colors.textMid,
   },
   timestamp: {
+    fontFamily: fontFamily.regular,
     fontSize: fontSize.xs,
     color: colors.textLight,
   },
   content: {
+    fontFamily: fontFamily.regular,
     fontSize: fontSize.md,
     color: colors.textDark,
-    lineHeight: 20,
+    lineHeight: 21,
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: spacing.sm,
   },
   viewComments: {
+    fontFamily: fontFamily.semibold,
     fontSize: fontSize.sm,
     color: colors.primary,
-    fontWeight: '600',
-    marginTop: spacing.sm,
   },
   helperNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: spacing.sm,
+  },
+  helperNoticeText: {
+    fontFamily: fontFamily.semibold,
     fontSize: fontSize.sm,
     color: colors.success,
-    fontWeight: '600',
-    marginTop: spacing.sm,
   },
 });

@@ -1,6 +1,7 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { MainTabParamList } from '../types';
+import { colors, fontFamily, shadow } from '../constants/theme';
 
 import FeedScreen from '../screens/main/FeedScreen';
 import HelpScreen from '../screens/main/HelpScreen';
@@ -14,7 +15,7 @@ const TAB_ICONS: Record<string, { focused: string; unfocused: string }> = {
   Feed:      { focused: 'home',           unfocused: 'home-outline' },
   Help:      { focused: 'help-circle',    unfocused: 'help-circle-outline' },
   Chat:      { focused: 'chatbubbles',    unfocused: 'chatbubbles-outline' },
-  Volunteer: { focused: 'star',           unfocused: 'star-outline' },
+  Volunteer: { focused: 'trophy',         unfocused: 'trophy-outline' },
   Profile:   { focused: 'person',         unfocused: 'person-outline' },
 };
 
@@ -23,18 +24,19 @@ export default function TabNavigator() {
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarActiveTintColor: '#1A73E8',
-        tabBarInactiveTintColor: '#999',
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.tabInactive,
         tabBarStyle: {
-          backgroundColor: '#fff',
-          borderTopWidth: 1,
-          borderTopColor: '#eee',
-          height: 60,
-          paddingBottom: 8,
+          backgroundColor: colors.tabBar,
+          borderTopWidth: 0,
+          height: 64,
+          paddingTop: 8,
+          paddingBottom: 10,
+          ...shadow.floating,
         },
         tabBarLabelStyle: {
+          fontFamily: fontFamily.semibold,
           fontSize: 11,
-          fontWeight: '600',
         },
         tabBarIcon: ({ focused, color, size }) => {
           const icons = TAB_ICONS[route.name];
@@ -46,7 +48,7 @@ export default function TabNavigator() {
       <Tab.Screen name="Feed"      component={FeedScreen}      options={{ title: 'Home' }} />
       <Tab.Screen name="Help"      component={HelpScreen}      options={{ title: 'Help' }} />
       <Tab.Screen name="Chat"      component={ChatScreen}      options={{ title: 'Chat' }} />
-      <Tab.Screen name="Volunteer" component={VolunteerScreen} options={{ title: 'Volunteer' }} />
+      <Tab.Screen name="Volunteer" component={VolunteerScreen} options={{ title: 'Leaders' }} />
       <Tab.Screen name="Profile"   component={ProfileScreen}   options={{ title: 'Profile' }} />
     </Tab.Navigator>
   );

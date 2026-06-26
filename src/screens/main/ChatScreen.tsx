@@ -1,12 +1,16 @@
 import { useCallback, useState } from 'react';
-import { View, Text, Image, FlatList, RefreshControl, ActivityIndicator, TouchableOpacity, StyleSheet } from 'react-native';
+import { Text, FlatList, RefreshControl, TouchableOpacity, View, StyleSheet } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../contexts/AuthContext';
 import { fetchConversations } from '../../lib/chat';
 import { formatRelativeTime } from '../../lib/time';
+import Avatar from '../../components/Avatar';
+import EmptyState from '../../components/EmptyState';
+import LoadingScreen from '../../components/LoadingScreen';
+import FadeInView from '../../components/FadeInView';
 import { Conversation, MainStackParamList } from '../../types';
-import { colors, spacing, radius, fontSize } from '../../constants/theme';
+import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
 
 export default function ChatScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
@@ -46,11 +50,7 @@ export default function ChatScreen() {
   };
 
   if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
+    return <LoadingScreen />;
   }
 
   return (
@@ -58,109 +58,90 @@ export default function ChatScreen() {
       data={conversations}
       keyExtractor={(item) => item.id}
       contentContainerStyle={styles.list}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
-      ListHeaderComponent={<Text style={styles.title}>Messages</Text>}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />}
+      ListHeaderComponent={<Text style={styles.title}>Messages 💬</Text>}
       ListEmptyComponent={
-        <View style={styles.empty}>
-          <Text style={styles.emptyText}>
-            {errorMessage ?? 'No conversations yet. Volunteer to help someone, or get help, to start one!'}
-          </Text>
-        </View>
+        <EmptyState
+          icon="chatbubbles-outline"
+          title="No conversations yet"
+          subtitle={errorMessage ?? 'Volunteer to help someone, or get help, to start one!'}
+        />
       }
-      renderItem={({ item }) => (
-        <TouchableOpacity
-          style={styles.row}
-          onPress={() => navigation.navigate('Conversation', { conversationId: item.id, otherUser: item.otherUser })}
-        >
-          {item.otherUser.avatar_url ? (
-            <Image source={{ uri: item.otherUser.avatar_url }} style={styles.avatar} />
-          ) : (
-            <View style={[styles.avatar, styles.avatarPlaceholder]} />
-          )}
-          <View style={styles.rowText}>
-            <Text style={styles.name}>{item.otherUser.full_name ?? 'Unknown'}</Text>
-            <Text style={styles.lastMessage} numberOfLines={1}>
-              {item.last_message ?? 'Say hello!'}
-            </Text>
-          </View>
-          <View style={styles.rowRight}>
-            {item.last_message_at ? (
-              <Text style={styles.timestamp}>{formatRelativeTime(item.last_message_at)}</Text>
-            ) : null}
-            {item.unreadCount > 0 ? (
-              <View style={styles.unreadBadge}>
-                <Text style={styles.unreadBadgeText}>{item.unreadCount}</Text>
-              </View>
-            ) : null}
-          </View>
-        </TouchableOpacity>
+      renderItem={({ item, index }) => (
+        <FadeInView delay={Math.min(index, 6) * 40}>
+          <TouchableOpacity
+            style={styles.row}
+            activeOpacity={0.85}
+            onPress={() => navigation.navigate('Conversation', { conversationId: item.id, otherUser: item.otherUser })}
+          >
+            <Avatar uri={item.otherUser.avatar_url} size={50} />
+            <View style={styles.rowText}>
+              <Text style={styles.name}>{item.otherUser.full_name ?? 'Unknown'}</Text>
+              <Text style={[styles.lastMessage, item.unreadCount > 0 && styles.lastMessageUnread]} numberOfLines={1}>
+                {item.last_message ?? 'Say hello!'}
+              </Text>
+            </View>
+            <View style={styles.rowRight}>
+              {item.last_message_at ? (
+                <Text style={styles.timestamp}>{formatRelativeTime(item.last_message_at)}</Text>
+              ) : null}
+              {item.unreadCount > 0 ? (
+                <View style={styles.unreadBadge}>
+                  <Text style={styles.unreadBadgeText}>{item.unreadCount}</Text>
+                </View>
+              ) : null}
+            </View>
+          </TouchableOpacity>
+        </FadeInView>
       )}
     />
   );
 }
 
 const styles = StyleSheet.create({
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.background,
-  },
   list: {
     padding: spacing.lg,
   },
   title: {
-    fontSize: fontSize.xl,
-    fontWeight: '700',
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.xxl,
     color: colors.textDark,
     marginBottom: spacing.lg,
-  },
-  empty: {
-    paddingTop: spacing.xxl,
-    alignItems: 'center',
-  },
-  emptyText: {
-    color: colors.textMid,
-    fontSize: fontSize.md,
-    textAlign: 'center',
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.cardBg,
     borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
     padding: spacing.md,
     marginBottom: spacing.sm,
-  },
-  avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: radius.full,
-    marginRight: spacing.sm,
-  },
-  avatarPlaceholder: {
-    backgroundColor: colors.primaryLight,
+    ...shadow.card,
   },
   rowText: {
     flex: 1,
+    marginLeft: spacing.sm,
   },
   name: {
+    fontFamily: fontFamily.semibold,
     fontSize: fontSize.md,
-    fontWeight: '700',
     color: colors.textDark,
   },
   lastMessage: {
+    fontFamily: fontFamily.regular,
     fontSize: fontSize.sm,
     color: colors.textMid,
     marginTop: 2,
+  },
+  lastMessageUnread: {
+    fontFamily: fontFamily.semibold,
+    color: colors.textDark,
   },
   rowRight: {
     alignItems: 'flex-end',
     marginLeft: spacing.sm,
   },
   timestamp: {
+    fontFamily: fontFamily.regular,
     fontSize: fontSize.xs,
     color: colors.textLight,
   },
@@ -175,8 +156,8 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   unreadBadgeText: {
+    fontFamily: fontFamily.bold,
     color: '#fff',
     fontSize: fontSize.xs,
-    fontWeight: '700',
   },
 });

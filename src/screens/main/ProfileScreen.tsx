@@ -1,20 +1,15 @@
 import { useEffect, useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  Image,
-  ScrollView,
-  StyleSheet,
-  ActivityIndicator,
-  Alert,
-} from 'react-native';
+import { View, Text, TouchableOpacity, Image, ScrollView, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { File } from 'expo-file-system';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
-import { colors, spacing, radius, fontSize } from '../../constants/theme';
+import IconInput from '../../components/IconInput';
+import PrimaryButton from '../../components/PrimaryButton';
+import LoadingScreen from '../../components/LoadingScreen';
+import FadeInView from '../../components/FadeInView';
+import { colors, spacing, radius, fontSize, fontFamily } from '../../constants/theme';
 import { Profile } from '../../types';
 
 const GRADES = ['6th', '7th', '8th', '9th', '10th', '11th', '12th'];
@@ -152,147 +147,125 @@ export default function ProfileScreen() {
   };
 
   if (loadingProfile) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
+    return <LoadingScreen />;
   }
 
   return (
     <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-      <Text style={styles.title}>My Profile</Text>
-      <View style={styles.pointsBadge}>
-        <Text style={styles.pointsText}>🏆 {points} {points === 1 ? 'point' : 'points'}</Text>
-      </View>
+      <FadeInView style={styles.headerArea}>
+        <Text style={styles.title}>My Profile</Text>
 
-      <TouchableOpacity style={styles.avatarWrapper} onPress={handlePickAvatar} disabled={uploadingAvatar}>
-        {avatarUrl ? (
-          <Image source={{ uri: `${avatarUrl}?v=${avatarVersion}` }} style={styles.avatar} />
-        ) : (
-          <View style={[styles.avatar, styles.avatarPlaceholder]}>
-            <Text style={styles.avatarPlaceholderText}>Add Photo</Text>
+        <TouchableOpacity style={styles.avatarWrapper} onPress={handlePickAvatar} disabled={uploadingAvatar}>
+          {avatarUrl ? (
+            <Image source={{ uri: `${avatarUrl}?v=${avatarVersion}` }} style={styles.avatar} />
+          ) : (
+            <View style={[styles.avatar, styles.avatarPlaceholder]}>
+              <Ionicons name="person" size={48} color={colors.primary} />
+            </View>
+          )}
+          <View style={styles.cameraBadge}>
+            <Ionicons name="camera" size={16} color="#fff" />
           </View>
-        )}
-        {uploadingAvatar && (
-          <View style={styles.avatarOverlay}>
-            <ActivityIndicator color="#fff" />
-          </View>
-        )}
-      </TouchableOpacity>
-
-      <Text style={styles.label}>Full Name</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Alex Johnson"
-        placeholderTextColor={colors.textLight}
-        value={fullName}
-        onChangeText={setFullName}
-        autoComplete="name"
-      />
-
-      <Text style={styles.label}>School Name</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Lincoln High School"
-        placeholderTextColor={colors.textLight}
-        value={schoolName}
-        onChangeText={setSchoolName}
-      />
-
-      <Text style={styles.label}>Grade</Text>
-      <View style={styles.chipRow}>
-        {GRADES.map((g) => (
-          <TouchableOpacity
-            key={g}
-            style={[styles.chip, grade === g && styles.chipSelected]}
-            onPress={() => setGrade(g)}
-          >
-            <Text style={[styles.chipText, grade === g && styles.chipTextSelected]}>{g}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      <Text style={styles.label}>Interests</Text>
-      <View style={styles.interestInputRow}>
-        <TextInput
-          style={[styles.input, styles.interestInput]}
-          placeholder="e.g. Basketball"
-          placeholderTextColor={colors.textLight}
-          value={interestInput}
-          onChangeText={setInterestInput}
-          onSubmitEditing={handleAddInterest}
-          returnKeyType="done"
-        />
-        <TouchableOpacity style={styles.addButton} onPress={handleAddInterest}>
-          <Text style={styles.addButtonText}>Add</Text>
+          {uploadingAvatar && (
+            <View style={styles.avatarOverlay}>
+              <ActivityIndicator color="#fff" />
+            </View>
+          )}
         </TouchableOpacity>
-      </View>
-      <View style={styles.chipRow}>
-        {interests.map((interest) => (
-          <TouchableOpacity
-            key={interest}
-            style={[styles.chip, styles.chipSelected]}
-            onPress={() => handleRemoveInterest(interest)}
-          >
-            <Text style={styles.chipTextSelected}>{interest} ✕</Text>
+
+        <View style={styles.pointsBadge}>
+          <Ionicons name="trophy" size={14} color={colors.primary} />
+          <Text style={styles.pointsText}>
+            {points} {points === 1 ? 'point' : 'points'}
+          </Text>
+        </View>
+      </FadeInView>
+
+      <FadeInView style={styles.form} delay={100}>
+        <Text style={styles.label}>Full Name</Text>
+        <IconInput icon="person-outline" placeholder="Alex Johnson" value={fullName} onChangeText={setFullName} autoComplete="name" />
+
+        <Text style={styles.label}>School Name</Text>
+        <IconInput icon="school-outline" placeholder="Lincoln High School" value={schoolName} onChangeText={setSchoolName} />
+
+        <Text style={styles.label}>Grade</Text>
+        <View style={styles.chipRow}>
+          {GRADES.map((g) => (
+            <TouchableOpacity
+              key={g}
+              style={[styles.chip, grade === g && styles.chipSelected]}
+              onPress={() => setGrade(g)}
+            >
+              <Text style={[styles.chipText, grade === g && styles.chipTextSelected]}>{g}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <Text style={styles.label}>Interests</Text>
+        <View style={styles.interestInputRow}>
+          <IconInput
+            icon="sparkles-outline"
+            style={styles.interestInput}
+            placeholder="e.g. Basketball"
+            value={interestInput}
+            onChangeText={setInterestInput}
+            onSubmitEditing={handleAddInterest}
+            returnKeyType="done"
+          />
+          <TouchableOpacity style={styles.addButton} onPress={handleAddInterest}>
+            <Ionicons name="add" size={22} color="#fff" />
           </TouchableOpacity>
-        ))}
-      </View>
+        </View>
+        <View style={styles.chipRow}>
+          {interests.map((interest) => (
+            <TouchableOpacity
+              key={interest}
+              style={[styles.chip, styles.chipSelected]}
+              onPress={() => handleRemoveInterest(interest)}
+            >
+              <Text style={styles.chipTextSelected}>{interest} ✕</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
 
-      <TouchableOpacity
-        style={[styles.saveButton, saving && styles.buttonDisabled]}
-        onPress={handleSave}
-        disabled={saving}
-      >
-        {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Save Profile</Text>}
-      </TouchableOpacity>
+        <PrimaryButton title="Save Profile" icon="checkmark-outline" onPress={handleSave} loading={saving} style={styles.saveButton} />
 
-      <Text style={styles.email}>{user?.email}</Text>
-      <TouchableOpacity
-        style={[styles.logoutButton, loggingOut && styles.buttonDisabled]}
-        onPress={handleLogout}
-        disabled={loggingOut}
-      >
-        {loggingOut ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Log Out</Text>}
-      </TouchableOpacity>
+        <Text style={styles.email}>{user?.email}</Text>
+        <PrimaryButton
+          title="Log Out"
+          icon="log-out-outline"
+          variant="destructive"
+          onPress={handleLogout}
+          loading={loggingOut}
+          style={styles.logoutButton}
+        />
+      </FadeInView>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.background,
-  },
   container: {
     flexGrow: 1,
     backgroundColor: colors.background,
-    padding: spacing.lg,
+  },
+  headerArea: {
     alignItems: 'center',
+    paddingTop: spacing.lg,
+    paddingHorizontal: spacing.lg,
+  },
+  form: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.xl,
   },
   title: {
-    fontSize: fontSize.xl,
-    fontWeight: '700',
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.xxl,
     color: colors.textDark,
     marginBottom: spacing.lg,
   },
-  pointsBadge: {
-    backgroundColor: colors.primaryLight,
-    borderRadius: radius.full,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    marginBottom: spacing.lg,
-  },
-  pointsText: {
-    color: colors.primary,
-    fontSize: fontSize.sm,
-    fontWeight: '700',
-  },
   avatarWrapper: {
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
   },
   avatar: {
     width: 110,
@@ -303,13 +276,19 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
   },
-  avatarPlaceholderText: {
-    color: colors.primary,
-    fontSize: fontSize.sm,
-    fontWeight: '600',
+  cameraBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 32,
+    height: 32,
+    borderRadius: radius.full,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: colors.background,
   },
   avatarOverlay: {
     position: 'absolute',
@@ -322,27 +301,29 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  label: {
-    width: '100%',
+  pointsBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.primaryLight,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    marginBottom: spacing.lg,
+  },
+  pointsText: {
+    fontFamily: fontFamily.bold,
+    color: colors.primary,
     fontSize: fontSize.sm,
-    fontWeight: '600',
+  },
+  label: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
     color: colors.textDark,
     marginTop: spacing.md,
     marginBottom: spacing.xs,
   },
-  input: {
-    width: '100%',
-    backgroundColor: colors.cardBg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    fontSize: fontSize.md,
-    color: colors.textDark,
-  },
   chipRow: {
-    width: '100%',
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.xs,
@@ -351,7 +332,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     borderRadius: radius.full,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.border,
     backgroundColor: colors.cardBg,
   },
@@ -360,17 +341,16 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   chipText: {
+    fontFamily: fontFamily.semibold,
     color: colors.textMid,
     fontSize: fontSize.sm,
-    fontWeight: '600',
   },
   chipTextSelected: {
+    fontFamily: fontFamily.semibold,
     color: '#fff',
     fontSize: fontSize.sm,
-    fontWeight: '600',
   },
   interestInputRow: {
-    width: '100%',
     flexDirection: 'row',
     gap: spacing.xs,
     marginBottom: spacing.sm,
@@ -381,40 +361,21 @@ const styles = StyleSheet.create({
   addButton: {
     backgroundColor: colors.primary,
     borderRadius: radius.md,
-    paddingHorizontal: spacing.lg,
+    width: 50,
     justifyContent: 'center',
-  },
-  addButtonText: {
-    color: '#fff',
-    fontWeight: '700',
+    alignItems: 'center',
   },
   saveButton: {
-    width: '100%',
-    backgroundColor: colors.primary,
-    borderRadius: radius.md,
-    paddingVertical: spacing.md,
-    alignItems: 'center',
     marginTop: spacing.xl,
   },
   logoutButton: {
-    width: '100%',
-    backgroundColor: colors.error,
-    borderRadius: radius.md,
-    paddingVertical: spacing.md,
-    alignItems: 'center',
     marginTop: spacing.sm,
   },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: fontSize.md,
-    fontWeight: '700',
-  },
   email: {
+    fontFamily: fontFamily.regular,
     fontSize: fontSize.sm,
     color: colors.textMid,
     marginTop: spacing.xl,
+    textAlign: 'center',
   },
 });

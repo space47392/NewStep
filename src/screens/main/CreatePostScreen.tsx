@@ -1,23 +1,18 @@
 import { useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { createPost } from '../../lib/posts';
-import { colors, spacing, radius, fontSize } from '../../constants/theme';
+import PrimaryButton from '../../components/PrimaryButton';
+import FadeInView from '../../components/FadeInView';
+import { colors, spacing, radius, fontSize, fontFamily } from '../../constants/theme';
+import { CATEGORY_STYLES } from '../../constants/categoryStyles';
 import { MainStackParamList, PostCategory } from '../../types';
 
 const CATEGORIES: PostCategory[] = ['Need Help', 'School Question', 'Looking for Friends'];
+const MAX_LENGTH = 500;
 
 export default function CreatePostScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
@@ -47,49 +42,54 @@ export default function CreatePostScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.cancel}>Cancel</Text>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeButton}>
+          <Ionicons name="close" size={22} color={colors.textMid} />
         </TouchableOpacity>
         <Text style={styles.title}>New Post</Text>
-        <View style={styles.cancelSpacer} />
+        <View style={styles.closeSpacer} />
       </View>
 
-      <Text style={styles.label}>Category</Text>
-      <View style={styles.chipRow}>
-        {CATEGORIES.map((c) => (
-          <TouchableOpacity
-            key={c}
-            style={[styles.chip, category === c && styles.chipSelected]}
-            onPress={() => setCategory(c)}
-          >
-            <Text style={[styles.chipText, category === c && styles.chipTextSelected]}>{c}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      <FadeInView>
+        <Text style={styles.label}>Category</Text>
+        <View style={styles.chipRow}>
+          {CATEGORIES.map((c) => {
+            const style = CATEGORY_STYLES[c];
+            const selected = category === c;
+            return (
+              <TouchableOpacity
+                key={c}
+                style={[
+                  styles.chip,
+                  { borderColor: selected ? style.text : colors.border, backgroundColor: selected ? style.text : colors.cardBg },
+                ]}
+                onPress={() => setCategory(c)}
+              >
+                <Ionicons name={style.icon} size={14} color={selected ? '#fff' : style.text} />
+                <Text style={[styles.chipText, { color: selected ? '#fff' : style.text }]}>{c}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
 
-      <Text style={styles.label}>What's on your mind?</Text>
-      <TextInput
-        style={styles.textArea}
-        placeholder="Share something with your school community..."
-        placeholderTextColor={colors.textLight}
-        value={content}
-        onChangeText={setContent}
-        multiline
-        textAlignVertical="top"
-      />
+        <Text style={styles.label}>What's on your mind?</Text>
+        <TextInput
+          style={styles.textArea}
+          placeholder="Share something with your school community..."
+          placeholderTextColor={colors.textLight}
+          value={content}
+          onChangeText={setContent}
+          multiline
+          textAlignVertical="top"
+          maxLength={MAX_LENGTH}
+        />
+        <Text style={styles.charCount}>
+          {content.length}/{MAX_LENGTH}
+        </Text>
 
-      <TouchableOpacity
-        style={[styles.postButton, posting && styles.buttonDisabled]}
-        onPress={handlePost}
-        disabled={posting}
-      >
-        {posting ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Post</Text>}
-      </TouchableOpacity>
+        <PrimaryButton title="Post" icon="paper-plane-outline" onPress={handlePost} loading={posting} />
+      </FadeInView>
     </KeyboardAvoidingView>
   );
 }
@@ -106,22 +106,25 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: spacing.lg,
   },
-  cancel: {
-    color: colors.primary,
-    fontSize: fontSize.md,
-    fontWeight: '600',
+  closeButton: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.full,
+    backgroundColor: colors.cardBg,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  cancelSpacer: {
-    width: 50,
+  closeSpacer: {
+    width: 36,
   },
   title: {
+    fontFamily: fontFamily.bold,
     fontSize: fontSize.lg,
-    fontWeight: '700',
     color: colors.textDark,
   },
   label: {
+    fontFamily: fontFamily.semibold,
     fontSize: fontSize.sm,
-    fontWeight: '600',
     color: colors.textDark,
     marginBottom: spacing.xs,
   },
@@ -132,51 +135,36 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     borderRadius: radius.full,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.cardBg,
-  },
-  chipSelected: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+    borderWidth: 1.5,
   },
   chipText: {
-    color: colors.textMid,
+    fontFamily: fontFamily.semibold,
     fontSize: fontSize.sm,
-    fontWeight: '600',
-  },
-  chipTextSelected: {
-    color: '#fff',
-    fontSize: fontSize.sm,
-    fontWeight: '600',
   },
   textArea: {
     backgroundColor: colors.cardBg,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.border,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
+    fontFamily: fontFamily.regular,
     fontSize: fontSize.md,
     color: colors.textDark,
     minHeight: 140,
   },
-  postButton: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.md,
-    paddingVertical: spacing.md,
-    alignItems: 'center',
-    marginTop: spacing.lg,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: fontSize.md,
-    fontWeight: '700',
+  charCount: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
+    color: colors.textLight,
+    textAlign: 'right',
+    marginTop: spacing.xs,
+    marginBottom: spacing.lg,
   },
 });

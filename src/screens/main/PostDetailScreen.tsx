@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import {
   View,
   Text,
-  Image,
   FlatList,
   TextInput,
   TouchableOpacity,
@@ -14,12 +13,18 @@ import {
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { fetchComments, addComment, subscribeToComments } from '../../lib/comments';
 import { volunteerToHelp, markPostCompleted } from '../../lib/posts';
 import { getOrCreateConversation } from '../../lib/chat';
 import { formatRelativeTime } from '../../lib/time';
-import { colors, spacing, radius, fontSize } from '../../constants/theme';
+import Avatar from '../../components/Avatar';
+import EmptyState from '../../components/EmptyState';
+import PrimaryButton from '../../components/PrimaryButton';
+import FadeInView from '../../components/FadeInView';
+import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
+import { CATEGORY_STYLES } from '../../constants/categoryStyles';
 import { MainStackParamList, Comment } from '../../types';
 
 export default function PostDetailScreen() {
@@ -63,6 +68,7 @@ export default function PostDetailScreen() {
     };
   }, [post.id]);
 
+  const category = CATEGORY_STYLES[post.category];
   const canVolunteer = post.category === 'Need Help' && post.status === 'open' && post.author_id !== user?.id;
   const canComplete = post.status === 'accepted' && post.author_id === user?.id;
   const showHelper =
@@ -133,12 +139,10 @@ export default function PostDetailScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-        <Text style={styles.backText}>← Back</Text>
+        <Ionicons name="arrow-back" size={20} color={colors.primary} />
+        <Text style={styles.backText}>Back</Text>
       </TouchableOpacity>
 
       <FlatList
@@ -146,38 +150,31 @@ export default function PostDetailScreen() {
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         ListHeaderComponent={
-          <View style={styles.postCard}>
+          <FadeInView style={styles.postCard}>
             <View style={styles.postHeader}>
-              {post.profiles?.avatar_url ? (
-                <Image source={{ uri: post.profiles.avatar_url }} style={styles.avatar} />
-              ) : (
-                <View style={[styles.avatar, styles.avatarPlaceholder]} />
-              )}
+              <Avatar uri={post.profiles?.avatar_url} size={44} />
               <View style={styles.postHeaderText}>
                 <Text style={styles.name}>{post.profiles?.full_name ?? 'Unknown'}</Text>
-                {post.profiles?.school_name ? (
-                  <Text style={styles.school}>{post.profiles.school_name}</Text>
-                ) : null}
+                {post.profiles?.school_name ? <Text style={styles.school}>{post.profiles.school_name}</Text> : null}
               </View>
               <Text style={styles.timestamp}>{formatRelativeTime(post.created_at)}</Text>
             </View>
-            <View style={styles.categoryBadge}>
-              <Text style={styles.categoryText}>{post.category}</Text>
+
+            <View style={[styles.categoryBadge, { backgroundColor: category.bg }]}>
+              <Ionicons name={category.icon} size={12} color={category.text} />
+              <Text style={[styles.categoryText, { color: category.text }]}>{post.category}</Text>
             </View>
+
             <Text style={styles.postContent}>{post.content}</Text>
 
             {canVolunteer && (
-              <TouchableOpacity
-                style={[styles.volunteerButton, volunteering && styles.buttonDisabled]}
+              <PrimaryButton
+                title="Volunteer to Help"
+                icon="hand-left-outline"
                 onPress={handleVolunteer}
-                disabled={volunteering}
-              >
-                {volunteering ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.volunteerButtonText}>Volunteer to Help</Text>
-                )}
-              </TouchableOpacity>
+                loading={volunteering}
+                style={styles.actionButton}
+              />
             )}
 
             {showHelper && post.helper && (
@@ -186,12 +183,8 @@ export default function PostDetailScreen() {
                   {post.status === 'completed' ? '✓ Completed — Helped by' : '✓ Helper'}
                 </Text>
                 <View style={styles.helperRow}>
-                  {post.helper.avatar_url ? (
-                    <Image source={{ uri: post.helper.avatar_url }} style={styles.helperAvatar} />
-                  ) : (
-                    <View style={[styles.helperAvatar, styles.avatarPlaceholder]} />
-                  )}
-                  <View>
+                  <Avatar uri={post.helper.avatar_url} size={36} />
+                  <View style={styles.helperTextWrap}>
                     <Text style={styles.helperName}>{post.helper.full_name ?? 'Unknown'}</Text>
                     {post.helper.school_name ? (
                       <Text style={styles.helperSchool}>{post.helper.school_name}</Text>
@@ -199,52 +192,42 @@ export default function PostDetailScreen() {
                   </View>
                 </View>
                 {(user?.id === post.author_id || user?.id === post.helper.id) && (
-                  <TouchableOpacity
-                    style={[styles.messageButton, messaging && styles.buttonDisabled]}
+                  <PrimaryButton
+                    title="Message"
+                    icon="chatbubble-outline"
+                    variant="outline"
                     onPress={handleMessage}
-                    disabled={messaging}
-                  >
-                    {messaging ? (
-                      <ActivityIndicator color={colors.primary} />
-                    ) : (
-                      <Text style={styles.messageButtonText}>Message</Text>
-                    )}
-                  </TouchableOpacity>
+                    loading={messaging}
+                    style={styles.messageButton}
+                  />
                 )}
               </View>
             )}
 
             {canComplete && (
-              <TouchableOpacity
-                style={[styles.completeButton, completing && styles.buttonDisabled]}
+              <PrimaryButton
+                title="Mark as Completed"
+                icon="checkmark-circle-outline"
+                variant="success"
                 onPress={handleComplete}
-                disabled={completing}
-              >
-                {completing ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.volunteerButtonText}>Mark as Completed</Text>
-                )}
-              </TouchableOpacity>
+                loading={completing}
+                style={styles.actionButton}
+              />
             )}
 
             <Text style={styles.commentsLabel}>
               {loading ? 'Loading comments...' : `${comments.length} Comment${comments.length === 1 ? '' : 's'}`}
             </Text>
-          </View>
+          </FadeInView>
         }
         ListEmptyComponent={
           !loading ? (
-            <Text style={styles.emptyText}>No comments yet. Start the conversation!</Text>
+            <EmptyState icon="chatbubbles-outline" title="No comments yet" subtitle="Start the conversation!" />
           ) : null
         }
         renderItem={({ item }) => (
           <View style={styles.commentRow}>
-            {item.profiles?.avatar_url ? (
-              <Image source={{ uri: item.profiles.avatar_url }} style={styles.commentAvatar} />
-            ) : (
-              <View style={[styles.commentAvatar, styles.avatarPlaceholder]} />
-            )}
+            <Avatar uri={item.profiles?.avatar_url} size={32} />
             <View style={styles.commentBubble}>
               <Text style={styles.commentName}>{item.profiles?.full_name ?? 'Unknown'}</Text>
               <Text style={styles.commentContent}>{item.content}</Text>
@@ -268,7 +251,7 @@ export default function PostDetailScreen() {
           onPress={handleSend}
           disabled={sending}
         >
-          {sending ? <ActivityIndicator color="#fff" /> : <Text style={styles.sendButtonText}>Send</Text>}
+          {sending ? <ActivityIndicator color="#fff" /> : <Ionicons name="send" size={18} color="#fff" />}
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
@@ -281,14 +264,17 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
     paddingBottom: spacing.sm,
   },
   backText: {
+    fontFamily: fontFamily.semibold,
     color: colors.primary,
     fontSize: fontSize.md,
-    fontWeight: '600',
   },
   list: {
     paddingHorizontal: spacing.lg,
@@ -297,148 +283,103 @@ const styles = StyleSheet.create({
   postCard: {
     backgroundColor: colors.cardBg,
     borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
     padding: spacing.md,
     marginBottom: spacing.lg,
+    ...shadow.card,
   },
   postHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: spacing.sm,
   },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: radius.full,
-  },
-  avatarPlaceholder: {
-    backgroundColor: colors.primaryLight,
-  },
   postHeaderText: {
     flex: 1,
     marginLeft: spacing.sm,
   },
   name: {
+    fontFamily: fontFamily.semibold,
     fontSize: fontSize.md,
-    fontWeight: '700',
     color: colors.textDark,
   },
   school: {
+    fontFamily: fontFamily.regular,
     fontSize: fontSize.xs,
     color: colors.textMid,
   },
-  completeButton: {
-    backgroundColor: colors.success,
-    borderRadius: radius.md,
-    paddingVertical: spacing.sm,
-    alignItems: 'center',
+  actionButton: {
     marginBottom: spacing.md,
-  },
-  volunteerButton: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.md,
-    paddingVertical: spacing.sm,
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  volunteerButtonText: {
-    color: '#fff',
-    fontSize: fontSize.md,
-    fontWeight: '700',
   },
   helperCard: {
-    backgroundColor: colors.primaryLight,
+    backgroundColor: colors.accentLight,
     borderRadius: radius.md,
     padding: spacing.sm,
     marginBottom: spacing.md,
   },
   helperLabel: {
+    fontFamily: fontFamily.bold,
     fontSize: fontSize.xs,
-    fontWeight: '700',
     color: colors.success,
     marginBottom: spacing.xs,
   },
   messageButton: {
-    alignSelf: 'flex-start',
-    backgroundColor: colors.cardBg,
-    borderWidth: 1,
-    borderColor: colors.primary,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
     marginTop: spacing.sm,
-  },
-  messageButtonText: {
-    color: colors.primary,
-    fontSize: fontSize.sm,
-    fontWeight: '700',
+    alignSelf: 'flex-start',
+    minWidth: 130,
   },
   helperRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  helperAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: radius.full,
-    marginRight: spacing.sm,
+  helperTextWrap: {
+    marginLeft: spacing.sm,
   },
   helperName: {
+    fontFamily: fontFamily.semibold,
     fontSize: fontSize.sm,
-    fontWeight: '700',
     color: colors.textDark,
   },
   helperSchool: {
+    fontFamily: fontFamily.regular,
     fontSize: fontSize.xs,
     color: colors.textMid,
   },
   timestamp: {
+    fontFamily: fontFamily.regular,
     fontSize: fontSize.xs,
     color: colors.textLight,
   },
   categoryBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     alignSelf: 'flex-start',
-    backgroundColor: colors.primaryLight,
     borderRadius: radius.full,
     paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    marginBottom: spacing.xs,
+    paddingVertical: 4,
+    marginBottom: spacing.sm,
   },
   categoryText: {
-    color: colors.primary,
+    fontFamily: fontFamily.bold,
     fontSize: fontSize.xs,
-    fontWeight: '700',
   },
   postContent: {
+    fontFamily: fontFamily.regular,
     fontSize: fontSize.md,
     color: colors.textDark,
-    lineHeight: 20,
+    lineHeight: 21,
     marginBottom: spacing.md,
   },
   commentsLabel: {
+    fontFamily: fontFamily.semibold,
     fontSize: fontSize.sm,
-    fontWeight: '600',
     color: colors.textMid,
     borderTopWidth: 1,
     borderTopColor: colors.border,
     paddingTop: spacing.sm,
   },
-  emptyText: {
-    textAlign: 'center',
-    color: colors.textMid,
-    fontSize: fontSize.md,
-    marginTop: spacing.lg,
-  },
   commentRow: {
     flexDirection: 'row',
     marginBottom: spacing.md,
-  },
-  commentAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: radius.full,
-    marginRight: spacing.sm,
   },
   commentBubble: {
     flex: 1,
@@ -447,18 +388,21 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     padding: spacing.sm,
+    marginLeft: spacing.sm,
   },
   commentName: {
+    fontFamily: fontFamily.semibold,
     fontSize: fontSize.sm,
-    fontWeight: '700',
     color: colors.textDark,
   },
   commentContent: {
+    fontFamily: fontFamily.regular,
     fontSize: fontSize.sm,
     color: colors.textDark,
     marginTop: 2,
   },
   commentTimestamp: {
+    fontFamily: fontFamily.regular,
     fontSize: fontSize.xs,
     color: colors.textLight,
     marginTop: spacing.xs,
@@ -479,6 +423,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
+    fontFamily: fontFamily.regular,
     fontSize: fontSize.md,
     color: colors.textDark,
     maxHeight: 100,
@@ -486,16 +431,13 @@ const styles = StyleSheet.create({
   },
   sendButton: {
     backgroundColor: colors.primary,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
+    borderRadius: radius.full,
+    width: 44,
+    height: 44,
     justifyContent: 'center',
+    alignItems: 'center',
   },
   buttonDisabled: {
     opacity: 0.6,
-  },
-  sendButtonText: {
-    color: '#fff',
-    fontWeight: '700',
   },
 });

@@ -36,7 +36,8 @@
         {
           "color": "#6C63FF"
         }
-      ]
+      ],
+      "expo-font"
     ],
     "extra": {
       "eas": {

@@ -1,8 +1,19 @@
 import { useCallback, useEffect, useState } from 'react';
-import { View, Text, Image, FlatList, RefreshControl, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, FlatList, RefreshControl, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { fetchLeaderboard } from '../../lib/leaderboard';
+import Avatar from '../../components/Avatar';
+import EmptyState from '../../components/EmptyState';
+import LoadingScreen from '../../components/LoadingScreen';
+import FadeInView from '../../components/FadeInView';
 import { Profile } from '../../types';
-import { colors, spacing, radius, fontSize } from '../../constants/theme';
+import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
+
+const MEDALS: Record<number, { color: string; icon: keyof typeof Ionicons.glyphMap }> = {
+  0: { color: '#FFD700', icon: 'trophy' },
+  1: { color: '#C0C0C0', icon: 'trophy' },
+  2: { color: '#CD7F32', icon: 'trophy' },
+};
 
 export default function VolunteerScreen() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -34,11 +45,7 @@ export default function VolunteerScreen() {
   };
 
   if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
+    return <LoadingScreen />;
   }
 
   return (
@@ -46,44 +53,49 @@ export default function VolunteerScreen() {
       data={profiles}
       keyExtractor={(item) => item.id}
       contentContainerStyle={styles.list}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />}
       ListHeaderComponent={
         <View style={styles.header}>
-          <Text style={styles.title}>Volunteer Leaderboard</Text>
+          <Text style={styles.title}>Leaderboard 🏆</Text>
           <Text style={styles.subtitle}>Earn points by helping other students</Text>
         </View>
       }
       ListEmptyComponent={
-        <View style={styles.empty}>
-          <Text style={styles.emptyText}>{errorMessage ?? 'No one has volunteered yet.'}</Text>
-        </View>
+        <EmptyState
+          icon="trophy-outline"
+          title="No one has volunteered yet"
+          subtitle={errorMessage ?? 'Be the first to help and claim the top spot!'}
+        />
       }
-      renderItem={({ item, index }) => (
-        <View style={styles.row}>
-          <Text style={styles.rank}>{index + 1}</Text>
-          {item.avatar_url ? (
-            <Image source={{ uri: item.avatar_url }} style={styles.avatar} />
-          ) : (
-            <View style={[styles.avatar, styles.avatarPlaceholder]} />
-          )}
-          <View style={styles.rowText}>
-            <Text style={styles.name}>{item.full_name ?? 'Unknown'}</Text>
-            {item.school_name ? <Text style={styles.school}>{item.school_name}</Text> : null}
-          </View>
-          <Text style={styles.points}>{item.points} pt{item.points === 1 ? '' : 's'}</Text>
-        </View>
-      )}
+      renderItem={({ item, index }) => {
+        const medal = MEDALS[index];
+        return (
+          <FadeInView delay={Math.min(index, 6) * 40}>
+            <View style={[styles.row, medal && styles.rowTopThree]}>
+              {medal ? (
+                <Ionicons name={medal.icon} size={24} color={medal.color} style={styles.rankIcon} />
+              ) : (
+                <Text style={styles.rank}>{index + 1}</Text>
+              )}
+              <Avatar uri={item.avatar_url} size={44} />
+              <View style={styles.rowText}>
+                <Text style={styles.name}>{item.full_name ?? 'Unknown'}</Text>
+                {item.school_name ? <Text style={styles.school}>{item.school_name}</Text> : null}
+              </View>
+              <View style={styles.pointsBadge}>
+                <Text style={styles.points}>
+                  {item.points} pt{item.points === 1 ? '' : 's'}
+                </Text>
+              </View>
+            </View>
+          </FadeInView>
+        );
+      }}
     />
   );
 }
 
 const styles = StyleSheet.create({
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.background,
-  },
   list: {
     padding: spacing.lg,
   },
@@ -91,64 +103,63 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   title: {
-    fontSize: fontSize.xl,
-    fontWeight: '700',
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.xxl,
     color: colors.textDark,
   },
   subtitle: {
+    fontFamily: fontFamily.regular,
     fontSize: fontSize.sm,
     color: colors.textMid,
     marginTop: spacing.xs,
-  },
-  empty: {
-    paddingTop: spacing.xxl,
-    alignItems: 'center',
-  },
-  emptyText: {
-    color: colors.textMid,
-    fontSize: fontSize.md,
-    textAlign: 'center',
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.cardBg,
     borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
     padding: spacing.md,
     marginBottom: spacing.sm,
+    gap: spacing.sm,
+    ...shadow.card,
+  },
+  rowTopThree: {
+    borderWidth: 1.5,
+    borderColor: colors.warning,
   },
   rank: {
     width: 28,
+    textAlign: 'center',
+    fontFamily: fontFamily.bold,
     fontSize: fontSize.md,
-    fontWeight: '700',
     color: colors.textMid,
   },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: radius.full,
-    marginRight: spacing.sm,
-  },
-  avatarPlaceholder: {
-    backgroundColor: colors.primaryLight,
+  rankIcon: {
+    width: 28,
+    textAlign: 'center',
   },
   rowText: {
     flex: 1,
   },
   name: {
+    fontFamily: fontFamily.semibold,
     fontSize: fontSize.md,
-    fontWeight: '700',
     color: colors.textDark,
   },
   school: {
+    fontFamily: fontFamily.regular,
     fontSize: fontSize.xs,
     color: colors.textMid,
   },
+  pointsBadge: {
+    backgroundColor: colors.primaryLight,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+  },
   points: {
-    fontSize: fontSize.md,
-    fontWeight: '700',
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.sm,
     color: colors.primary,
   },
 });

@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
-  Image,
   FlatList,
   TextInput,
   TouchableOpacity,
@@ -14,10 +13,14 @@ import {
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { fetchMessages, sendMessage, subscribeToMessages, markMessagesAsRead } from '../../lib/chat';
 import { formatRelativeTime } from '../../lib/time';
-import { colors, spacing, radius, fontSize } from '../../constants/theme';
+import Avatar from '../../components/Avatar';
+import EmptyState from '../../components/EmptyState';
+import LoadingScreen from '../../components/LoadingScreen';
+import { colors, spacing, radius, fontSize, fontFamily } from '../../constants/theme';
 import { MainStackParamList, Message } from '../../types';
 
 export default function ConversationScreen() {
@@ -84,21 +87,15 @@ export default function ConversationScreen() {
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backText}>← Back</Text>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={20} color={colors.primary} />
         </TouchableOpacity>
-        {otherUser.avatar_url ? (
-          <Image source={{ uri: otherUser.avatar_url }} style={styles.headerAvatar} />
-        ) : (
-          <View style={[styles.headerAvatar, styles.avatarPlaceholder]} />
-        )}
+        <Avatar uri={otherUser.avatar_url} size={36} />
         <Text style={styles.headerName}>{otherUser.full_name ?? 'Unknown'}</Text>
       </View>
 
       {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
+        <LoadingScreen />
       ) : (
         <FlatList
           ref={listRef}
@@ -106,7 +103,7 @@ export default function ConversationScreen() {
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
           onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
-          ListEmptyComponent={<Text style={styles.emptyText}>Say hello!</Text>}
+          ListEmptyComponent={<EmptyState icon="happy-outline" title="Say hello!" subtitle="Start the conversation." />}
           renderItem={({ item }) => {
             const isMine = item.sender_id === user?.id;
             return (
@@ -135,7 +132,7 @@ export default function ConversationScreen() {
           onPress={handleSend}
           disabled={sending}
         >
-          {sending ? <ActivityIndicator color="#fff" /> : <Text style={styles.sendButtonText}>Send</Text>}
+          {sending ? <ActivityIndicator color="#fff" /> : <Ionicons name="send" size={18} color="#fff" />}
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
@@ -147,11 +144,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -160,35 +152,18 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.sm,
     gap: spacing.sm,
   },
-  backText: {
-    color: colors.primary,
-    fontSize: fontSize.md,
-    fontWeight: '600',
-  },
-  headerAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: radius.full,
-    marginLeft: spacing.sm,
-  },
-  avatarPlaceholder: {
-    backgroundColor: colors.primaryLight,
+  backButton: {
+    marginRight: spacing.xs,
   },
   headerName: {
+    fontFamily: fontFamily.semibold,
     fontSize: fontSize.md,
-    fontWeight: '700',
     color: colors.textDark,
   },
   list: {
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     flexGrow: 1,
-  },
-  emptyText: {
-    textAlign: 'center',
-    color: colors.textMid,
-    fontSize: fontSize.md,
-    marginTop: spacing.lg,
   },
   bubbleRow: {
     marginBottom: spacing.sm,
@@ -216,14 +191,17 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   bubbleTextMine: {
+    fontFamily: fontFamily.regular,
     color: '#fff',
     fontSize: fontSize.md,
   },
   bubbleTextTheirs: {
+    fontFamily: fontFamily.regular,
     color: colors.textDark,
     fontSize: fontSize.md,
   },
   messageTimestamp: {
+    fontFamily: fontFamily.regular,
     fontSize: fontSize.xs,
     color: colors.textLight,
     marginTop: 2,
@@ -244,6 +222,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
+    fontFamily: fontFamily.regular,
     fontSize: fontSize.md,
     color: colors.textDark,
     maxHeight: 100,
@@ -251,16 +230,13 @@ const styles = StyleSheet.create({
   },
   sendButton: {
     backgroundColor: colors.primary,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
+    borderRadius: radius.full,
+    width: 44,
+    height: 44,
     justifyContent: 'center',
+    alignItems: 'center',
   },
   buttonDisabled: {
     opacity: 0.6,
-  },
-  sendButtonText: {
-    color: '#fff',
-    fontWeight: '700',
   },
 });

@@ -9,11 +9,13 @@ const POST_SELECT = `
   status,
   created_at,
   profiles:author_id (
+    id,
     full_name,
     school_name,
     avatar_url
   ),
   helper:helper_id (
+    id,
     full_name,
     school_name,
     avatar_url

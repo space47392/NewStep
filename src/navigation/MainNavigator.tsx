@@ -3,6 +3,7 @@ import { MainStackParamList } from '../types';
 import TabNavigator from './TabNavigator';
 import CreatePostScreen from '../screens/main/CreatePostScreen';
 import PostDetailScreen from '../screens/main/PostDetailScreen';
+import ConversationScreen from '../screens/main/ConversationScreen';
 
 const Stack = createNativeStackNavigator<MainStackParamList>();
 
@@ -12,6 +13,7 @@ export default function MainNavigator() {
       <Stack.Screen name="Tabs" component={TabNavigator} />
       <Stack.Screen name="CreatePost" component={CreatePostScreen} options={{ presentation: 'modal' }} />
       <Stack.Screen name="PostDetail" component={PostDetailScreen} />
+      <Stack.Screen name="Conversation" component={ConversationScreen} />
     </Stack.Navigator>
   );
 }

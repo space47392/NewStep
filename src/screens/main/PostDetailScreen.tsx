@@ -17,6 +17,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../contexts/AuthContext';
 import { fetchComments, addComment, subscribeToComments } from '../../lib/comments';
 import { volunteerToHelp, markPostCompleted } from '../../lib/posts';
+import { getOrCreateConversation } from '../../lib/chat';
 import { formatRelativeTime } from '../../lib/time';
 import { colors, spacing, radius, fontSize } from '../../constants/theme';
 import { MainStackParamList, Comment } from '../../types';
@@ -35,6 +36,7 @@ export default function PostDetailScreen() {
   const [sending, setSending] = useState(false);
   const [volunteering, setVolunteering] = useState(false);
   const [completing, setCompleting] = useState(false);
+  const [messaging, setMessaging] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -90,6 +92,27 @@ export default function PostDetailScreen() {
       Alert.alert('Error', message);
     } finally {
       setCompleting(false);
+    }
+  };
+
+  const handleMessage = async () => {
+    if (!user || !post.helper) return;
+    // Either the author messaging their helper, or the helper messaging the author.
+    const otherUser = user.id === post.author_id ? post.helper : post.profiles;
+    if (!otherUser) return;
+
+    setMessaging(true);
+    try {
+      const conversationId = await getOrCreateConversation(otherUser.id);
+      navigation.navigate('Conversation', {
+        conversationId,
+        otherUser: { id: otherUser.id, full_name: otherUser.full_name, avatar_url: otherUser.avatar_url },
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Could not start the conversation.';
+      Alert.alert('Error', message);
+    } finally {
+      setMessaging(false);
     }
   };
 
@@ -175,6 +198,19 @@ export default function PostDetailScreen() {
                     ) : null}
                   </View>
                 </View>
+                {(user?.id === post.author_id || user?.id === post.helper.id) && (
+                  <TouchableOpacity
+                    style={[styles.messageButton, messaging && styles.buttonDisabled]}
+                    onPress={handleMessage}
+                    disabled={messaging}
+                  >
+                    {messaging ? (
+                      <ActivityIndicator color={colors.primary} />
+                    ) : (
+                      <Text style={styles.messageButtonText}>Message</Text>
+                    )}
+                  </TouchableOpacity>
+                )}
               </View>
             )}
 
@@ -322,6 +358,21 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.success,
     marginBottom: spacing.xs,
+  },
+  messageButton: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.cardBg,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    marginTop: spacing.sm,
+  },
+  messageButtonText: {
+    color: colors.primary,
+    fontSize: fontSize.sm,
+    fontWeight: '700',
   },
   helperRow: {
     flexDirection: 'row',

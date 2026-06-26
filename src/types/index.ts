@@ -20,6 +20,7 @@ export type MainStackParamList = {
   Tabs: undefined;
   CreatePost: undefined;
   PostDetail: { post: Post };
+  Conversation: { conversationId: string; otherUser: ChatProfile };
 };
 
 export type Profile = {
@@ -45,11 +46,13 @@ export type Post = {
   status: PostStatus;
   created_at: string;
   profiles: {
+    id: string;
     full_name: string | null;
     school_name: string | null;
     avatar_url: string | null;
   } | null;
   helper: {
+    id: string;
     full_name: string | null;
     school_name: string | null;
     avatar_url: string | null;
@@ -65,4 +68,28 @@ export type Comment = {
     full_name: string | null;
     avatar_url: string | null;
   } | null;
+};
+
+export type ChatProfile = {
+  id: string;
+  full_name: string | null;
+  avatar_url: string | null;
+};
+
+export type Conversation = {
+  id: string;
+  last_message: string | null;
+  last_message_at: string | null;
+  created_at: string;
+  otherUser: ChatProfile;
+  unreadCount: number;
+};
+
+export type Message = {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  content: string;
+  created_at: string;
+  read_at: string | null;
 };

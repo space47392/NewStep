@@ -16,7 +16,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../contexts/AuthContext';
 import { fetchComments, addComment, subscribeToComments } from '../../lib/comments';
-import { volunteerToHelp } from '../../lib/posts';
+import { volunteerToHelp, markPostCompleted } from '../../lib/posts';
 import { formatRelativeTime } from '../../lib/time';
 import { colors, spacing, radius, fontSize } from '../../constants/theme';
 import { MainStackParamList, Comment } from '../../types';
@@ -34,6 +34,7 @@ export default function PostDetailScreen() {
   const [commentText, setCommentText] = useState('');
   const [sending, setSending] = useState(false);
   const [volunteering, setVolunteering] = useState(false);
+  const [completing, setCompleting] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -61,7 +62,9 @@ export default function PostDetailScreen() {
   }, [post.id]);
 
   const canVolunteer = post.category === 'Need Help' && post.status === 'open' && post.author_id !== user?.id;
-  const showHelper = post.category === 'Need Help' && post.status === 'accepted' && post.helper;
+  const canComplete = post.status === 'accepted' && post.author_id === user?.id;
+  const showHelper =
+    post.category === 'Need Help' && (post.status === 'accepted' || post.status === 'completed') && post.helper;
 
   const handleVolunteer = async () => {
     if (!user) return;
@@ -74,6 +77,19 @@ export default function PostDetailScreen() {
       Alert.alert('Error', message);
     } finally {
       setVolunteering(false);
+    }
+  };
+
+  const handleComplete = async () => {
+    setCompleting(true);
+    try {
+      const updated = await markPostCompleted(post.id);
+      setPost(updated);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Could not mark as completed.';
+      Alert.alert('Error', message);
+    } finally {
+      setCompleting(false);
     }
   };
 
@@ -143,7 +159,9 @@ export default function PostDetailScreen() {
 
             {showHelper && post.helper && (
               <View style={styles.helperCard}>
-                <Text style={styles.helperLabel}>✓ Helper</Text>
+                <Text style={styles.helperLabel}>
+                  {post.status === 'completed' ? '✓ Completed — Helped by' : '✓ Helper'}
+                </Text>
                 <View style={styles.helperRow}>
                   {post.helper.avatar_url ? (
                     <Image source={{ uri: post.helper.avatar_url }} style={styles.helperAvatar} />
@@ -158,6 +176,20 @@ export default function PostDetailScreen() {
                   </View>
                 </View>
               </View>
+            )}
+
+            {canComplete && (
+              <TouchableOpacity
+                style={[styles.completeButton, completing && styles.buttonDisabled]}
+                onPress={handleComplete}
+                disabled={completing}
+              >
+                {completing ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.volunteerButtonText}>Mark as Completed</Text>
+                )}
+              </TouchableOpacity>
             )}
 
             <Text style={styles.commentsLabel}>
@@ -259,6 +291,13 @@ const styles = StyleSheet.create({
   school: {
     fontSize: fontSize.xs,
     color: colors.textMid,
+  },
+  completeButton: {
+    backgroundColor: colors.success,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm,
+    alignItems: 'center',
+    marginBottom: spacing.md,
   },
   volunteerButton: {
     backgroundColor: colors.primary,

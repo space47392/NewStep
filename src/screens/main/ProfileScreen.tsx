@@ -34,6 +34,7 @@ export default function ProfileScreen() {
   const [interestInput, setInterestInput] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [avatarVersion, setAvatarVersion] = useState(0);
+  const [points, setPoints] = useState(0);
 
   useEffect(() => {
     if (!user) return;
@@ -53,6 +54,7 @@ export default function ProfileScreen() {
         setGrade(data.grade ?? '');
         setInterests(data.interests ?? []);
         setAvatarUrl(data.avatar_url ?? null);
+        setPoints(data.points);
       }
       setLoadingProfile(false);
     })();
@@ -160,6 +162,9 @@ export default function ProfileScreen() {
   return (
     <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       <Text style={styles.title}>My Profile</Text>
+      <View style={styles.pointsBadge}>
+        <Text style={styles.pointsText}>🏆 {points} {points === 1 ? 'point' : 'points'}</Text>
+      </View>
 
       <TouchableOpacity style={styles.avatarWrapper} onPress={handlePickAvatar} disabled={uploadingAvatar}>
         {avatarUrl ? (
@@ -273,6 +278,18 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.textDark,
     marginBottom: spacing.lg,
+  },
+  pointsBadge: {
+    backgroundColor: colors.primaryLight,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    marginBottom: spacing.lg,
+  },
+  pointsText: {
+    color: colors.primary,
+    fontSize: fontSize.sm,
+    fontWeight: '700',
   },
   avatarWrapper: {
     marginBottom: spacing.lg,

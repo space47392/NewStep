@@ -55,3 +55,16 @@ export async function volunteerToHelp(params: { postId: string; helperId: string
   if (error) throw error;
   return data as unknown as Post;
 }
+
+// Marking a request completed triggers a Postgres function that awards the helper 1 point.
+export async function markPostCompleted(postId: string): Promise<Post> {
+  const { data, error } = await supabase
+    .from('posts')
+    .update({ status: 'completed' })
+    .eq('id', postId)
+    .select(POST_SELECT)
+    .single();
+
+  if (error) throw error;
+  return data as unknown as Post;
+}

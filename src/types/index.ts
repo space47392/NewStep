@@ -29,12 +29,13 @@ export type Profile = {
   grade: string | null;
   interests: string[];
   avatar_url: string | null;
+  points: number;
   updated_at: string;
 };
 
 export type PostCategory = 'Need Help' | 'School Question' | 'Looking for Friends';
 
-export type PostStatus = 'open' | 'accepted';
+export type PostStatus = 'open' | 'accepted' | 'completed';
 
 export type Post = {
   id: string;

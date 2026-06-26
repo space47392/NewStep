@@ -16,6 +16,11 @@ export type MainTabParamList = {
   Profile: undefined;
 };
 
+export type MainStackParamList = {
+  Tabs: undefined;
+  CreatePost: undefined;
+};
+
 export type Profile = {
   id: string;
   full_name: string | null;
@@ -26,9 +31,12 @@ export type Profile = {
   updated_at: string;
 };
 
+export type PostCategory = 'Need Help' | 'School Question' | 'Looking for Friends';
+
 export type Post = {
   id: string;
   content: string;
+  category: PostCategory;
   created_at: string;
   profiles: {
     full_name: string | null;

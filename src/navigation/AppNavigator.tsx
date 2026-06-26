@@ -8,7 +8,7 @@ import { colors } from '../constants/theme';
 
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
-import TabNavigator from './TabNavigator';
+import MainNavigator from './MainNavigator';
 
 const RootStack = createNativeStackNavigator<RootStackParamList>();
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
@@ -38,8 +38,8 @@ export default function AppNavigator() {
     <NavigationContainer>
       <RootStack.Navigator screenOptions={{ headerShown: false }}>
         {session ? (
-          // Logged in → show main app with bottom tabs
-          <RootStack.Screen name="Main" component={TabNavigator} />
+          // Logged in → show main app (bottom tabs + screens like CreatePost pushed on top)
+          <RootStack.Screen name="Main" component={MainNavigator} />
         ) : (
           // Logged out → show auth screens
           <RootStack.Screen name="Auth" component={AuthNavigator as any} />

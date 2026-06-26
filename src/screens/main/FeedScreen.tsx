@@ -1,7 +1,19 @@
 import { useCallback, useEffect, useState } from 'react';
-import { View, Text, Image, FlatList, RefreshControl, ActivityIndicator, StyleSheet } from 'react-native';
+import {
+  View,
+  Text,
+  Image,
+  FlatList,
+  RefreshControl,
+  ActivityIndicator,
+  TouchableOpacity,
+  StyleSheet,
+} from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { Ionicons } from '@expo/vector-icons';
 import { fetchPosts } from '../../lib/posts';
-import { Post } from '../../types';
+import { Post, MainStackParamList } from '../../types';
 import { colors, spacing, radius, fontSize } from '../../constants/theme';
 
 function formatRelativeTime(dateString: string): string {
@@ -17,6 +29,7 @@ function formatRelativeTime(dateString: string): string {
 }
 
 export default function FeedScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -54,43 +67,56 @@ export default function FeedScreen() {
   }
 
   return (
-    <FlatList
-      data={posts}
-      keyExtractor={(item) => item.id}
-      contentContainerStyle={styles.list}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
-      ListHeaderComponent={<Text style={styles.title}>Community Feed</Text>}
-      ListEmptyComponent={
-        <View style={styles.empty}>
-          <Text style={styles.emptyText}>
-            {errorMessage ?? 'No posts yet. Be the first to share something!'}
-          </Text>
-        </View>
-      }
-      renderItem={({ item }) => (
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            {item.profiles?.avatar_url ? (
-              <Image source={{ uri: item.profiles.avatar_url }} style={styles.avatar} />
-            ) : (
-              <View style={[styles.avatar, styles.avatarPlaceholder]} />
-            )}
-            <View style={styles.cardHeaderText}>
-              <Text style={styles.name}>{item.profiles?.full_name ?? 'Unknown'}</Text>
-              {item.profiles?.school_name ? (
-                <Text style={styles.school}>{item.profiles.school_name}</Text>
-              ) : null}
-            </View>
-            <Text style={styles.timestamp}>{formatRelativeTime(item.created_at)}</Text>
+    <View style={styles.container}>
+      <FlatList
+        data={posts}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.list}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+        ListHeaderComponent={<Text style={styles.title}>Community Feed</Text>}
+        ListEmptyComponent={
+          <View style={styles.empty}>
+            <Text style={styles.emptyText}>
+              {errorMessage ?? 'No posts yet. Be the first to share something!'}
+            </Text>
           </View>
-          <Text style={styles.content}>{item.content}</Text>
-        </View>
-      )}
-    />
+        }
+        renderItem={({ item }) => (
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              {item.profiles?.avatar_url ? (
+                <Image source={{ uri: item.profiles.avatar_url }} style={styles.avatar} />
+              ) : (
+                <View style={[styles.avatar, styles.avatarPlaceholder]} />
+              )}
+              <View style={styles.cardHeaderText}>
+                <Text style={styles.name}>{item.profiles?.full_name ?? 'Unknown'}</Text>
+                {item.profiles?.school_name ? (
+                  <Text style={styles.school}>{item.profiles.school_name}</Text>
+                ) : null}
+              </View>
+              <Text style={styles.timestamp}>{formatRelativeTime(item.created_at)}</Text>
+            </View>
+            <View style={styles.categoryBadge}>
+              <Text style={styles.categoryText}>{item.category}</Text>
+            </View>
+            <Text style={styles.content}>{item.content}</Text>
+          </View>
+        )}
+      />
+
+      <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate('CreatePost')}>
+        <Ionicons name="add" size={28} color="#fff" />
+      </TouchableOpacity>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
   center: {
     flex: 1,
     justifyContent: 'center',
@@ -99,6 +125,35 @@ const styles = StyleSheet.create({
   },
   list: {
     padding: spacing.lg,
+  },
+  fab: {
+    position: 'absolute',
+    right: spacing.lg,
+    bottom: spacing.lg,
+    width: 56,
+    height: 56,
+    borderRadius: radius.full,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  categoryBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.primaryLight,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    marginBottom: spacing.xs,
+  },
+  categoryText: {
+    color: colors.primary,
+    fontSize: fontSize.xs,
+    fontWeight: '700',
   },
   title: {
     fontSize: fontSize.xl,

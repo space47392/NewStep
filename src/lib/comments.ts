@@ -11,6 +11,7 @@ export async function fetchComments(postId: string): Promise<Comment[]> {
       content,
       created_at,
       profiles:author_id (
+        id,
         full_name,
         avatar_url
       )
@@ -57,7 +58,7 @@ export function subscribeToComments(postId: string, onInsert: (comment: Comment)
 
         const { data: profile } = await supabase
           .from('profiles')
-          .select('full_name, avatar_url')
+          .select('id, full_name, avatar_url')
           .eq('id', row.author_id)
           .single();
 

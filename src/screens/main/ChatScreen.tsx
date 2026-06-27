@@ -74,9 +74,24 @@ export default function ChatScreen() {
             activeOpacity={0.85}
             onPress={() => navigation.navigate('Conversation', { conversationId: item.id, otherUser: item.otherUser })}
           >
-            <Avatar uri={item.otherUser.avatar_url} size={50} />
+            <TouchableOpacity
+              onPress={(e) => {
+                e.stopPropagation();
+                navigation.navigate('UserProfile', { userId: item.otherUser.id });
+              }}
+            >
+              <Avatar uri={item.otherUser.avatar_url} size={50} />
+            </TouchableOpacity>
             <View style={styles.rowText}>
-              <Text style={styles.name}>{item.otherUser.full_name ?? 'Unknown'}</Text>
+              <TouchableOpacity
+                style={styles.nameTouchable}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  navigation.navigate('UserProfile', { userId: item.otherUser.id });
+                }}
+              >
+                <Text style={styles.name}>{item.otherUser.full_name ?? 'Unknown'}</Text>
+              </TouchableOpacity>
               <Text style={[styles.lastMessage, item.unreadCount > 0 && styles.lastMessageUnread]} numberOfLines={1}>
                 {item.last_message ?? 'Say hello!'}
               </Text>
@@ -120,6 +135,9 @@ const styles = StyleSheet.create({
   rowText: {
     flex: 1,
     marginLeft: spacing.sm,
+  },
+  nameTouchable: {
+    alignSelf: 'flex-start',
   },
   name: {
     fontFamily: fontFamily.semibold,

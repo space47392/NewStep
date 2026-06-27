@@ -90,8 +90,13 @@ export default function ConversationScreen() {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={20} color={colors.primary} />
         </TouchableOpacity>
-        <Avatar uri={otherUser.avatar_url} size={36} />
-        <Text style={styles.headerName}>{otherUser.full_name ?? 'Unknown'}</Text>
+        <TouchableOpacity
+          style={styles.headerUser}
+          onPress={() => navigation.navigate('UserProfile', { userId: otherUser.id })}
+        >
+          <Avatar uri={otherUser.avatar_url} size={36} />
+          <Text style={styles.headerName}>{otherUser.full_name ?? 'Unknown'}</Text>
+        </TouchableOpacity>
       </View>
 
       {loading ? (
@@ -154,6 +159,11 @@ const styles = StyleSheet.create({
   },
   backButton: {
     marginRight: spacing.xs,
+  },
+  headerUser: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   headerName: {
     fontFamily: fontFamily.semibold,

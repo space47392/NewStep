@@ -214,11 +214,18 @@ export default function PostDetailScreen() {
               </View>
             )}
             <View style={styles.postHeader}>
-              <Avatar uri={post.profiles?.avatar_url} size={44} />
-              <View style={styles.postHeaderText}>
-                <Text style={styles.name}>{post.profiles?.full_name ?? 'Unknown'}</Text>
-                {post.profiles?.school_name ? <Text style={styles.school}>{post.profiles.school_name}</Text> : null}
-              </View>
+              <TouchableOpacity
+                style={styles.postHeaderUser}
+                onPress={() => navigation.navigate('UserProfile', { userId: post.author_id })}
+              >
+                <Avatar uri={post.profiles?.avatar_url} size={44} />
+                <View style={styles.postHeaderText}>
+                  <Text style={styles.name}>{post.profiles?.full_name ?? 'Unknown'}</Text>
+                  {post.profiles?.school_name ? (
+                    <Text style={styles.school}>{post.profiles.school_name}</Text>
+                  ) : null}
+                </View>
+              </TouchableOpacity>
               <Text style={styles.timestamp}>{formatRelativeTime(post.created_at)}</Text>
             </View>
 
@@ -244,7 +251,10 @@ export default function PostDetailScreen() {
                 <Text style={styles.helperLabel}>
                   {post.status === 'completed' ? '✓ Completed — Helped by' : '✓ Helper'}
                 </Text>
-                <View style={styles.helperRow}>
+                <TouchableOpacity
+                  style={styles.helperRow}
+                  onPress={() => navigation.navigate('UserProfile', { userId: post.helper!.id })}
+                >
                   <Avatar uri={post.helper.avatar_url} size={36} />
                   <View style={styles.helperTextWrap}>
                     <Text style={styles.helperName}>{post.helper.full_name ?? 'Unknown'}</Text>
@@ -252,7 +262,7 @@ export default function PostDetailScreen() {
                       <Text style={styles.helperSchool}>{post.helper.school_name}</Text>
                     ) : null}
                   </View>
-                </View>
+                </TouchableOpacity>
                 {(user?.id === post.author_id || user?.id === post.helper.id) && (
                   <PrimaryButton
                     title="Message"
@@ -289,7 +299,12 @@ export default function PostDetailScreen() {
         }
         renderItem={({ item }) => (
           <View style={styles.commentRow}>
-            <Avatar uri={item.profiles?.avatar_url} size={32} />
+            <TouchableOpacity
+              disabled={!item.profiles}
+              onPress={() => item.profiles && navigation.navigate('UserProfile', { userId: item.profiles!.id })}
+            >
+              <Avatar uri={item.profiles?.avatar_url} size={32} />
+            </TouchableOpacity>
             <View style={styles.commentBubble}>
               <Text style={styles.commentName}>{item.profiles?.full_name ?? 'Unknown'}</Text>
               <Text style={styles.commentContent}>{item.content}</Text>
@@ -376,6 +391,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: spacing.sm,
+  },
+  postHeaderUser: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   postHeaderText: {
     flex: 1,

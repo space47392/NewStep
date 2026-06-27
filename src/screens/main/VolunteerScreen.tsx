@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
-import { View, Text, FlatList, RefreshControl, StyleSheet } from 'react-native';
+import { View, Text, FlatList, RefreshControl, TouchableOpacity, StyleSheet } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { fetchLeaderboard } from '../../lib/leaderboard';
 import Avatar from '../../components/Avatar';
 import EmptyState from '../../components/EmptyState';
 import LoadingScreen from '../../components/LoadingScreen';
 import FadeInView from '../../components/FadeInView';
-import { Profile } from '../../types';
+import { MainStackParamList, Profile } from '../../types';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
 
 const MEDALS: Record<number, { color: string; icon: keyof typeof Ionicons.glyphMap }> = {
@@ -16,6 +18,7 @@ const MEDALS: Record<number, { color: string; icon: keyof typeof Ionicons.glyphM
 };
 
 export default function VolunteerScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -71,7 +74,11 @@ export default function VolunteerScreen() {
         const medal = MEDALS[index];
         return (
           <FadeInView delay={Math.min(index, 6) * 40}>
-            <View style={[styles.row, medal && styles.rowTopThree]}>
+            <TouchableOpacity
+              style={[styles.row, medal && styles.rowTopThree]}
+              activeOpacity={0.85}
+              onPress={() => navigation.navigate('UserProfile', { userId: item.id })}
+            >
               {medal ? (
                 <Ionicons name={medal.icon} size={24} color={medal.color} style={styles.rankIcon} />
               ) : (
@@ -87,7 +94,7 @@ export default function VolunteerScreen() {
                   {item.points} pt{item.points === 1 ? '' : 's'}
                 </Text>
               </View>
-            </View>
+            </TouchableOpacity>
           </FadeInView>
         );
       }}

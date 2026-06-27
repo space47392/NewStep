@@ -134,13 +134,21 @@ export default function FeedScreen() {
                   </View>
                 )}
                 <View style={styles.cardHeader}>
-                  <Avatar uri={item.profiles?.avatar_url} size={42} />
-                  <View style={styles.cardHeaderText}>
-                    <Text style={styles.name}>{item.profiles?.full_name ?? 'Unknown'}</Text>
-                    {item.profiles?.school_name ? (
-                      <Text style={styles.school}>{item.profiles.school_name}</Text>
-                    ) : null}
-                  </View>
+                  <TouchableOpacity
+                    style={styles.cardHeaderUser}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      navigation.navigate('UserProfile', { userId: item.author_id });
+                    }}
+                  >
+                    <Avatar uri={item.profiles?.avatar_url} size={42} />
+                    <View style={styles.cardHeaderText}>
+                      <Text style={styles.name}>{item.profiles?.full_name ?? 'Unknown'}</Text>
+                      {item.profiles?.school_name ? (
+                        <Text style={styles.school}>{item.profiles.school_name}</Text>
+                      ) : null}
+                    </View>
+                  </TouchableOpacity>
                   <Text style={styles.timestamp}>{formatRelativeTime(item.created_at)}</Text>
                   {isAuthor && (
                     <TouchableOpacity
@@ -261,6 +269,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: spacing.sm,
+  },
+  cardHeaderUser: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   cardHeaderText: {
     flex: 1,

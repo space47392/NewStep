@@ -21,6 +21,7 @@ export type MainStackParamList = {
   CreatePost: { post?: Post } | undefined;
   PostDetail: { post: Post };
   Conversation: { conversationId: string; otherUser: ChatProfile };
+  UserProfile: { userId: string };
 };
 
 export type Profile = {
@@ -65,6 +66,7 @@ export type Comment = {
   content: string;
   created_at: string;
   profiles: {
+    id: string;
     full_name: string | null;
     avatar_url: string | null;
   } | null;

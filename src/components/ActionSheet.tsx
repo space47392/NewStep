@@ -1,5 +1,7 @@
-import { Modal, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Modal, View, Text, TouchableOpacity, Animated, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../constants/theme';
 
 export type ActionSheetAction = {
@@ -15,12 +17,41 @@ type Props = {
   actions: ActionSheetAction[];
 };
 
+const SHEET_OFFSET = 320;
+
 export default function ActionSheet({ visible, onClose, actions }: Props) {
+  // Kept separate from the `visible` prop so the sheet can slide down before the
+  // Modal actually unmounts, instead of just vanishing instantly.
+  const [modalVisible, setModalVisible] = useState(visible);
+  const translateY = useRef(new Animated.Value(SHEET_OFFSET)).current;
+  const backdropOpacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible) {
+      setModalVisible(true);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      translateY.setValue(SHEET_OFFSET);
+      backdropOpacity.setValue(0);
+      Animated.parallel([
+        Animated.spring(translateY, { toValue: 0, useNativeDriver: true, damping: 18, stiffness: 180, mass: 0.9 }),
+        Animated.timing(backdropOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
+      ]).start();
+    } else if (modalVisible) {
+      Animated.parallel([
+        Animated.timing(translateY, { toValue: SHEET_OFFSET, duration: 200, useNativeDriver: true }),
+        Animated.timing(backdropOpacity, { toValue: 0, duration: 200, useNativeDriver: true }),
+      ]).start(() => setModalVisible(false));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible]);
+
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible={modalVisible} transparent animationType="none" onRequestClose={onClose}>
       <View style={styles.overlay}>
-        <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} />
-        <View style={styles.sheet}>
+        <Animated.View style={[styles.backdrop, { opacity: backdropOpacity }]}>
+          <TouchableOpacity style={styles.backdropTouchable} activeOpacity={1} onPress={onClose} />
+        </Animated.View>
+        <Animated.View style={[styles.sheet, { transform: [{ translateY }] }]}>
           {actions.map((action, index) => (
             <TouchableOpacity
               key={action.label}
@@ -37,7 +68,7 @@ export default function ActionSheet({ visible, onClose, actions }: Props) {
           <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
             <Text style={styles.cancelLabel}>Cancel</Text>
           </TouchableOpacity>
-        </View>
+        </Animated.View>
       </View>
     </Modal>
   );
@@ -55,6 +86,9 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  backdropTouchable: {
+    flex: 1,
   },
   sheet: {
     backgroundColor: colors.cardBg,

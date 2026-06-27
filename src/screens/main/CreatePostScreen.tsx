@@ -4,6 +4,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/ToastContext';
 import { createPost, editPost } from '../../lib/posts';
 import PrimaryButton from '../../components/PrimaryButton';
 import FadeInView from '../../components/FadeInView';
@@ -19,6 +20,7 @@ export default function CreatePostScreen() {
   const route = useRoute<RouteProp<MainStackParamList, 'CreatePost'>>();
   const editingPost = route.params?.post;
   const { user } = useAuth();
+  const { showToast } = useToast();
 
   const [content, setContent] = useState(editingPost?.content ?? '');
   const [category, setCategory] = useState<PostCategory>(editingPost?.category ?? 'Looking for Friends');
@@ -35,6 +37,7 @@ export default function CreatePostScreen() {
     try {
       if (editingPost) {
         await editPost({ postId: editingPost.id, content: content.trim(), category });
+        showToast('Post updated');
       } else {
         await createPost({ authorId: user.id, content: content.trim(), category });
       }

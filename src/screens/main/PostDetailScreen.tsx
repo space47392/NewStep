@@ -15,6 +15,7 @@ import { useFocusEffect, useNavigation, useRoute, RouteProp } from '@react-navig
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/ToastContext';
 import { fetchComments, addComment, subscribeToComments } from '../../lib/comments';
 import { volunteerToHelp, markPostCompleted, fetchPostById, deletePost } from '../../lib/posts';
 import { getOrCreateConversation } from '../../lib/chat';
@@ -32,6 +33,7 @@ export default function PostDetailScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
   const route = useRoute<RouteProp<MainStackParamList, 'PostDetail'>>();
   const { user } = useAuth();
+  const { showToast } = useToast();
 
   // Local copy so the screen can reflect the new status/helper after volunteering,
   // since route.params.post is just a snapshot from when the feed card was tapped.
@@ -44,6 +46,7 @@ export default function PostDetailScreen() {
   const [completing, setCompleting] = useState(false);
   const [messaging, setMessaging] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
+  const [deletingPost, setDeletingPost] = useState(false);
 
   // Refetch just the post (not comments) whenever this screen regains focus, so
   // returning from editing shows the new content immediately.
@@ -147,12 +150,15 @@ export default function PostDetailScreen() {
         text: 'Delete',
         style: 'destructive',
         onPress: async () => {
+          setDeletingPost(true);
           try {
             await deletePost(post.id);
+            showToast('Post deleted');
             navigation.goBack();
           } catch (err) {
             const message = err instanceof Error ? err.message : 'Could not delete post.';
             Alert.alert('Error', message);
+            setDeletingPost(false);
           }
         },
       },
@@ -202,6 +208,11 @@ export default function PostDetailScreen() {
         contentContainerStyle={styles.list}
         ListHeaderComponent={
           <FadeInView style={styles.postCard}>
+            {deletingPost && (
+              <View style={styles.deletingOverlay}>
+                <ActivityIndicator color={colors.primary} />
+              </View>
+            )}
             <View style={styles.postHeader}>
               <Avatar uri={post.profiles?.avatar_url} size={44} />
               <View style={styles.postHeaderText}>
@@ -342,11 +353,24 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.lg,
   },
   postCard: {
+    position: 'relative',
     backgroundColor: colors.cardBg,
     borderRadius: radius.lg,
     padding: spacing.md,
     marginBottom: spacing.lg,
     ...shadow.card,
+  },
+  deletingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255,255,255,0.7)',
+    borderRadius: radius.lg,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1,
   },
   postHeader: {
     flexDirection: 'row',

@@ -1,9 +1,10 @@
 import { useCallback, useRef, useState } from 'react';
-import { View, Text, FlatList, RefreshControl, TouchableOpacity, Alert, StyleSheet } from 'react-native';
+import { View, Text, FlatList, RefreshControl, TouchableOpacity, ActivityIndicator, Alert, StyleSheet } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/ToastContext';
 import { fetchPosts, deletePost } from '../../lib/posts';
 import { formatRelativeTime } from '../../lib/time';
 import Avatar from '../../components/Avatar';
@@ -18,11 +19,13 @@ import { CATEGORY_STYLES } from '../../constants/categoryStyles';
 export default function FeedScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
   const { user } = useAuth();
+  const { showToast } = useToast();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [menuPost, setMenuPost] = useState<Post | null>(null);
+  const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
   const hasLoadedOnce = useRef(false);
 
   const loadPosts = useCallback(async () => {
@@ -66,12 +69,16 @@ export default function FeedScreen() {
         text: 'Delete',
         style: 'destructive',
         onPress: async () => {
+          setDeletingPostId(post.id);
           try {
             await deletePost(post.id);
             setPosts((prev) => prev.filter((p) => p.id !== post.id));
+            showToast('Post deleted');
           } catch (err) {
             const message = err instanceof Error ? err.message : 'Could not delete post.';
             Alert.alert('Error', message);
+          } finally {
+            setDeletingPostId(null);
           }
         },
       },
@@ -112,13 +119,20 @@ export default function FeedScreen() {
         renderItem={({ item, index }) => {
           const category = CATEGORY_STYLES[item.category];
           const isAuthor = user?.id === item.author_id;
+          const isDeleting = item.id === deletingPostId;
           return (
             <FadeInView delay={Math.min(index, 6) * 40}>
               <TouchableOpacity
                 style={styles.card}
                 activeOpacity={0.85}
+                disabled={isDeleting}
                 onPress={() => navigation.navigate('PostDetail', { post: item })}
               >
+                {isDeleting && (
+                  <View style={styles.deletingOverlay}>
+                    <ActivityIndicator color={colors.primary} />
+                  </View>
+                )}
                 <View style={styles.cardHeader}>
                   <Avatar uri={item.profiles?.avatar_url} size={42} />
                   <View style={styles.cardHeaderText}>
@@ -230,6 +244,18 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     marginBottom: spacing.md,
     ...shadow.card,
+  },
+  deletingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255,255,255,0.7)',
+    borderRadius: radius.lg,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1,
   },
   cardHeader: {
     flexDirection: 'row',

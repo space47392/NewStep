@@ -11,6 +11,7 @@ import {
   Poppins_800ExtraBold,
 } from '@expo-google-fonts/poppins';
 import { AuthProvider } from './src/contexts/AuthContext';
+import { ToastProvider } from './src/contexts/ToastContext';
 import AppNavigator from './src/navigation/AppNavigator';
 import { navigateToTab } from './src/navigation/navigationRef';
 import { addNotificationResponseListener } from './src/lib/notifications';
@@ -46,8 +47,10 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
-        <StatusBar style="dark" />
-        <AppNavigator />
+        <ToastProvider>
+          <StatusBar style="dark" />
+          <AppNavigator />
+        </ToastProvider>
       </AuthProvider>
     </SafeAreaProvider>
   );

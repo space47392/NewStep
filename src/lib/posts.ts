@@ -7,6 +7,7 @@ const POST_SELECT = `
   content,
   category,
   status,
+  like_count,
   created_at,
   profiles:author_id (
     id,

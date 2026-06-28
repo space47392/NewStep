@@ -19,12 +19,14 @@ import { useToast } from '../../contexts/ToastContext';
 import { fetchComments, addComment, subscribeToComments } from '../../lib/comments';
 import { volunteerToHelp, markPostCompleted, fetchPostById, deletePost } from '../../lib/posts';
 import { getOrCreateConversation } from '../../lib/chat';
+import { fetchLikedPostIds } from '../../lib/likes';
 import { formatRelativeTime } from '../../lib/time';
 import Avatar from '../../components/Avatar';
 import EmptyState from '../../components/EmptyState';
 import PrimaryButton from '../../components/PrimaryButton';
 import FadeInView from '../../components/FadeInView';
 import ActionSheet, { ActionSheetAction } from '../../components/ActionSheet';
+import LikeButton from '../../components/LikeButton';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
 import { CATEGORY_STYLES } from '../../constants/categoryStyles';
 import { MainStackParamList, Comment } from '../../types';
@@ -47,15 +49,25 @@ export default function PostDetailScreen() {
   const [messaging, setMessaging] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
   const [deletingPost, setDeletingPost] = useState(false);
+  const [likedByMe, setLikedByMe] = useState(false);
 
   // Refetch just the post (not comments) whenever this screen regains focus, so
   // returning from editing shows the new content immediately.
   useFocusEffect(
     useCallback(() => {
-      fetchPostById(route.params.post.id)
-        .then(setPost)
-        .catch(() => {});
-    }, [route.params.post.id])
+      (async () => {
+        try {
+          const freshPost = await fetchPostById(route.params.post.id);
+          setPost(freshPost);
+          if (user) {
+            const liked = await fetchLikedPostIds(user.id, [freshPost.id]);
+            setLikedByMe(liked.has(freshPost.id));
+          }
+        } catch {
+          // ignored — comments effect below still loads independently
+        }
+      })();
+    }, [route.params.post.id, user])
   );
 
   useEffect(() => {
@@ -235,6 +247,10 @@ export default function PostDetailScreen() {
             </View>
 
             <Text style={styles.postContent}>{post.content}</Text>
+
+            <View style={styles.likeRow}>
+              <LikeButton postId={post.id} initialLikeCount={post.like_count} initialLikedByMe={likedByMe} />
+            </View>
 
             {canVolunteer && (
               <PrimaryButton
@@ -472,6 +488,9 @@ const styles = StyleSheet.create({
     fontSize: fontSize.md,
     color: colors.textDark,
     lineHeight: 21,
+    marginBottom: spacing.md,
+  },
+  likeRow: {
     marginBottom: spacing.md,
   },
   commentsLabel: {

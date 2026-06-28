@@ -6,12 +6,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { fetchPosts, deletePost } from '../../lib/posts';
+import { fetchLikedPostIds } from '../../lib/likes';
 import { formatRelativeTime } from '../../lib/time';
 import Avatar from '../../components/Avatar';
 import EmptyState from '../../components/EmptyState';
 import LoadingScreen from '../../components/LoadingScreen';
 import FadeInView from '../../components/FadeInView';
 import ActionSheet, { ActionSheetAction } from '../../components/ActionSheet';
+import LikeButton from '../../components/LikeButton';
 import { Post, MainStackParamList } from '../../types';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
 import { CATEGORY_STYLES } from '../../constants/categoryStyles';
@@ -26,6 +28,7 @@ export default function FeedScreen() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [menuPost, setMenuPost] = useState<Post | null>(null);
   const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
+  const [likedPostIds, setLikedPostIds] = useState<Set<string>>(new Set());
   const hasLoadedOnce = useRef(false);
 
   const loadPosts = useCallback(async () => {
@@ -33,10 +36,14 @@ export default function FeedScreen() {
       const data = await fetchPosts();
       setPosts(data);
       setErrorMessage(null);
+      if (user) {
+        const liked = await fetchLikedPostIds(user.id, data.map((p) => p.id));
+        setLikedPostIds(liked);
+      }
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : 'Could not load posts.');
     }
-  }, []);
+  }, [user]);
 
   // Refetch every time this tab gains focus (e.g. returning from editing a post),
   // but only show the full-screen spinner the very first time — later refreshes
@@ -180,8 +187,15 @@ export default function FeedScreen() {
                 ) : null}
 
                 <View style={styles.cardFooter}>
-                  <Ionicons name="chatbubble-outline" size={14} color={colors.primary} />
-                  <Text style={styles.viewComments}>View Comments</Text>
+                  <LikeButton
+                    postId={item.id}
+                    initialLikeCount={item.like_count}
+                    initialLikedByMe={likedPostIds.has(item.id)}
+                  />
+                  <View style={styles.commentsLink}>
+                    <Ionicons name="chatbubble-outline" size={14} color={colors.primary} />
+                    <Text style={styles.viewComments}>View Comments</Text>
+                  </View>
                 </View>
               </TouchableOpacity>
             </FadeInView>
@@ -307,8 +321,13 @@ const styles = StyleSheet.create({
   cardFooter: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'space-between',
     marginTop: spacing.sm,
+  },
+  commentsLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   viewComments: {
     fontFamily: fontFamily.semibold,

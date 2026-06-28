@@ -45,6 +45,7 @@ export type Post = {
   content: string;
   category: PostCategory;
   status: PostStatus;
+  like_count: number;
   created_at: string;
   profiles: {
     id: string;

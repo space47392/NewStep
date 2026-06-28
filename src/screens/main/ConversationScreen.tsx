@@ -14,12 +14,22 @@ import {
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
+import * as Clipboard from 'expo-clipboard';
 import { useAuth } from '../../contexts/AuthContext';
-import { fetchMessages, sendMessage, subscribeToMessages, markMessagesAsRead } from '../../lib/chat';
+import { useToast } from '../../contexts/ToastContext';
+import {
+  fetchMessages,
+  sendMessage,
+  editMessage,
+  deleteMessage,
+  subscribeToMessages,
+  markMessagesAsRead,
+} from '../../lib/chat';
 import { formatRelativeTime } from '../../lib/time';
 import Avatar from '../../components/Avatar';
 import EmptyState from '../../components/EmptyState';
 import LoadingScreen from '../../components/LoadingScreen';
+import ActionSheet, { ActionSheetAction } from '../../components/ActionSheet';
 import { colors, spacing, radius, fontSize, fontFamily } from '../../constants/theme';
 import { MainStackParamList, Message } from '../../types';
 
@@ -28,11 +38,14 @@ export default function ConversationScreen() {
   const route = useRoute<RouteProp<MainStackParamList, 'Conversation'>>();
   const { conversationId, otherUser } = route.params;
   const { user } = useAuth();
+  const { showToast } = useToast();
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
+  const [menuMessage, setMenuMessage] = useState<Message | null>(null);
+  const [editingMessage, setEditingMessage] = useState<Message | null>(null);
   const listRef = useRef<FlatList>(null);
 
   useEffect(() => {
@@ -54,11 +67,16 @@ export default function ConversationScreen() {
       markMessagesAsRead(conversationId, user.id).catch(() => {});
     }
 
-    const unsubscribe = subscribeToMessages(conversationId, (message) => {
-      setMessages((prev) => [...prev, message]);
-      // If the other person's message arrives while this screen is open, mark it read immediately.
-      if (user && message.sender_id !== user.id) {
-        markMessagesAsRead(conversationId, user.id).catch(() => {});
+    const unsubscribe = subscribeToMessages(conversationId, ({ type, message }) => {
+      if (type === 'insert') {
+        setMessages((prev) => [...prev, message]);
+        // If the other person's message arrives while this screen is open, mark it read immediately.
+        if (user && message.sender_id !== user.id) {
+          markMessagesAsRead(conversationId, user.id).catch(() => {});
+        }
+      } else {
+        // Covers edits, deletes, and read-receipt updates alike — just merge by id.
+        setMessages((prev) => prev.map((m) => (m.id === message.id ? message : m)));
       }
     });
 
@@ -74,8 +92,13 @@ export default function ConversationScreen() {
 
     setSending(true);
     try {
-      await sendMessage({ conversationId, senderId: user.id, content: trimmed });
-      setText(''); // the sent message arrives back via the real-time subscription above
+      if (editingMessage) {
+        await editMessage(editingMessage.id, trimmed);
+        setEditingMessage(null);
+      } else {
+        await sendMessage({ conversationId, senderId: user.id, content: trimmed });
+      }
+      setText(''); // the sent/edited message arrives back via the real-time subscription above
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Could not send message.';
       Alert.alert('Error', message);
@@ -83,6 +106,63 @@ export default function ConversationScreen() {
       setSending(false);
     }
   };
+
+  const handleLongPressMessage = (message: Message) => {
+    if (message.deleted_at) return; // nothing to do on an already-deleted tombstone
+    setMenuMessage(message);
+  };
+
+  const handleCopyMessage = async (message: Message) => {
+    await Clipboard.setStringAsync(message.content);
+    showToast('Copied to clipboard');
+  };
+
+  const handleEditMessage = (message: Message) => {
+    setEditingMessage(message);
+    setText(message.content);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingMessage(null);
+    setText('');
+  };
+
+  const handleDeleteMessage = (message: Message) => {
+    Alert.alert('Delete message?', 'This cannot be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteMessage(message.id);
+            if (editingMessage?.id === message.id) handleCancelEdit();
+          } catch (err) {
+            const errMessage = err instanceof Error ? err.message : 'Could not delete message.';
+            Alert.alert('Error', errMessage);
+          }
+        },
+      },
+    ]);
+  };
+
+  const isMenuMessageMine = menuMessage?.sender_id === user?.id;
+  const menuActions: ActionSheetAction[] = menuMessage
+    ? [
+        { label: 'Copy', icon: 'copy-outline', onPress: () => handleCopyMessage(menuMessage) },
+        ...(isMenuMessageMine
+          ? ([
+              { label: 'Edit', icon: 'create-outline', onPress: () => handleEditMessage(menuMessage) },
+              {
+                label: 'Delete',
+                icon: 'trash-outline',
+                destructive: true,
+                onPress: () => handleDeleteMessage(menuMessage),
+              },
+            ] as ActionSheetAction[])
+          : []),
+      ]
+    : [];
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -111,16 +191,45 @@ export default function ConversationScreen() {
           ListEmptyComponent={<EmptyState icon="happy-outline" title="Say hello!" subtitle="Start the conversation." />}
           renderItem={({ item }) => {
             const isMine = item.sender_id === user?.id;
+            const isDeleted = !!item.deleted_at;
             return (
               <View style={[styles.bubbleRow, isMine ? styles.bubbleRowMine : styles.bubbleRowTheirs]}>
-                <View style={[styles.bubble, isMine ? styles.bubbleMine : styles.bubbleTheirs]}>
-                  <Text style={isMine ? styles.bubbleTextMine : styles.bubbleTextTheirs}>{item.content}</Text>
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  disabled={isDeleted}
+                  onLongPress={() => handleLongPressMessage(item)}
+                  style={[
+                    styles.bubble,
+                    isMine ? styles.bubbleMine : styles.bubbleTheirs,
+                    isDeleted && styles.bubbleDeleted,
+                  ]}
+                >
+                  {isDeleted ? (
+                    <Text style={styles.deletedText}>
+                      {isMine ? 'You deleted this message' : 'This message was deleted'}
+                    </Text>
+                  ) : (
+                    <Text style={isMine ? styles.bubbleTextMine : styles.bubbleTextTheirs}>{item.content}</Text>
+                  )}
+                </TouchableOpacity>
+                <View style={styles.messageFooter}>
+                  <Text style={styles.messageTimestamp}>{formatRelativeTime(item.created_at)}</Text>
+                  {item.edited_at && !isDeleted ? <Text style={styles.editedLabel}>(edited)</Text> : null}
                 </View>
-                <Text style={styles.messageTimestamp}>{formatRelativeTime(item.created_at)}</Text>
               </View>
             );
           }}
         />
+      )}
+
+      {editingMessage && (
+        <View style={styles.editingBanner}>
+          <Ionicons name="create-outline" size={14} color={colors.textMid} />
+          <Text style={styles.editingBannerText}>Editing message</Text>
+          <TouchableOpacity onPress={handleCancelEdit} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Ionicons name="close" size={16} color={colors.textMid} />
+          </TouchableOpacity>
+        </View>
       )}
 
       <View style={styles.inputRow}>
@@ -137,9 +246,15 @@ export default function ConversationScreen() {
           onPress={handleSend}
           disabled={sending}
         >
-          {sending ? <ActivityIndicator color="#fff" /> : <Ionicons name="send" size={18} color="#fff" />}
+          {sending ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Ionicons name={editingMessage ? 'checkmark' : 'send'} size={18} color="#fff" />
+          )}
         </TouchableOpacity>
       </View>
+
+      <ActionSheet visible={menuMessage !== null} onClose={() => setMenuMessage(null)} actions={menuActions} />
     </KeyboardAvoidingView>
   );
 }
@@ -200,6 +315,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
+  bubbleDeleted: {
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
   bubbleTextMine: {
     fontFamily: fontFamily.regular,
     color: '#fff',
@@ -210,11 +330,42 @@ const styles = StyleSheet.create({
     color: colors.textDark,
     fontSize: fontSize.md,
   },
+  deletedText: {
+    fontFamily: fontFamily.regular,
+    fontStyle: 'italic',
+    color: colors.textLight,
+    fontSize: fontSize.sm,
+  },
+  messageFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
+  },
   messageTimestamp: {
     fontFamily: fontFamily.regular,
     fontSize: fontSize.xs,
     color: colors.textLight,
-    marginTop: 2,
+  },
+  editedLabel: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
+    color: colors.textLight,
+    fontStyle: 'italic',
+  },
+  editingBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.primaryLight,
+  },
+  editingBannerText: {
+    flex: 1,
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
+    color: colors.textMid,
   },
   inputRow: {
     flexDirection: 'row',

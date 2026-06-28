@@ -115,7 +115,23 @@ export async function markMessagesAsRead(conversationId: string, currentUserId: 
   if (error) throw error;
 }
 
-export function subscribeToMessages(conversationId: string, onInsert: (message: Message) => void) {
+// Goes through the edit_message() RPC rather than a plain client-side update —
+// see messages_edit_delete.sql for why a second RLS policy isn't safe here.
+export async function editMessage(messageId: string, content: string): Promise<void> {
+  const { error } = await supabase.rpc('edit_message', { p_message_id: messageId, p_content: content });
+  if (error) throw error;
+}
+
+// Soft delete — clears content and sets deleted_at server-side so the row
+// survives as a tombstone instead of disappearing.
+export async function deleteMessage(messageId: string): Promise<void> {
+  const { error } = await supabase.rpc('delete_message', { p_message_id: messageId });
+  if (error) throw error;
+}
+
+export type MessageChangeEvent = { type: 'insert' | 'update'; message: Message };
+
+export function subscribeToMessages(conversationId: string, onChange: (event: MessageChangeEvent) => void) {
   // Unique per subscriber, not just per conversation — see the comment in
   // likes.ts's subscribeToLikes for why a shared topic name can collide.
   const channel = supabase
@@ -124,7 +140,16 @@ export function subscribeToMessages(conversationId: string, onInsert: (message: 
       'postgres_changes',
       { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` },
       (payload) => {
-        onInsert(payload.new as Message);
+        onChange({ type: 'insert', message: payload.new as Message });
+      }
+    )
+    .on(
+      // Edits, deletes, AND read-receipt updates all land here — the screen
+      // just merges whichever fields changed by id, which is harmless for all three.
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` },
+      (payload) => {
+        onChange({ type: 'update', message: payload.new as Message });
       }
     )
     .subscribe();

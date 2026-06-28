@@ -3,10 +3,12 @@ import { View, Text, FlatList, RefreshControl, TouchableOpacity, ActivityIndicat
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { fetchPosts, deletePost } from '../../lib/posts';
 import { fetchLikedPostIds } from '../../lib/likes';
+import { fetchActiveStories, uploadStory } from '../../lib/stories';
 import { formatRelativeTime } from '../../lib/time';
 import Avatar from '../../components/Avatar';
 import EmptyState from '../../components/EmptyState';
@@ -14,7 +16,7 @@ import LoadingScreen from '../../components/LoadingScreen';
 import FadeInView from '../../components/FadeInView';
 import ActionSheet, { ActionSheetAction } from '../../components/ActionSheet';
 import LikeButton from '../../components/LikeButton';
-import { Post, MainStackParamList } from '../../types';
+import { Post, Story, MainStackParamList } from '../../types';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
 import { CATEGORY_STYLES } from '../../constants/categoryStyles';
 
@@ -29,6 +31,8 @@ export default function FeedScreen() {
   const [menuPost, setMenuPost] = useState<Post | null>(null);
   const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
   const [likedPostIds, setLikedPostIds] = useState<Set<string>>(new Set());
+  const [stories, setStories] = useState<Story[]>([]);
+  const [uploadingStory, setUploadingStory] = useState(false);
   const hasLoadedOnce = useRef(false);
 
   const loadPosts = useCallback(async () => {
@@ -45,6 +49,15 @@ export default function FeedScreen() {
     }
   }, [user]);
 
+  const loadStories = useCallback(async () => {
+    try {
+      const data = await fetchActiveStories();
+      setStories(data);
+    } catch {
+      // Non-critical — the rail just keeps whatever it last had (or stays empty).
+    }
+  }, []);
+
   // Refetch every time this tab gains focus (e.g. returning from editing a post),
   // but only show the full-screen spinner the very first time — later refreshes
   // happen quietly behind the existing list so editing doesn't cause a jarring reload.
@@ -52,18 +65,52 @@ export default function FeedScreen() {
     useCallback(() => {
       (async () => {
         if (!hasLoadedOnce.current) setLoading(true);
-        await loadPosts();
+        await Promise.all([loadPosts(), loadStories()]);
         setLoading(false);
         hasLoadedOnce.current = true;
       })();
-    }, [loadPosts])
+    }, [loadPosts, loadStories])
   );
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await loadPosts();
+    await Promise.all([loadPosts(), loadStories()]);
     setRefreshing(false);
   };
+
+  const handleAddStory = async () => {
+    if (!user) return;
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Permission needed', 'Please allow photo library access to post a story.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [9, 16],
+      quality: 0.7,
+    });
+    if (result.canceled || !result.assets?.length) return;
+
+    setUploadingStory(true);
+    try {
+      const asset = result.assets[0];
+      await uploadStory({ userId: user.id, localUri: asset.uri, mimeType: asset.mimeType });
+      await loadStories();
+      showToast('Story posted');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Could not post story.';
+      Alert.alert('Error', message);
+    } finally {
+      setUploadingStory(false);
+    }
+  };
+
+  const myStory = stories.find((s) => s.author_id === user?.id);
+  const otherStories = stories.filter((s) => s.author_id !== user?.id);
+  const storyRail = myStory ? [myStory, ...otherStories] : otherStories;
 
   const handleEditPost = (post: Post) => {
     navigation.navigate('CreatePost', { post });
@@ -111,9 +158,52 @@ export default function FeedScreen() {
         contentContainerStyle={styles.list}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />}
         ListHeaderComponent={
-          <View style={styles.headerRow}>
-            <Text style={styles.title}>Community Feed 👋</Text>
-            <Text style={styles.subtitle}>See what's happening at your school</Text>
+          <View>
+            <FlatList
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              data={storyRail}
+              keyExtractor={(s) => s.id}
+              contentContainerStyle={styles.storyRail}
+              ListHeaderComponent={
+                !myStory ? (
+                  <TouchableOpacity style={styles.storyItem} onPress={handleAddStory} disabled={uploadingStory}>
+                    <View style={styles.addStoryAvatarWrap}>
+                      <Avatar uri={null} size={60} />
+                      <View style={styles.addStoryBadge}>
+                        {uploadingStory ? (
+                          <ActivityIndicator size="small" color="#fff" />
+                        ) : (
+                          <Ionicons name="add" size={14} color="#fff" />
+                        )}
+                      </View>
+                    </View>
+                    <Text style={styles.storyName}>Your Story</Text>
+                  </TouchableOpacity>
+                ) : null
+              }
+              renderItem={({ item, index }) => {
+                const mine = item.author_id === user?.id;
+                return (
+                  <TouchableOpacity
+                    style={styles.storyItem}
+                    onPress={() => navigation.navigate('StoryViewer', { stories: storyRail, initialIndex: index })}
+                  >
+                    <View style={[styles.storyAvatarWrap, { borderColor: mine ? colors.success : colors.secondary }]}>
+                      <Avatar uri={item.profiles?.avatar_url} size={60} />
+                    </View>
+                    <Text style={styles.storyName} numberOfLines={1}>
+                      {mine ? 'Your Story' : item.profiles?.full_name ?? 'Unknown'}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              }}
+            />
+
+            <View style={styles.headerRow}>
+              <Text style={styles.title}>Community Feed 👋</Text>
+              <Text style={styles.subtitle}>See what's happening at your school</Text>
+            </View>
           </View>
         }
         ListEmptyComponent={
@@ -219,6 +309,51 @@ const styles = StyleSheet.create({
   },
   list: {
     padding: spacing.lg,
+  },
+  storyRail: {
+    paddingBottom: spacing.lg,
+    gap: spacing.md,
+  },
+  storyItem: {
+    alignItems: 'center',
+    width: 72,
+  },
+  storyAvatarWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: radius.full,
+    borderWidth: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addStoryAvatarWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: radius.full,
+    borderWidth: 2,
+    borderColor: colors.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addStoryBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 22,
+    height: 22,
+    borderRadius: radius.full,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: colors.background,
+  },
+  storyName: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.xs,
+    color: colors.textDark,
+    marginTop: spacing.xs,
+    textAlign: 'center',
   },
   headerRow: {
     marginBottom: spacing.lg,

@@ -22,6 +22,7 @@ export type MainStackParamList = {
   PostDetail: { post: Post };
   Conversation: { conversationId: string; otherUser: ChatProfile };
   UserProfile: { userId: string };
+  StoryViewer: { stories: Story[]; initialIndex: number };
 };
 
 export type Profile = {
@@ -95,4 +96,17 @@ export type Message = {
   content: string;
   created_at: string;
   read_at: string | null;
+};
+
+export type Story = {
+  id: string;
+  author_id: string;
+  image_url: string;
+  created_at: string;
+  expires_at: string;
+  profiles: {
+    id: string;
+    full_name: string | null;
+    avatar_url: string | null;
+  } | null;
 };

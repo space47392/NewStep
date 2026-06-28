@@ -116,8 +116,10 @@ export async function markMessagesAsRead(conversationId: string, currentUserId: 
 }
 
 export function subscribeToMessages(conversationId: string, onInsert: (message: Message) => void) {
+  // Unique per subscriber, not just per conversation — see the comment in
+  // likes.ts's subscribeToLikes for why a shared topic name can collide.
   const channel = supabase
-    .channel(`messages:${conversationId}`)
+    .channel(`messages:${conversationId}:${Math.random().toString(36).slice(2)}`)
     .on(
       'postgres_changes',
       { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` },

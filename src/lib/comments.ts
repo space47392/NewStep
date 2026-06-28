@@ -42,8 +42,11 @@ export async function addComment(params: {
 // raw inserted row, not joined data, so we fetch the author's profile before handing the
 // caller a Comment shaped the same way fetchComments() returns.
 export function subscribeToComments(postId: string, onInsert: (comment: Comment) => void) {
+  // Unique per subscriber, not just per post — see the comment in likes.ts's
+  // subscribeToLikes for why a shared topic name breaks when the same post can
+  // have more than one subscriber mounted at once (e.g. stacked screens).
   const channel = supabase
-    .channel(`comments:${postId}`)
+    .channel(`comments:${postId}:${Math.random().toString(36).slice(2)}`)
     .on(
       'postgres_changes',
       { event: 'INSERT', schema: 'public', table: 'comments', filter: `post_id=eq.${postId}` },

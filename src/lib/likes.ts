@@ -45,8 +45,13 @@ export function subscribeToLikes(
   postId: string,
   onChange: (event: { type: 'insert' | 'delete'; userId: string }) => void
 ) {
+  // The topic must be unique per *subscriber*, not just per post — e.g. a Feed
+  // card and PostDetail can both have a LikeButton mounted for the same post
+  // simultaneously (stack push doesn't unmount the screen underneath). A shared
+  // topic name causes Supabase to hand back an already-subscribed channel to the
+  // second caller, and calling .on() on that throws.
   const channel = supabase
-    .channel(`likes:${postId}`)
+    .channel(`likes:${postId}:${Math.random().toString(36).slice(2)}`)
     .on(
       'postgres_changes',
       { event: 'INSERT', schema: 'public', table: 'likes', filter: `post_id=eq.${postId}` },

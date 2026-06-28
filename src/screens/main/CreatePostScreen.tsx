@@ -1,11 +1,26 @@
 import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  Image,
+  ScrollView,
+  ActivityIndicator,
+  StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+  Alert,
+} from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import * as Crypto from 'expo-crypto';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { createPost, editPost } from '../../lib/posts';
+import { uploadPostPhoto } from '../../lib/postPhotos';
 import PrimaryButton from '../../components/PrimaryButton';
 import FadeInView from '../../components/FadeInView';
 import { colors, spacing, radius, fontSize, fontFamily } from '../../constants/theme';
@@ -14,6 +29,7 @@ import { MainStackParamList, PostCategory } from '../../types';
 
 const CATEGORIES: PostCategory[] = ['Need Help', 'School Question', 'Looking for Friends'];
 const MAX_LENGTH = 500;
+const MAX_PHOTOS = 5;
 
 export default function CreatePostScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
@@ -24,7 +40,40 @@ export default function CreatePostScreen() {
 
   const [content, setContent] = useState(editingPost?.content ?? '');
   const [category, setCategory] = useState<PostCategory>(editingPost?.category ?? 'Looking for Friends');
+  const [existingPhotoUrls, setExistingPhotoUrls] = useState<string[]>(editingPost?.photo_urls ?? []);
+  const [newPhotos, setNewPhotos] = useState<ImagePicker.ImagePickerAsset[]>([]);
   const [posting, setPosting] = useState(false);
+
+  const totalPhotos = existingPhotoUrls.length + newPhotos.length;
+  const remainingSlots = MAX_PHOTOS - totalPhotos;
+
+  const handlePickPhotos = async () => {
+    if (remainingSlots <= 0) return;
+
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Permission needed', 'Please allow photo library access to add photos.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsMultipleSelection: true,
+      selectionLimit: remainingSlots,
+      quality: 0.7,
+    });
+    if (result.canceled || !result.assets?.length) return;
+
+    setNewPhotos((prev) => [...prev, ...result.assets]);
+  };
+
+  const handleRemoveExisting = (url: string) => {
+    setExistingPhotoUrls((prev) => prev.filter((u) => u !== url));
+  };
+
+  const handleRemoveNew = (index: number) => {
+    setNewPhotos((prev) => prev.filter((_, i) => i !== index));
+  };
 
   const handleSubmit = async () => {
     if (!content.trim()) {
@@ -36,10 +85,35 @@ export default function CreatePostScreen() {
     setPosting(true);
     try {
       if (editingPost) {
-        await editPost({ postId: editingPost.id, content: content.trim(), category });
+        const uploadedUrls = await Promise.all(
+          newPhotos.map((asset) =>
+            uploadPostPhoto({
+              userId: user.id,
+              postId: editingPost.id,
+              localUri: asset.uri,
+              mimeType: asset.mimeType,
+            })
+          )
+        );
+        const removedPhotoUrls = editingPost.photo_urls.filter((url) => !existingPhotoUrls.includes(url));
+
+        await editPost({
+          postId: editingPost.id,
+          content: content.trim(),
+          category,
+          photoUrls: [...existingPhotoUrls, ...uploadedUrls],
+          removedPhotoUrls,
+        });
         showToast('Post updated');
       } else {
-        await createPost({ authorId: user.id, content: content.trim(), category });
+        const postId = Crypto.randomUUID();
+        const uploadedUrls = await Promise.all(
+          newPhotos.map((asset) =>
+            uploadPostPhoto({ userId: user.id, postId, localUri: asset.uri, mimeType: asset.mimeType })
+          )
+        );
+
+        await createPost({ postId, authorId: user.id, content: content.trim(), category, photoUrls: uploadedUrls });
       }
       navigation.goBack();
     } catch (err) {
@@ -97,11 +171,40 @@ export default function CreatePostScreen() {
           {content.length}/{MAX_LENGTH}
         </Text>
 
+        <Text style={styles.label}>
+          Photos {totalPhotos > 0 ? `(${totalPhotos}/${MAX_PHOTOS})` : '(optional)'}
+        </Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoRow}>
+          {existingPhotoUrls.map((url) => (
+            <View key={url} style={styles.photoThumbWrap}>
+              <Image source={{ uri: url }} style={styles.photoThumb} />
+              <TouchableOpacity style={styles.photoRemove} onPress={() => handleRemoveExisting(url)}>
+                <Ionicons name="close" size={14} color="#fff" />
+              </TouchableOpacity>
+            </View>
+          ))}
+          {newPhotos.map((asset, index) => (
+            <View key={asset.assetId ?? asset.uri} style={styles.photoThumbWrap}>
+              <Image source={{ uri: asset.uri }} style={styles.photoThumb} />
+              <TouchableOpacity style={styles.photoRemove} onPress={() => handleRemoveNew(index)}>
+                <Ionicons name="close" size={14} color="#fff" />
+              </TouchableOpacity>
+            </View>
+          ))}
+          {remainingSlots > 0 && (
+            <TouchableOpacity style={styles.addPhotoTile} onPress={handlePickPhotos}>
+              <Ionicons name="image-outline" size={24} color={colors.primary} />
+              <Text style={styles.addPhotoText}>Add</Text>
+            </TouchableOpacity>
+          )}
+        </ScrollView>
+
         <PrimaryButton
           title={editingPost ? 'Save Changes' : 'Post'}
           icon={editingPost ? 'checkmark-outline' : 'paper-plane-outline'}
           onPress={handleSubmit}
           loading={posting}
+          style={styles.submitButton}
         />
       </FadeInView>
     </KeyboardAvoidingView>
@@ -180,5 +283,48 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     marginTop: spacing.xs,
     marginBottom: spacing.lg,
+  },
+  photoRow: {
+    marginBottom: spacing.lg,
+  },
+  photoThumbWrap: {
+    position: 'relative',
+    marginRight: spacing.sm,
+  },
+  photoThumb: {
+    width: 76,
+    height: 76,
+    borderRadius: radius.md,
+    backgroundColor: colors.cardBg,
+  },
+  photoRemove: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    width: 20,
+    height: 20,
+    borderRadius: radius.full,
+    backgroundColor: colors.error,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addPhotoTile: {
+    width: 76,
+    height: 76,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    borderStyle: 'dashed',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addPhotoText: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.xs,
+    color: colors.primary,
+    marginTop: 2,
+  },
+  submitButton: {
+    marginTop: spacing.sm,
   },
 });

@@ -16,6 +16,7 @@ import LoadingScreen from '../../components/LoadingScreen';
 import FadeInView from '../../components/FadeInView';
 import ActionSheet, { ActionSheetAction } from '../../components/ActionSheet';
 import LikeButton from '../../components/LikeButton';
+import PhotoCarousel from '../../components/PhotoCarousel';
 import { Post, Story, MainStackParamList } from '../../types';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
 import { CATEGORY_STYLES } from '../../constants/categoryStyles';
@@ -125,7 +126,7 @@ export default function FeedScreen() {
         onPress: async () => {
           setDeletingPostId(post.id);
           try {
-            await deletePost(post.id);
+            await deletePost(post.id, post.photo_urls);
             setPosts((prev) => prev.filter((p) => p.id !== post.id));
             showToast('Post deleted');
           } catch (err) {
@@ -266,6 +267,17 @@ export default function FeedScreen() {
                 </View>
 
                 <Text style={styles.content}>{item.content}</Text>
+
+                {item.photo_urls.length > 0 && (
+                  <View style={styles.photoWrap}>
+                    <PhotoCarousel
+                      photoUrls={item.photo_urls}
+                      onPressPhoto={(photoIndex) =>
+                        navigation.navigate('PhotoViewer', { photoUrls: item.photo_urls, initialIndex: photoIndex })
+                      }
+                    />
+                  </View>
+                )}
 
                 {item.category === 'Need Help' && item.status !== 'open' && item.helper ? (
                   <View style={styles.helperNotice}>
@@ -452,6 +464,9 @@ const styles = StyleSheet.create({
     fontSize: fontSize.md,
     color: colors.textDark,
     lineHeight: 21,
+  },
+  photoWrap: {
+    marginTop: spacing.sm,
   },
   cardFooter: {
     flexDirection: 'row',

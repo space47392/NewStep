@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { removePostPhotos } from './postPhotos';
 import { Post, PostCategory } from '../types';
 
 const POST_SELECT = `
@@ -8,6 +9,7 @@ const POST_SELECT = `
   category,
   status,
   like_count,
+  photo_urls,
   created_at,
   profiles:author_id (
     id,
@@ -52,14 +54,18 @@ export async function fetchPostsByAuthor(authorId: string): Promise<Post[]> {
 }
 
 export async function createPost(params: {
+  postId: string;
   authorId: string;
   content: string;
   category: PostCategory;
+  photoUrls: string[];
 }): Promise<void> {
   const { error } = await supabase.from('posts').insert({
+    id: params.postId,
     author_id: params.authorId,
     content: params.content,
     category: params.category,
+    photo_urls: params.photoUrls,
   });
 
   if (error) throw error;
@@ -96,17 +102,28 @@ export async function editPost(params: {
   postId: string;
   content: string;
   category: PostCategory;
+  photoUrls: string[];
+  removedPhotoUrls: string[];
 }): Promise<void> {
   const { error } = await supabase.rpc('edit_post', {
     p_post_id: params.postId,
     p_content: params.content,
     p_category: params.category,
+    p_photo_urls: params.photoUrls,
   });
 
   if (error) throw error;
+
+  if (params.removedPhotoUrls.length > 0) {
+    await removePostPhotos(params.removedPhotoUrls);
+  }
 }
 
-export async function deletePost(postId: string): Promise<void> {
+export async function deletePost(postId: string, photoUrls: string[] = []): Promise<void> {
   const { error } = await supabase.from('posts').delete().eq('id', postId);
   if (error) throw error;
+
+  if (photoUrls.length > 0) {
+    await removePostPhotos(photoUrls);
+  }
 }

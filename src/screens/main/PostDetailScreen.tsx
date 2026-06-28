@@ -27,6 +27,7 @@ import PrimaryButton from '../../components/PrimaryButton';
 import FadeInView from '../../components/FadeInView';
 import ActionSheet, { ActionSheetAction } from '../../components/ActionSheet';
 import LikeButton from '../../components/LikeButton';
+import PhotoCarousel from '../../components/PhotoCarousel';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
 import { CATEGORY_STYLES } from '../../constants/categoryStyles';
 import { MainStackParamList, Comment } from '../../types';
@@ -164,7 +165,7 @@ export default function PostDetailScreen() {
         onPress: async () => {
           setDeletingPost(true);
           try {
-            await deletePost(post.id);
+            await deletePost(post.id, post.photo_urls);
             showToast('Post deleted');
             navigation.goBack();
           } catch (err) {
@@ -247,6 +248,17 @@ export default function PostDetailScreen() {
             </View>
 
             <Text style={styles.postContent}>{post.content}</Text>
+
+            {post.photo_urls.length > 0 && (
+              <View style={styles.photoWrap}>
+                <PhotoCarousel
+                  photoUrls={post.photo_urls}
+                  onPressPhoto={(photoIndex) =>
+                    navigation.navigate('PhotoViewer', { photoUrls: post.photo_urls, initialIndex: photoIndex })
+                  }
+                />
+              </View>
+            )}
 
             <View style={styles.likeRow}>
               <LikeButton postId={post.id} initialLikeCount={post.like_count} initialLikedByMe={likedByMe} />
@@ -488,6 +500,9 @@ const styles = StyleSheet.create({
     fontSize: fontSize.md,
     color: colors.textDark,
     lineHeight: 21,
+    marginBottom: spacing.md,
+  },
+  photoWrap: {
     marginBottom: spacing.md,
   },
   likeRow: {

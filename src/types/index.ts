@@ -10,6 +10,7 @@ export type AuthStackParamList = {
 
 export type MainTabParamList = {
   Feed: undefined;
+  Search: undefined;
   Help: undefined;
   Chat: undefined;
   Volunteer: undefined;
@@ -23,6 +24,7 @@ export type MainStackParamList = {
   Conversation: { conversationId: string; otherUser: ChatProfile };
   UserProfile: { userId: string };
   StoryViewer: { stories: Story[]; initialIndex: number };
+  PhotoViewer: { photoUrls: string[]; initialIndex: number };
 };
 
 export type Profile = {
@@ -47,6 +49,7 @@ export type Post = {
   category: PostCategory;
   status: PostStatus;
   like_count: number;
+  photo_urls: string[];
   created_at: string;
   profiles: {
     id: string;

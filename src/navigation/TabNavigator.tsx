@@ -4,6 +4,7 @@ import { MainTabParamList } from '../types';
 import { colors, fontFamily, shadow } from '../constants/theme';
 
 import FeedScreen from '../screens/main/FeedScreen';
+import SearchScreen from '../screens/main/SearchScreen';
 import HelpScreen from '../screens/main/HelpScreen';
 import ChatScreen from '../screens/main/ChatScreen';
 import VolunteerScreen from '../screens/main/VolunteerScreen';
@@ -13,6 +14,7 @@ const Tab = createBottomTabNavigator<MainTabParamList>();
 
 const TAB_ICONS: Record<string, { focused: string; unfocused: string }> = {
   Feed:      { focused: 'home',           unfocused: 'home-outline' },
+  Search:    { focused: 'search',         unfocused: 'search-outline' },
   Help:      { focused: 'help-circle',    unfocused: 'help-circle-outline' },
   Chat:      { focused: 'chatbubbles',    unfocused: 'chatbubbles-outline' },
   Volunteer: { focused: 'trophy',         unfocused: 'trophy-outline' },
@@ -46,6 +48,7 @@ export default function TabNavigator() {
       })}
     >
       <Tab.Screen name="Feed"      component={FeedScreen}      options={{ title: 'Home' }} />
+      <Tab.Screen name="Search"    component={SearchScreen}    options={{ title: 'Search' }} />
       <Tab.Screen name="Help"      component={HelpScreen}      options={{ title: 'Help' }} />
       <Tab.Screen name="Chat"      component={ChatScreen}      options={{ title: 'Chat' }} />
       <Tab.Screen name="Volunteer" component={VolunteerScreen} options={{ title: 'Leaders' }} />

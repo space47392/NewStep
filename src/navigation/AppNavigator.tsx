@@ -7,6 +7,7 @@ import LoadingScreen from '../components/LoadingScreen';
 
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
+import ChooseUsernameScreen from '../screens/auth/ChooseUsernameScreen';
 import MainNavigator from './MainNavigator';
 import { navigationRef } from './navigationRef';
 
@@ -23,22 +24,29 @@ function AuthNavigator() {
 }
 
 export default function AppNavigator() {
-  const { session, loading } = useAuth();
+  const { session, loading, username, usernameLoading } = useAuth();
 
-  // Show a spinner while Supabase checks for a stored session on device
-  if (loading) {
+  // Show a spinner while Supabase checks for a stored session, and — once
+  // logged in — while we check whether this account has a username yet.
+  if (loading || (session && usernameLoading)) {
     return <LoadingScreen />;
   }
 
   return (
     <NavigationContainer ref={navigationRef}>
       <RootStack.Navigator screenOptions={{ headerShown: false }}>
-        {session ? (
-          // Logged in → show main app (bottom tabs + screens like CreatePost pushed on top)
-          <RootStack.Screen name="Main" component={MainNavigator} />
-        ) : (
+        {!session ? (
           // Logged out → show auth screens
           <RootStack.Screen name="Auth" component={AuthNavigator as any} />
+        ) : !username ? (
+          // Logged in but no username yet — covers both pre-existing accounts
+          // from before this feature existed, and brand new signups (a fresh
+          // profile row also starts with username = null).
+          <RootStack.Screen name="ChooseUsername" component={ChooseUsernameScreen} />
+        ) : (
+          // Logged in with a username → show main app (bottom tabs + screens
+          // like CreatePost pushed on top)
+          <RootStack.Screen name="Main" component={MainNavigator} />
         )}
       </RootStack.Navigator>
     </NavigationContainer>

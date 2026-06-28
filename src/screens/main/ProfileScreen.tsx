@@ -30,6 +30,7 @@ export default function ProfileScreen() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [avatarVersion, setAvatarVersion] = useState(0);
   const [points, setPoints] = useState(0);
+  const [username, setUsername] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -50,6 +51,7 @@ export default function ProfileScreen() {
         setInterests(data.interests ?? []);
         setAvatarUrl(data.avatar_url ?? null);
         setPoints(data.points);
+        setUsername(data.username);
       }
       setLoadingProfile(false);
     })();
@@ -172,6 +174,8 @@ export default function ProfileScreen() {
             </View>
           )}
         </TouchableOpacity>
+
+        {username ? <Text style={styles.username}>@{username}</Text> : null}
 
         <View style={styles.pointsBadge}>
           <Ionicons name="trophy" size={14} color={colors.primary} />
@@ -300,6 +304,12 @@ const styles = StyleSheet.create({
     borderRadius: radius.full,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  username: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
+    color: colors.textMid,
+    marginBottom: spacing.sm,
   },
   pointsBadge: {
     flexDirection: 'row',

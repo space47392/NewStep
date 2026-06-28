@@ -1,5 +1,6 @@
 export type RootStackParamList = {
   Auth: undefined;
+  ChooseUsername: undefined;
   Main: undefined;
 };
 
@@ -29,6 +30,7 @@ export type MainStackParamList = {
 
 export type Profile = {
   id: string;
+  username: string | null;
   full_name: string | null;
   school_name: string | null;
   grade: string | null;

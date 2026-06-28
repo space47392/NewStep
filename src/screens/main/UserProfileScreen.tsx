@@ -108,6 +108,7 @@ export default function UserProfileScreen() {
           </View>
 
           <Text style={styles.name}>{profile.full_name ?? 'Unknown'}</Text>
+          {profile.username ? <Text style={styles.username}>@{profile.username}</Text> : null}
 
           {profile.school_name ? (
             <View style={styles.metaRow}>
@@ -218,6 +219,12 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.bold,
     fontSize: fontSize.xl,
     color: colors.textDark,
+  },
+  username: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
+    color: colors.textMid,
+    marginTop: 2,
   },
   metaRow: {
     flexDirection: 'row',

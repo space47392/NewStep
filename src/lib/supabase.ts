@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 
 // Values come from .env (see .env.example for the template) — never hardcode them here
@@ -15,9 +16,28 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
 
 // SecureStore adapter so Supabase can persist the auth session on-device
 const ExpoSecureStoreAdapter = {
-  getItem: (key: string) => SecureStore.getItemAsync(key),
-  setItem: (key: string, value: string) => SecureStore.setItemAsync(key, value),
-  removeItem: (key: string) => SecureStore.deleteItemAsync(key),
+  getItem: async (key: string) => {
+    if (Platform.OS === 'web') {
+      return localStorage.getItem(key);
+    }
+    return SecureStore.getItemAsync(key);
+  },
+
+  setItem: async (key: string, value: string) => {
+    if (Platform.OS === 'web') {
+      localStorage.setItem(key, value);
+      return;
+    }
+    return SecureStore.setItemAsync(key, value);
+  },
+
+  removeItem: async (key: string) => {
+    if (Platform.OS === 'web') {
+      localStorage.removeItem(key);
+      return;
+    }
+    return SecureStore.deleteItemAsync(key);
+  },
 };
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {

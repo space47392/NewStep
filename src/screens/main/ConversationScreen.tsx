@@ -15,6 +15,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
+import * as Haptics from 'expo-haptics';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import {
@@ -25,12 +26,12 @@ import {
   subscribeToMessages,
   markMessagesAsRead,
 } from '../../lib/chat';
-import { formatRelativeTime } from '../../lib/time';
+import { formatRelativeTime, formatDayLabel, isSameDay } from '../../lib/time';
 import Avatar from '../../components/Avatar';
 import EmptyState from '../../components/EmptyState';
-import LoadingScreen from '../../components/LoadingScreen';
+import { MessageSkeleton } from '../../components/Skeleton';
 import ActionSheet, { ActionSheetAction } from '../../components/ActionSheet';
-import { colors, spacing, radius, fontSize, fontFamily } from '../../constants/theme';
+import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
 import { MainStackParamList, Message } from '../../types';
 
 export default function ConversationScreen() {
@@ -99,6 +100,7 @@ export default function ConversationScreen() {
         await sendMessage({ conversationId, senderId: user.id, content: trimmed });
       }
       setText(''); // the sent/edited message arrives back via the real-time subscription above
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Could not send message.';
       Alert.alert('Error', message);
@@ -180,7 +182,12 @@ export default function ConversationScreen() {
       </View>
 
       {loading ? (
-        <LoadingScreen />
+        <View style={styles.list}>
+          <MessageSkeleton />
+          <MessageSkeleton mine />
+          <MessageSkeleton />
+          <MessageSkeleton mine />
+        </View>
       ) : (
         <FlatList
           ref={listRef}
@@ -189,32 +196,56 @@ export default function ConversationScreen() {
           contentContainerStyle={styles.list}
           onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
           ListEmptyComponent={<EmptyState icon="happy-outline" title="Say hello!" subtitle="Start the conversation." />}
-          renderItem={({ item }) => {
+          renderItem={({ item, index }) => {
             const isMine = item.sender_id === user?.id;
             const isDeleted = !!item.deleted_at;
+            const prevItem = messages[index - 1];
+            const nextItem = messages[index + 1];
+            const showDaySeparator = !prevItem || !isSameDay(prevItem.created_at, item.created_at);
+            // The last bubble in a consecutive run from the same sender (within the same day)
+            // carries the small avatar, Messenger-style — earlier ones in the run leave the
+            // space blank so the bubble column stays aligned.
+            const isLastInGroup =
+              !nextItem || nextItem.sender_id !== item.sender_id || !isSameDay(nextItem.created_at, item.created_at);
+            const showAvatar = !isMine && isLastInGroup;
+
             return (
-              <View style={[styles.bubbleRow, isMine ? styles.bubbleRowMine : styles.bubbleRowTheirs]}>
-                <TouchableOpacity
-                  activeOpacity={0.85}
-                  disabled={isDeleted}
-                  onLongPress={() => handleLongPressMessage(item)}
-                  style={[
-                    styles.bubble,
-                    isMine ? styles.bubbleMine : styles.bubbleTheirs,
-                    isDeleted && styles.bubbleDeleted,
-                  ]}
-                >
-                  {isDeleted ? (
-                    <Text style={styles.deletedText}>
-                      {isMine ? 'You deleted this message' : 'This message was deleted'}
-                    </Text>
-                  ) : (
-                    <Text style={isMine ? styles.bubbleTextMine : styles.bubbleTextTheirs}>{item.content}</Text>
+              <View>
+                {showDaySeparator && (
+                  <View style={styles.daySeparator}>
+                    <Text style={styles.daySeparatorText}>{formatDayLabel(item.created_at)}</Text>
+                  </View>
+                )}
+                <View style={[styles.bubbleRow, isMine ? styles.bubbleRowMine : styles.bubbleRowTheirs]}>
+                  {!isMine && (
+                    <View style={styles.avatarSlot}>
+                      {showAvatar ? <Avatar uri={otherUser.avatar_url} size={24} /> : null}
+                    </View>
                   )}
-                </TouchableOpacity>
-                <View style={styles.messageFooter}>
-                  <Text style={styles.messageTimestamp}>{formatRelativeTime(item.created_at)}</Text>
-                  {item.edited_at && !isDeleted ? <Text style={styles.editedLabel}>(edited)</Text> : null}
+                  <View style={[styles.bubbleCol, isMine ? styles.bubbleColMine : styles.bubbleColTheirs]}>
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      disabled={isDeleted}
+                      onLongPress={() => handleLongPressMessage(item)}
+                      style={[
+                        styles.bubble,
+                        isMine ? styles.bubbleMine : styles.bubbleTheirs,
+                        isDeleted && styles.bubbleDeleted,
+                      ]}
+                    >
+                      {isDeleted ? (
+                        <Text style={styles.deletedText}>
+                          {isMine ? 'You deleted this message' : 'This message was deleted'}
+                        </Text>
+                      ) : (
+                        <Text style={isMine ? styles.bubbleTextMine : styles.bubbleTextTheirs}>{item.content}</Text>
+                      )}
+                    </TouchableOpacity>
+                    <View style={styles.messageFooter}>
+                      <Text style={styles.messageTimestamp}>{formatRelativeTime(item.created_at)}</Text>
+                      {item.edited_at && !isDeleted ? <Text style={styles.editedLabel}>(edited)</Text> : null}
+                    </View>
+                  </View>
                 </View>
               </View>
             );
@@ -242,9 +273,9 @@ export default function ConversationScreen() {
           multiline
         />
         <TouchableOpacity
-          style={[styles.sendButton, sending && styles.buttonDisabled]}
+          style={[styles.sendButton, (sending || !text.trim()) && styles.buttonDisabled]}
           onPress={handleSend}
-          disabled={sending}
+          disabled={sending || !text.trim()}
         >
           {sending ? (
             <ActivityIndicator color="#fff" />
@@ -290,22 +321,50 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     flexGrow: 1,
   },
+  daySeparator: {
+    alignItems: 'center',
+    marginVertical: spacing.md,
+  },
+  daySeparatorText: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.xs,
+    color: colors.textLight,
+    backgroundColor: colors.border,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: radius.full,
+    overflow: 'hidden',
+  },
   bubbleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
     marginBottom: spacing.sm,
-    maxWidth: '80%',
   },
   bubbleRowMine: {
-    alignSelf: 'flex-end',
-    alignItems: 'flex-end',
+    justifyContent: 'flex-end',
   },
   bubbleRowTheirs: {
-    alignSelf: 'flex-start',
+    justifyContent: 'flex-start',
+  },
+  avatarSlot: {
+    width: 24,
+    height: 24,
+    marginRight: spacing.xs,
+  },
+  bubbleCol: {
+    maxWidth: '76%',
+  },
+  bubbleColMine: {
+    alignItems: 'flex-end',
+  },
+  bubbleColTheirs: {
     alignItems: 'flex-start',
   },
   bubble: {
     borderRadius: radius.lg,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
+    ...shadow.subtle,
   },
   bubbleMine: {
     backgroundColor: colors.primary,

@@ -7,7 +7,7 @@ import { fetchConversations } from '../../lib/chat';
 import { formatRelativeTime } from '../../lib/time';
 import Avatar from '../../components/Avatar';
 import EmptyState from '../../components/EmptyState';
-import LoadingScreen from '../../components/LoadingScreen';
+import { ConversationRowSkeleton } from '../../components/Skeleton';
 import FadeInView from '../../components/FadeInView';
 import { Conversation, MainStackParamList } from '../../types';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
@@ -50,7 +50,15 @@ export default function ChatScreen() {
   };
 
   if (loading) {
-    return <LoadingScreen />;
+    return (
+      <View style={[styles.loadingContainer, styles.list]}>
+        <Text style={styles.title}>Messages 💬</Text>
+        <ConversationRowSkeleton />
+        <ConversationRowSkeleton />
+        <ConversationRowSkeleton />
+        <ConversationRowSkeleton />
+      </View>
+    );
   }
 
   return (
@@ -114,6 +122,10 @@ export default function ChatScreen() {
 }
 
 const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
   list: {
     padding: spacing.lg,
   },

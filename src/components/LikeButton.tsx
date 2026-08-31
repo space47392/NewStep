@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, Animated, GestureResponderEvent, StyleShe
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { useAuth } from '../contexts/AuthContext';
 import { likePost, unlikePost, subscribeToLikes } from '../lib/likes';
 import LikesListModal from './LikesListModal';
@@ -49,6 +50,7 @@ export default function LikeButton({ postId, initialLikeCount, initialLikedByMe 
     const nextLiked = !liked;
     setLiked(nextLiked);
     setCount((prev) => Math.max(0, prev + (nextLiked ? 1 : -1)));
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     Animated.sequence([
       Animated.spring(scale, { toValue: 1.3, useNativeDriver: true, speed: 50 }),

@@ -41,9 +41,13 @@ export async function uploadStory(params: {
   if (uploadError) throw uploadError;
 
   const { data } = supabase.storage.from('stories').getPublicUrl(path);
+  // The upload path is fixed per user (upsert overwrite), so the public URL is
+  // identical every time — without a cache-busting param, <Image> would keep
+  // showing the previous story's cached bytes after a replace.
+  const cacheBustedUrl = `${data.publicUrl}?v=${Date.now()}`;
 
   // Atomically replaces any existing story — see replace_story() in stories_schema.sql.
-  const { error: rpcError } = await supabase.rpc('replace_story', { p_image_url: data.publicUrl });
+  const { error: rpcError } = await supabase.rpc('replace_story', { p_image_url: cacheBustedUrl });
   if (rpcError) throw rpcError;
 }
 

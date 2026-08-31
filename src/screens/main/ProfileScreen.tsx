@@ -28,7 +28,6 @@ export default function ProfileScreen() {
   const [interests, setInterests] = useState<string[]>([]);
   const [interestInput, setInterestInput] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  const [avatarVersion, setAvatarVersion] = useState(0);
   const [points, setPoints] = useState(0);
   const [username, setUsername] = useState<string | null>(null);
 
@@ -89,8 +88,11 @@ export default function ProfileScreen() {
       if (uploadError) throw uploadError;
 
       const { data } = supabase.storage.from('avatars').getPublicUrl(path);
-      setAvatarUrl(data.publicUrl);
-      setAvatarVersion((v) => v + 1); // bust the image cache so the new photo shows immediately
+      // The upload path is fixed per user (upsert overwrite), so the public URL
+      // is identical every time — bust it here, before it's saved, so every
+      // screen that renders this avatar from the DB (not just this preview)
+      // picks up the new photo instead of a stale cached one.
+      setAvatarUrl(`${data.publicUrl}?v=${Date.now()}`);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Something went wrong.';
       Alert.alert('Upload failed', message);
@@ -159,7 +161,7 @@ export default function ProfileScreen() {
 
         <TouchableOpacity style={styles.avatarWrapper} onPress={handlePickAvatar} disabled={uploadingAvatar}>
           {avatarUrl ? (
-            <Image source={{ uri: `${avatarUrl}?v=${avatarVersion}` }} style={styles.avatar} />
+            <Image source={{ uri: avatarUrl }} style={styles.avatar} />
           ) : (
             <View style={[styles.avatar, styles.avatarPlaceholder]}>
               <Ionicons name="person" size={48} color={colors.primary} />

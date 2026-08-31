@@ -8,12 +8,14 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  RefreshControl,
   Alert,
   StyleSheet,
 } from 'react-native';
 import { useFocusEffect, useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { fetchComments, addComment, subscribeToComments } from '../../lib/comments';
@@ -23,6 +25,7 @@ import { fetchLikedPostIds } from '../../lib/likes';
 import { formatRelativeTime } from '../../lib/time';
 import Avatar from '../../components/Avatar';
 import EmptyState from '../../components/EmptyState';
+import { CommentSkeleton } from '../../components/Skeleton';
 import PrimaryButton from '../../components/PrimaryButton';
 import FadeInView from '../../components/FadeInView';
 import ActionSheet, { ActionSheetAction } from '../../components/ActionSheet';
@@ -43,6 +46,7 @@ export default function PostDetailScreen() {
   const [post, setPost] = useState(route.params.post);
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [commentText, setCommentText] = useState('');
   const [sending, setSending] = useState(false);
   const [volunteering, setVolunteering] = useState(false);
@@ -108,6 +112,7 @@ export default function PostDetailScreen() {
     try {
       const updated = await volunteerToHelp({ postId: post.id, helperId: user.id });
       setPost(updated);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Could not volunteer to help.';
       Alert.alert('Error', message);
@@ -121,11 +126,29 @@ export default function PostDetailScreen() {
     try {
       const updated = await markPostCompleted(post.id);
       setPost(updated);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Could not mark as completed.';
       Alert.alert('Error', message);
     } finally {
       setCompleting(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      const [freshPost, freshComments] = await Promise.all([fetchPostById(post.id), fetchComments(post.id)]);
+      setPost(freshPost);
+      setComments(freshComments);
+      if (user) {
+        const liked = await fetchLikedPostIds(user.id, [freshPost.id]);
+        setLikedByMe(liked.has(freshPost.id));
+      }
+    } catch {
+      // best-effort — leave whatever is currently shown on failure
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -193,6 +216,7 @@ export default function PostDetailScreen() {
     try {
       await addComment({ postId: post.id, authorId: user.id, content: trimmed });
       setCommentText(''); // the new comment arrives via the real-time subscription above
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Could not post comment.';
       Alert.alert('Error', message);
@@ -219,6 +243,7 @@ export default function PostDetailScreen() {
         data={comments}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />}
         ListHeaderComponent={
           <FadeInView style={styles.postCard}>
             {deletingPost && (
@@ -316,14 +341,20 @@ export default function PostDetailScreen() {
             )}
 
             <Text style={styles.commentsLabel}>
-              {loading ? 'Loading comments...' : `${comments.length} Comment${comments.length === 1 ? '' : 's'}`}
+              {loading ? 'Comments' : `${comments.length} Comment${comments.length === 1 ? '' : 's'}`}
             </Text>
           </FadeInView>
         }
         ListEmptyComponent={
-          !loading ? (
+          loading ? (
+            <View>
+              <CommentSkeleton />
+              <CommentSkeleton />
+              <CommentSkeleton />
+            </View>
+          ) : (
             <EmptyState icon="chatbubbles-outline" title="No comments yet" subtitle="Start the conversation!" />
-          ) : null
+          )
         }
         renderItem={({ item }) => (
           <View style={styles.commentRow}>
@@ -352,9 +383,9 @@ export default function PostDetailScreen() {
           multiline
         />
         <TouchableOpacity
-          style={[styles.sendButton, sending && styles.buttonDisabled]}
+          style={[styles.sendButton, (sending || !commentText.trim()) && styles.buttonDisabled]}
           onPress={handleSend}
-          disabled={sending}
+          disabled={sending || !commentText.trim()}
         >
           {sending ? <ActivityIndicator color="#fff" /> : <Ionicons name="send" size={18} color="#fff" />}
         </TouchableOpacity>

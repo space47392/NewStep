@@ -74,4 +74,13 @@ export const shadow = {
     shadowRadius: 14,
     elevation: 6,
   },
+  // Lighter than `card` — for small elements (chat bubbles, badges) that need
+  // just a hint of lift rather than a full card shadow.
+  subtle: {
+    shadowColor: '#1A1A2E',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+  },
 };

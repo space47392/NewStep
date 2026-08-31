@@ -12,7 +12,7 @@ import { fetchActiveStories, uploadStory } from '../../lib/stories';
 import { formatRelativeTime } from '../../lib/time';
 import Avatar from '../../components/Avatar';
 import EmptyState from '../../components/EmptyState';
-import LoadingScreen from '../../components/LoadingScreen';
+import { PostCardSkeleton } from '../../components/Skeleton';
 import FadeInView from '../../components/FadeInView';
 import ActionSheet, { ActionSheetAction } from '../../components/ActionSheet';
 import LikeButton from '../../components/LikeButton';
@@ -148,7 +148,13 @@ export default function FeedScreen() {
     : [];
 
   if (loading) {
-    return <LoadingScreen />;
+    return (
+      <View style={[styles.container, styles.list]}>
+        <PostCardSkeleton />
+        <PostCardSkeleton />
+        <PostCardSkeleton />
+      </View>
+    );
   }
 
   return (

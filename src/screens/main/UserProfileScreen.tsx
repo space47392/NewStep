@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { fetchProfileById } from '../../lib/profile';
 import { fetchPostsByAuthor } from '../../lib/posts';
+import { fetchHelpStats } from '../../lib/points';
 import { getOrCreateConversation } from '../../lib/chat';
 import { formatRelativeTime } from '../../lib/time';
 import Avatar from '../../components/Avatar';
@@ -25,6 +26,7 @@ export default function UserProfileScreen() {
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
+  const [studentsHelped, setStudentsHelped] = useState(0);
   const [loading, setLoading] = useState(true);
   const [messaging, setMessaging] = useState(false);
 
@@ -34,9 +36,14 @@ export default function UserProfileScreen() {
     useCallback(() => {
       (async () => {
         try {
-          const [profileData, postsData] = await Promise.all([fetchProfileById(userId), fetchPostsByAuthor(userId)]);
+          const [profileData, postsData, helpStats] = await Promise.all([
+            fetchProfileById(userId),
+            fetchPostsByAuthor(userId),
+            fetchHelpStats(userId),
+          ]);
           setProfile(profileData);
           setPosts(postsData);
+          setStudentsHelped(helpStats.studentsHelped);
         } catch {
           setProfile(null);
         } finally {
@@ -103,6 +110,11 @@ export default function UserProfileScreen() {
                 <Ionicons name="trophy" size={16} color={colors.primary} style={styles.statIcon} />
                 <Text style={styles.statNumber}>{profile.points}</Text>
                 <Text style={styles.statLabel}>Points</Text>
+              </View>
+              <View style={styles.statBlock}>
+                <Ionicons name="people" size={16} color={colors.success} style={styles.statIcon} />
+                <Text style={styles.statNumber}>{studentsHelped}</Text>
+                <Text style={styles.statLabel}>Helped</Text>
               </View>
             </View>
           </View>

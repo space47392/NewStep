@@ -40,6 +40,20 @@ export type Profile = {
   updated_at: string;
 };
 
+// The public-safe subset of Profile shown on the leaderboard — deliberately
+// narrower than a full Profile select (no interests/username/grade/updated_at).
+export type LeaderboardEntry = Pick<Profile, 'id' | 'full_name' | 'school_name' | 'avatar_url' | 'points'>;
+
+// One row of a user's private points_history ledger (see points_history_schema.sql).
+// Only ever inserted by handle_post_completed() — never client-writable.
+export type PointsHistoryEntry = {
+  id: string;
+  amount: number;
+  reason: string;
+  post_id: string | null;
+  created_at: string;
+};
+
 export type PostCategory = 'Need Help' | 'School Question' | 'Looking for Friends';
 
 export type PostStatus = 'open' | 'accepted' | 'completed';

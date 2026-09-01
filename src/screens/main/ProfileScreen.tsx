@@ -5,12 +5,14 @@ import * as ImagePicker from 'expo-image-picker';
 import { File } from 'expo-file-system';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
+import { fetchHelpStats, fetchPointsHistory, formatPointReason } from '../../lib/points';
+import { formatRelativeTime } from '../../lib/time';
 import IconInput from '../../components/IconInput';
 import PrimaryButton from '../../components/PrimaryButton';
 import LoadingScreen from '../../components/LoadingScreen';
 import FadeInView from '../../components/FadeInView';
-import { colors, spacing, radius, fontSize, fontFamily } from '../../constants/theme';
-import { Profile } from '../../types';
+import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
+import { Profile, PointsHistoryEntry } from '../../types';
 
 const GRADES = ['6th', '7th', '8th', '9th', '10th', '11th', '12th'];
 
@@ -30,6 +32,8 @@ export default function ProfileScreen() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [points, setPoints] = useState(0);
   const [username, setUsername] = useState<string | null>(null);
+  const [studentsHelped, setStudentsHelped] = useState(0);
+  const [pointHistory, setPointHistory] = useState<PointsHistoryEntry[]>([]);
 
   useEffect(() => {
     if (!user) return;
@@ -52,6 +56,17 @@ export default function ProfileScreen() {
         setPoints(data.points);
         setUsername(data.username);
       }
+
+      // Best-effort — a hiccup here shouldn't block the rest of the profile
+      // (editable fields above) from loading and being usable.
+      try {
+        const [helpStats, history] = await Promise.all([fetchHelpStats(user.id), fetchPointsHistory(user.id)]);
+        setStudentsHelped(helpStats.studentsHelped);
+        setPointHistory(history);
+      } catch {
+        // leave stats/history at their defaults
+      }
+
       setLoadingProfile(false);
     })();
   }, [user]);
@@ -179,12 +194,39 @@ export default function ProfileScreen() {
 
         {username ? <Text style={styles.username}>@{username}</Text> : null}
 
-        <View style={styles.pointsBadge}>
-          <Ionicons name="trophy" size={14} color={colors.primary} />
-          <Text style={styles.pointsText}>
-            {points} {points === 1 ? 'point' : 'points'}
-          </Text>
+        <View style={styles.communityCard}>
+          <Text style={styles.communityTitle}>Community</Text>
+          <View style={styles.communityStatsRow}>
+            <View style={styles.communityStat}>
+              <Ionicons name="star" size={20} color={colors.primary} />
+              <Text style={styles.communityStatNumber}>{points}</Text>
+              <Text style={styles.communityStatLabel}>{points === 1 ? 'Point' : 'Points'}</Text>
+            </View>
+            <View style={styles.communityStatDivider} />
+            <View style={styles.communityStat}>
+              <Ionicons name="people" size={20} color={colors.success} />
+              <Text style={styles.communityStatNumber}>{studentsHelped}</Text>
+              <Text style={styles.communityStatLabel}>
+                Helped {studentsHelped === 1 ? 'Student' : 'Students'}
+              </Text>
+            </View>
+          </View>
         </View>
+
+        {pointHistory.length > 0 && (
+          <View style={styles.activityCard}>
+            <Text style={styles.activityTitle}>Community Activity</Text>
+            {pointHistory.map((entry) => (
+              <View key={entry.id} style={styles.activityRow}>
+                <View style={styles.activityAmountBadge}>
+                  <Text style={styles.activityAmountText}>+{entry.amount}</Text>
+                </View>
+                <Text style={styles.activityReason}>{formatPointReason(entry.reason)}</Text>
+                <Text style={styles.activityTime}>{formatRelativeTime(entry.created_at)}</Text>
+              </View>
+            ))}
+          </View>
+        )}
       </FadeInView>
 
       <FadeInView style={styles.form} delay={100}>
@@ -313,20 +355,86 @@ const styles = StyleSheet.create({
     color: colors.textMid,
     marginBottom: spacing.sm,
   },
-  pointsBadge: {
+  communityCard: {
+    width: '100%',
+    backgroundColor: colors.cardBg,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    ...shadow.card,
+  },
+  communityTitle: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
+    color: colors.textMid,
+    marginBottom: spacing.sm,
+  },
+  communityStatsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+  },
+  communityStat: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 2,
+  },
+  communityStatDivider: {
+    width: 1,
+    height: 36,
+    backgroundColor: colors.border,
+  },
+  communityStatNumber: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.xl,
+    color: colors.textDark,
+    marginTop: 2,
+  },
+  communityStatLabel: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
+    color: colors.textMid,
+  },
+  activityCard: {
+    width: '100%',
+    backgroundColor: colors.cardBg,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+    ...shadow.card,
+  },
+  activityTitle: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
+    color: colors.textMid,
+    marginBottom: spacing.sm,
+  },
+  activityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  activityAmountBadge: {
     backgroundColor: colors.primaryLight,
     borderRadius: radius.full,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    marginBottom: spacing.lg,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
   },
-  pointsText: {
+  activityAmountText: {
     fontFamily: fontFamily.bold,
+    fontSize: fontSize.xs,
     color: colors.primary,
+  },
+  activityReason: {
+    flex: 1,
+    fontFamily: fontFamily.regular,
     fontSize: fontSize.sm,
+    color: colors.textDark,
+  },
+  activityTime: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
+    color: colors.textLight,
   },
   label: {
     fontFamily: fontFamily.semibold,

@@ -8,7 +8,7 @@ import Avatar from '../../components/Avatar';
 import EmptyState from '../../components/EmptyState';
 import LoadingScreen from '../../components/LoadingScreen';
 import FadeInView from '../../components/FadeInView';
-import { MainStackParamList, Profile } from '../../types';
+import { MainStackParamList, LeaderboardEntry } from '../../types';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
 
 const MEDALS: Record<number, { color: string; icon: keyof typeof Ionicons.glyphMap }> = {
@@ -19,7 +19,7 @@ const MEDALS: Record<number, { color: string; icon: keyof typeof Ionicons.glyphM
 
 export default function VolunteerScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
-  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [profiles, setProfiles] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -59,7 +59,7 @@ export default function VolunteerScreen() {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />}
       ListHeaderComponent={
         <View style={styles.header}>
-          <Text style={styles.title}>Leaderboard 🏆</Text>
+          <Text style={styles.title}>Community Leaderboard 🏆</Text>
           <Text style={styles.subtitle}>Earn points by helping other students</Text>
         </View>
       }

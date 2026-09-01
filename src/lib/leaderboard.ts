@@ -1,12 +1,15 @@
 import { supabase } from './supabase';
-import { Profile } from '../types';
+import { LeaderboardEntry } from '../types';
 
-export async function fetchLeaderboard(): Promise<Profile[]> {
+// Only the columns the leaderboard actually displays — narrower than select('*'),
+// so a future private-ish profile field doesn't silently start flowing into a
+// public ranked list just because it exists on the table.
+export async function fetchLeaderboard(): Promise<LeaderboardEntry[]> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('*')
+    .select('id, full_name, school_name, avatar_url, points')
     .order('points', { ascending: false });
 
   if (error) throw error;
-  return (data ?? []) as Profile[];
+  return (data ?? []) as LeaderboardEntry[];
 }

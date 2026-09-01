@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -24,12 +24,14 @@ import {
   editMessage,
   deleteMessage,
   subscribeToMessages,
+  subscribeToTyping,
   markMessagesAsRead,
 } from '../../lib/chat';
 import { formatRelativeTime, formatDayLabel, isSameDay } from '../../lib/time';
 import Avatar from '../../components/Avatar';
 import EmptyState from '../../components/EmptyState';
 import { MessageSkeleton } from '../../components/Skeleton';
+import TypingIndicator from '../../components/TypingIndicator';
 import ActionSheet, { ActionSheetAction } from '../../components/ActionSheet';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
 import { MainStackParamList, Message } from '../../types';
@@ -47,7 +49,19 @@ export default function ConversationScreen() {
   const [sending, setSending] = useState(false);
   const [menuMessage, setMenuMessage] = useState<Message | null>(null);
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
+  const [otherTyping, setOtherTyping] = useState(false);
   const listRef = useRef<FlatList>(null);
+  const typingRef = useRef<ReturnType<typeof subscribeToTyping> | null>(null);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Only the very last bubble I sent ever shows a read receipt — matching how
+  // iMessage/Instagram DMs do it, instead of stamping every message.
+  const lastMineMessageId = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].sender_id === user?.id) return messages[i].id;
+    }
+    return null;
+  }, [messages, user?.id]);
 
   useEffect(() => {
     let isMounted = true;
@@ -74,6 +88,10 @@ export default function ConversationScreen() {
         // If the other person's message arrives while this screen is open, mark it read immediately.
         if (user && message.sender_id !== user.id) {
           markMessagesAsRead(conversationId, user.id).catch(() => {});
+          // The message itself replaces the "typing..." bubble, so clear it right away
+          // instead of waiting for the timeout below.
+          setOtherTyping(false);
+          if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
         }
       } else {
         // Covers edits, deletes, and read-receipt updates alike — just merge by id.
@@ -86,6 +104,31 @@ export default function ConversationScreen() {
       unsubscribe();
     };
   }, [conversationId, user]);
+
+  // Ephemeral broadcast channel — no table, no history, just relayed to whoever
+  // else is subscribed to this conversation's typing topic right now.
+  useEffect(() => {
+    const typing = subscribeToTyping(conversationId, () => {
+      setOtherTyping(true);
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      // Auto-clears if no further keystrokes arrive — the other side never sends
+      // an explicit "stopped typing" event.
+      typingTimeoutRef.current = setTimeout(() => setOtherTyping(false), 3000);
+    });
+    typingRef.current = typing;
+
+    return () => {
+      typing.unsubscribe();
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    };
+  }, [conversationId]);
+
+  const handleChangeText = (value: string) => {
+    setText(value);
+    if (user && value.trim()) {
+      typingRef.current?.sendTyping(user.id);
+    }
+  };
 
   const handleSend = async () => {
     const trimmed = text.trim();
@@ -245,11 +288,26 @@ export default function ConversationScreen() {
                       <Text style={styles.messageTimestamp}>{formatRelativeTime(item.created_at)}</Text>
                       {item.edited_at && !isDeleted ? <Text style={styles.editedLabel}>(edited)</Text> : null}
                     </View>
+                    {isMine && item.id === lastMineMessageId && item.read_at && !isDeleted ? (
+                      <Text style={styles.readReceipt}>Read</Text>
+                    ) : null}
                   </View>
                 </View>
               </View>
             );
           }}
+          ListFooterComponent={
+            otherTyping ? (
+              <View style={[styles.bubbleRow, styles.bubbleRowTheirs]}>
+                <View style={styles.avatarSlot}>
+                  <Avatar uri={otherUser.avatar_url} size={24} />
+                </View>
+                <View style={[styles.bubble, styles.bubbleTheirs]}>
+                  <TypingIndicator />
+                </View>
+              </View>
+            ) : null
+          }
         />
       )}
 
@@ -269,7 +327,7 @@ export default function ConversationScreen() {
           placeholder="Message..."
           placeholderTextColor={colors.textLight}
           value={text}
-          onChangeText={setText}
+          onChangeText={handleChangeText}
           multiline
         />
         <TouchableOpacity
@@ -411,6 +469,12 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
     color: colors.textLight,
     fontStyle: 'italic',
+  },
+  readReceipt: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
+    color: colors.textLight,
+    marginTop: 1,
   },
   editingBanner: {
     flexDirection: 'row',

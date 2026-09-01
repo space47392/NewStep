@@ -224,6 +224,7 @@ export default function FeedScreen() {
           const category = CATEGORY_STYLES[item.category];
           const isAuthor = user?.id === item.author_id;
           const isDeleting = item.id === deletingPostId;
+          const commentCount = item.comments?.[0]?.count ?? 0;
           return (
             <FadeInView delay={Math.min(index, 6) * 40}>
               <TouchableOpacity
@@ -302,7 +303,9 @@ export default function FeedScreen() {
                   />
                   <View style={styles.commentsLink}>
                     <Ionicons name="chatbubble-outline" size={14} color={colors.primary} />
-                    <Text style={styles.viewComments}>View Comments</Text>
+                    <Text style={styles.viewComments}>
+                      {commentCount > 0 ? `${commentCount} Comment${commentCount === 1 ? '' : 's'}` : 'Add a comment'}
+                    </Text>
                   </View>
                 </View>
               </TouchableOpacity>

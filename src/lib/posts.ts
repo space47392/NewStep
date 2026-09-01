@@ -11,6 +11,7 @@ const POST_SELECT = `
   like_count,
   photo_urls,
   created_at,
+  comments:comments(count),
   profiles:author_id (
     id,
     full_name,

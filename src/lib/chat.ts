@@ -129,6 +129,31 @@ export async function deleteMessage(messageId: string): Promise<void> {
   if (error) throw error;
 }
 
+// Ephemeral "is typing" signal — sent over a Realtime Broadcast channel rather than
+// a table, so it never touches the database (no row to write, clean up, or have RLS on).
+// Both participants join the SAME channel name (unlike the postgres_changes subscriptions
+// above, which use a random suffix per subscriber) since broadcast only relays to peers
+// already listening on that exact topic.
+export function subscribeToTyping(conversationId: string, onTyping: (userId: string) => void) {
+  const channel = supabase.channel(`typing:${conversationId}`, {
+    config: { broadcast: { self: false } },
+  });
+
+  channel.on('broadcast', { event: 'typing' }, (payload) => {
+    onTyping(payload.payload.userId as string);
+  });
+  channel.subscribe();
+
+  return {
+    sendTyping: (userId: string) => {
+      channel.send({ type: 'broadcast', event: 'typing', payload: { userId } });
+    },
+    unsubscribe: () => {
+      supabase.removeChannel(channel);
+    },
+  };
+}
+
 export type MessageChangeEvent = { type: 'insert' | 'update'; message: Message };
 
 export function subscribeToMessages(conversationId: string, onChange: (event: MessageChangeEvent) => void) {

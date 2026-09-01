@@ -53,6 +53,9 @@ export type Post = {
   like_count: number;
   photo_urls: string[];
   created_at: string;
+  // PostgREST embedded aggregate — see POST_SELECT in lib/posts.ts. Absent on any
+  // select that doesn't ask for it, so always optional-chain when reading it.
+  comments?: { count: number }[];
   profiles: {
     id: string;
     full_name: string | null;

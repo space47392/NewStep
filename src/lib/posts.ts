@@ -72,29 +72,25 @@ export async function createPost(params: {
   if (error) throw error;
 }
 
-export async function volunteerToHelp(params: { postId: string; helperId: string }): Promise<Post> {
-  const { data, error } = await supabase
-    .from('posts')
-    .update({ helper_id: params.helperId, status: 'accepted' })
-    .eq('id', params.postId)
-    .select(POST_SELECT)
-    .single();
-
+// Goes through the volunteer_to_help() RPC rather than a plain client-side update —
+// see secure_help_lifecycle.sql. A general RLS policy isn't safe here: combined with
+// the completion policy it used to allow, Postgres ORs multiple permissive policies'
+// USING/WITH CHECK together, which let a non-author jump an open post straight to
+// 'completed'. The RPC re-validates everything server-side under a row lock and
+// never trusts a client-supplied helper id — it reads it from auth.uid() itself.
+export async function volunteerToHelp(postId: string): Promise<Post> {
+  const { error } = await supabase.rpc('volunteer_to_help', { p_post_id: postId });
   if (error) throw error;
-  return data as unknown as Post;
+  return fetchPostById(postId);
 }
 
-// Marking a request completed triggers a Postgres function that awards the helper 1 point.
+// Goes through the mark_post_completed() RPC — see secure_help_lifecycle.sql. The
+// helper's point award still happens via the existing handle_post_completed()
+// trigger, unchanged, once this RPC transitions the row to 'completed'.
 export async function markPostCompleted(postId: string): Promise<Post> {
-  const { data, error } = await supabase
-    .from('posts')
-    .update({ status: 'completed' })
-    .eq('id', postId)
-    .select(POST_SELECT)
-    .single();
-
+  const { error } = await supabase.rpc('mark_post_completed', { p_post_id: postId });
   if (error) throw error;
-  return data as unknown as Post;
+  return fetchPostById(postId);
 }
 
 // Goes through the edit_post() RPC rather than a plain client-side update — see

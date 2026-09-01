@@ -286,7 +286,10 @@ export default function FeedScreen() {
                   </View>
                 )}
 
-                {item.category === 'Need Help' && item.status !== 'open' && item.helper ? (
+                {/* Not gated on category — see the matching comment in PostDetailScreen.tsx's
+                    showHelper: an active/completed helper relationship should stay visible
+                    even if the post's category is edited after the fact. */}
+                {item.status !== 'open' && item.helper ? (
                   <View style={styles.helperNotice}>
                     <Ionicons name="checkmark-circle" size={14} color={colors.success} />
                     <Text style={styles.helperNoticeText}>

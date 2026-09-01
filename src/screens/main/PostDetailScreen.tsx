@@ -103,14 +103,17 @@ export default function PostDetailScreen() {
   const category = CATEGORY_STYLES[post.category];
   const canVolunteer = post.category === 'Need Help' && post.status === 'open' && post.author_id !== user?.id;
   const canComplete = post.status === 'accepted' && post.author_id === user?.id;
-  const showHelper =
-    post.category === 'Need Help' && (post.status === 'accepted' || post.status === 'completed') && post.helper;
+  // Deliberately NOT gated on category === 'Need Help': status/helper_id already
+  // capture that this post has an active or completed help relationship, and an
+  // author renaming the category afterwards shouldn't make an existing helper
+  // vanish from the UI while the DB relationship (and points trigger) still stands.
+  const showHelper = (post.status === 'accepted' || post.status === 'completed') && post.helper;
 
   const handleVolunteer = async () => {
     if (!user) return;
     setVolunteering(true);
     try {
-      const updated = await volunteerToHelp({ postId: post.id, helperId: user.id });
+      const updated = await volunteerToHelp(post.id);
       setPost(updated);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err) {

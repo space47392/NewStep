@@ -2,7 +2,10 @@ import { supabase } from './supabase';
 import { removePostPhotos } from './postPhotos';
 import { Post, PostCategory } from '../types';
 
-const POST_SELECT = `
+// Exported so other features that browse posts a different way (e.g. schools.ts's
+// per-school sections) get the exact same shape as the feed, instead of a
+// second, slightly-different select drifting out of sync with it.
+export const POST_SELECT = `
   id,
   author_id,
   content,
@@ -50,6 +53,38 @@ export async function fetchPostsByAuthor(authorId: string): Promise<Post[]> {
     .eq('author_id', authorId)
     .order('created_at', { ascending: false });
 
+  if (error) throw error;
+  return (data ?? []) as unknown as Post[];
+}
+
+// `!inner` on the author join turns .eq('profiles.school_name', ...) into a real
+// filter on which POSTS come back (not just on the nested profile object) — the
+// PostgREST convention for filtering by an embedded relation's column. Built from
+// POST_SELECT rather than a second hand-written field list, so this can't quietly
+// drift out of sync with what the feed already selects.
+const POST_SELECT_BY_SCHOOL = POST_SELECT.replace('profiles:author_id (', 'profiles:author_id!inner (');
+
+// Powers each section of the School Community page (Recent Posts / Recent Help /
+// School Questions / Looking for Friends) — same query shape, just an optional
+// category filter and a small limit, since a school page should never need to
+// pull more than a handful of posts per section.
+export async function fetchPostsBySchool(
+  schoolName: string,
+  category?: PostCategory,
+  limit = 5
+): Promise<Post[]> {
+  let query = supabase
+    .from('posts')
+    .select(POST_SELECT_BY_SCHOOL)
+    .eq('profiles.school_name', schoolName)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (category) {
+    query = query.eq('category', category);
+  }
+
+  const { data, error } = await query;
   if (error) throw error;
   return (data ?? []) as unknown as Post[];
 }

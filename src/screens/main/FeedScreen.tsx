@@ -9,6 +9,8 @@ import { useToast } from '../../contexts/ToastContext';
 import { fetchPosts, deletePost } from '../../lib/posts';
 import { fetchLikedPostIds } from '../../lib/likes';
 import { fetchActiveStories, uploadStory } from '../../lib/stories';
+import { fetchProfileById } from '../../lib/profile';
+import { fetchSchoolStudentCount } from '../../lib/schools';
 import { formatRelativeTime } from '../../lib/time';
 import Avatar from '../../components/Avatar';
 import EmptyState from '../../components/EmptyState';
@@ -34,6 +36,8 @@ export default function FeedScreen() {
   const [likedPostIds, setLikedPostIds] = useState<Set<string>>(new Set());
   const [stories, setStories] = useState<Story[]>([]);
   const [uploadingStory, setUploadingStory] = useState(false);
+  const [mySchoolName, setMySchoolName] = useState<string | null>(null);
+  const [mySchoolStudentCount, setMySchoolStudentCount] = useState(0);
   const hasLoadedOnce = useRef(false);
 
   const loadPosts = useCallback(async () => {
@@ -59,6 +63,22 @@ export default function FeedScreen() {
     }
   }, []);
 
+  // Powers the "your school" banner below — non-critical, so a failure here just
+  // leaves the banner hidden rather than blocking the rest of the feed.
+  const loadSchoolBanner = useCallback(async () => {
+    if (!user) return;
+    try {
+      const profile = await fetchProfileById(user.id);
+      setMySchoolName(profile.school_name);
+      if (profile.school_name) {
+        const count = await fetchSchoolStudentCount(profile.school_name);
+        setMySchoolStudentCount(count);
+      }
+    } catch {
+      // leave the banner hidden
+    }
+  }, [user]);
+
   // Refetch every time this tab gains focus (e.g. returning from editing a post),
   // but only show the full-screen spinner the very first time — later refreshes
   // happen quietly behind the existing list so editing doesn't cause a jarring reload.
@@ -66,16 +86,16 @@ export default function FeedScreen() {
     useCallback(() => {
       (async () => {
         if (!hasLoadedOnce.current) setLoading(true);
-        await Promise.all([loadPosts(), loadStories()]);
+        await Promise.all([loadPosts(), loadStories(), loadSchoolBanner()]);
         setLoading(false);
         hasLoadedOnce.current = true;
       })();
-    }, [loadPosts, loadStories])
+    }, [loadPosts, loadStories, loadSchoolBanner])
   );
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([loadPosts(), loadStories()]);
+    await Promise.all([loadPosts(), loadStories(), loadSchoolBanner()]);
     setRefreshing(false);
   };
 
@@ -211,6 +231,25 @@ export default function FeedScreen() {
               <Text style={styles.title}>Community Feed 👋</Text>
               <Text style={styles.subtitle}>See what's happening at your school</Text>
             </View>
+
+            {mySchoolName ? (
+              <TouchableOpacity
+                style={styles.schoolBanner}
+                activeOpacity={0.85}
+                onPress={() => navigation.navigate('School', { schoolName: mySchoolName })}
+              >
+                <Text style={styles.schoolBannerText}>
+                  🏫 {mySchoolName} · {mySchoolStudentCount} {mySchoolStudentCount === 1 ? 'student' : 'students'}
+                </Text>
+                <Ionicons name="chevron-forward" size={16} color={colors.primary} />
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.schoolBannerPrompt}>
+                <Text style={styles.schoolBannerPromptText}>
+                  Add your school in Profile to see your school community
+                </Text>
+              </View>
+            )}
           </View>
         }
         ListEmptyComponent={
@@ -392,6 +431,34 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.textMid,
     marginTop: 2,
+  },
+  schoolBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.primaryLight,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    marginTop: spacing.md,
+  },
+  schoolBannerText: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
+    color: colors.primary,
+  },
+  schoolBannerPrompt: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    marginTop: spacing.md,
+  },
+  schoolBannerPromptText: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
+    color: colors.textMid,
   },
   fab: {
     position: 'absolute',

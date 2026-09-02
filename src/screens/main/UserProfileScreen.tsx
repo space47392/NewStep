@@ -129,13 +129,17 @@ export default function UserProfileScreen() {
           {profile.username ? <Text style={styles.username}>@{profile.username}</Text> : null}
 
           {profile.school_name ? (
-            <View style={styles.metaRow}>
+            <TouchableOpacity
+              style={styles.metaRow}
+              onPress={() => navigation.navigate('School', { schoolName: profile.school_name! })}
+            >
               <Ionicons name="school-outline" size={14} color={colors.textMid} />
               <Text style={styles.metaText}>
                 {profile.school_name}
                 {profile.grade ? ` · Grade ${profile.grade}` : ''}
               </Text>
-            </View>
+              <Ionicons name="chevron-forward" size={14} color={colors.textLight} />
+            </TouchableOpacity>
           ) : null}
 
           {profile.interests.length > 0 && (

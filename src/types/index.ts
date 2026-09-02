@@ -24,6 +24,7 @@ export type MainStackParamList = {
   PostDetail: { post: Post };
   Conversation: { conversationId: string; otherUser: ChatProfile };
   UserProfile: { userId: string };
+  School: { schoolName: string };
   StoryViewer: { stories: Story[]; initialIndex: number };
   PhotoViewer: { photoUrls: string[]; initialIndex: number };
 };
@@ -43,6 +44,10 @@ export type Profile = {
 // The public-safe subset of Profile shown on the leaderboard — deliberately
 // narrower than a full Profile select (no interests/username/grade/updated_at).
 export type LeaderboardEntry = Pick<Profile, 'id' | 'full_name' | 'school_name' | 'avatar_url' | 'points'>;
+
+// Public-safe subset of Profile for school member discovery — deliberately
+// excludes points/username-adjacent internals; see fetchSchoolMembers().
+export type SchoolMember = Pick<Profile, 'id' | 'full_name' | 'username' | 'avatar_url' | 'grade' | 'interests'>;
 
 // One row of a user's private points_history ledger (see points_history_schema.sql).
 // Only ever inserted by handle_post_completed() — never client-writable.

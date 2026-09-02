@@ -19,12 +19,16 @@ export type MainTabParamList = {
 };
 
 export type MainStackParamList = {
-  Tabs: undefined;
+  // { screen } lets a stack screen (e.g. Notifications) deep-link into a
+  // specific tab — standard React Navigation nested-navigator navigation,
+  // not a new architecture.
+  Tabs: { screen: keyof MainTabParamList } | undefined;
   CreatePost: { post?: Post } | undefined;
   PostDetail: { post: Post };
   Conversation: { conversationId: string; otherUser: ChatProfile };
   UserProfile: { userId: string };
   School: { schoolName: string };
+  Notifications: undefined;
   StoryViewer: { stories: Story[]; initialIndex: number };
   PhotoViewer: { photoUrls: string[]; initialIndex: number };
 };
@@ -145,6 +149,29 @@ export type Message = {
   read_at: string | null;
   edited_at: string | null;
   deleted_at: string | null;
+};
+
+export type NotificationType =
+  | 'like'
+  | 'comment'
+  | 'volunteer'
+  | 'help_completed'
+  | 'points_earned'
+  | 'achievement_earned'
+  | 'message';
+
+// See notifications_schema.sql — stores only IDs/relationships, never
+// duplicated profile or post data. actor/achievement are joined at read time
+// (fetchNotifications), same as posts already join their author.
+export type AppNotification = {
+  id: string;
+  type: NotificationType;
+  post_id: string | null;
+  conversation_id: string | null;
+  read_at: string | null;
+  created_at: string;
+  actor: ChatProfile | null;
+  achievement: Pick<Achievement, 'id' | 'key' | 'name' | 'icon'> | null;
 };
 
 export type Story = {

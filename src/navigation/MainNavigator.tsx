@@ -6,6 +6,7 @@ import PostDetailScreen from '../screens/main/PostDetailScreen';
 import ConversationScreen from '../screens/main/ConversationScreen';
 import UserProfileScreen from '../screens/main/UserProfileScreen';
 import SchoolScreen from '../screens/main/SchoolScreen';
+import NotificationsScreen from '../screens/main/NotificationsScreen';
 import StoryViewerScreen from '../screens/main/StoryViewerScreen';
 import PhotoViewerScreen from '../screens/main/PhotoViewerScreen';
 
@@ -20,6 +21,7 @@ export default function MainNavigator() {
       <Stack.Screen name="Conversation" component={ConversationScreen} />
       <Stack.Screen name="UserProfile" component={UserProfileScreen} />
       <Stack.Screen name="School" component={SchoolScreen} />
+      <Stack.Screen name="Notifications" component={NotificationsScreen} />
       <Stack.Screen name="StoryViewer" component={StoryViewerScreen} options={{ presentation: 'fullScreenModal' }} />
       <Stack.Screen name="PhotoViewer" component={PhotoViewerScreen} options={{ presentation: 'fullScreenModal' }} />
     </Stack.Navigator>

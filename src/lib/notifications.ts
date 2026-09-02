@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 import { isRunningInExpoGo } from 'expo';
 import Constants from 'expo-constants';
 import { supabase } from './supabase';
+import { AppNotification, NotificationType } from '../types';
 
 // expo-notifications runs native event-emitter setup as soon as it's imported —
 // NotificationsEmitter.js and TokenEmitter.js both do this unconditionally at
@@ -76,4 +77,104 @@ export function addNotificationResponseListener(onTap: (type: string | undefined
   });
 
   return () => subscription.remove();
+}
+
+// ---------------------------------------------------------------------------
+// In-app notification data — a separate concern from the push delivery above.
+// A push is a fire-and-forget OS-level alert; these read/write the persistent
+// notifications table (see notifications_schema.sql) that backs the in-app
+// notification list, unread badge, etc. Every row is created only by trusted
+// database triggers — nothing here ever inserts a notification directly.
+// ---------------------------------------------------------------------------
+
+const NOTIFICATION_SELECT = `
+  id, type, post_id, conversation_id, read_at, created_at,
+  actor:actor_id (id, full_name, avatar_url),
+  achievement:achievement_id (id, key, name, icon)
+`;
+
+// Newest first, paginated — never the full history in one call.
+export async function fetchNotifications(userId: string, limit = 20, offset = 0): Promise<AppNotification[]> {
+  const { data, error } = await supabase
+    .from('notifications')
+    .select(NOTIFICATION_SELECT)
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (error) throw error;
+  return (data ?? []) as unknown as AppNotification[];
+}
+
+// head: true — just the count, never the rows, for the badge.
+export async function fetchUnreadNotificationCount(userId: string): Promise<number> {
+  const { count, error } = await supabase
+    .from('notifications')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .is('read_at', null);
+
+  if (error) throw error;
+  return count ?? 0;
+}
+
+// Goes through the plain "own row" RLS policy — safe because
+// guard_notification_update() (see notifications_schema.sql) rejects any
+// change except read_at, so this can't be abused to rewrite a notification's
+// type/actor/achievement into something fabricated.
+export async function markNotificationRead(notificationId: string): Promise<void> {
+  const { error } = await supabase
+    .from('notifications')
+    .update({ read_at: new Date().toISOString() })
+    .eq('id', notificationId)
+    .is('read_at', null);
+
+  if (error) throw error;
+}
+
+// Deliberately reconstructs a generic message rather than reading stored
+// content — e.g. "message" never shows the actual text, since that was never
+// persisted onto the notification row in the first place (see
+// notify_new_message() in notifications_schema.sql).
+export function formatNotificationMessage(notification: AppNotification): string {
+  const actorName = notification.actor?.full_name ?? 'Someone';
+  switch (notification.type) {
+    case 'like':
+      return `${actorName} liked your post`;
+    case 'comment':
+      return `${actorName} commented on your post`;
+    case 'volunteer':
+      return `${actorName} volunteered to help you`;
+    case 'help_completed':
+      return 'Your help was marked as completed';
+    case 'points_earned':
+      return 'You earned 1 Community Point';
+    case 'achievement_earned':
+      return `You earned "${notification.achievement?.name ?? 'an achievement'}"`;
+    case 'message':
+      return `${actorName} sent you a message`;
+    default:
+      return 'New notification';
+  }
+}
+
+export function getNotificationIcon(type: NotificationType): string {
+  switch (type) {
+    case 'like':
+      return '❤️';
+    case 'comment':
+      return '💬';
+    case 'volunteer':
+      return '🤝';
+    case 'help_completed':
+      return '✅';
+    case 'points_earned':
+      return '⭐';
+    case 'achievement_earned':
+      return '🏆';
+    case 'message':
+      return '💬';
+    default:
+      return '🔔';
+  }
 }

@@ -12,6 +12,7 @@ import { fetchActiveStories, uploadStory } from '../../lib/stories';
 import { fetchProfileById } from '../../lib/profile';
 import { fetchSchoolStudentCount } from '../../lib/schools';
 import { isWelcomeBannerDismissed, dismissWelcomeBanner } from '../../lib/newStudentPrefs';
+import { fetchUnreadNotificationCount } from '../../lib/notifications';
 import { formatRelativeTime } from '../../lib/time';
 import Avatar from '../../components/Avatar';
 import EmptyState from '../../components/EmptyState';
@@ -41,7 +42,18 @@ export default function FeedScreen() {
   const [mySchoolStudentCount, setMySchoolStudentCount] = useState(0);
   const [isNewStudent, setIsNewStudent] = useState(false);
   const [welcomeBannerDismissed, setWelcomeBannerDismissed] = useState(false);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const hasLoadedOnce = useRef(false);
+
+  const loadNotificationCount = useCallback(async () => {
+    if (!user) return;
+    try {
+      const count = await fetchUnreadNotificationCount(user.id);
+      setUnreadNotificationCount(count);
+    } catch {
+      // leave the badge at its last known count
+    }
+  }, [user]);
 
   const loadPosts = useCallback(async () => {
     try {
@@ -100,16 +112,16 @@ export default function FeedScreen() {
     useCallback(() => {
       (async () => {
         if (!hasLoadedOnce.current) setLoading(true);
-        await Promise.all([loadPosts(), loadStories(), loadSchoolBanner()]);
+        await Promise.all([loadPosts(), loadStories(), loadSchoolBanner(), loadNotificationCount()]);
         setLoading(false);
         hasLoadedOnce.current = true;
       })();
-    }, [loadPosts, loadStories, loadSchoolBanner])
+    }, [loadPosts, loadStories, loadSchoolBanner, loadNotificationCount])
   );
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([loadPosts(), loadStories(), loadSchoolBanner()]);
+    await Promise.all([loadPosts(), loadStories(), loadSchoolBanner(), loadNotificationCount()]);
     setRefreshing(false);
   };
 
@@ -274,8 +286,22 @@ export default function FeedScreen() {
             />
 
             <View style={styles.headerRow}>
-              <Text style={styles.title}>Community Feed 👋</Text>
-              <Text style={styles.subtitle}>See what's happening at your school</Text>
+              <View style={styles.headerTextCol}>
+                <Text style={styles.title}>Community Feed 👋</Text>
+                <Text style={styles.subtitle}>See what's happening at your school</Text>
+              </View>
+              <TouchableOpacity
+                style={styles.bellButton}
+                onPress={() => navigation.navigate('Notifications')}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name="notifications-outline" size={24} color={colors.textDark} />
+                {unreadNotificationCount > 0 && (
+                  <View style={styles.bellBadge}>
+                    <Text style={styles.bellBadgeText}>{unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
             </View>
 
             {mySchoolName ? (
@@ -526,7 +552,34 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   headerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
     marginBottom: spacing.lg,
+  },
+  headerTextCol: {
+    flex: 1,
+  },
+  bellButton: {
+    position: 'relative',
+    padding: spacing.xs,
+  },
+  bellBadge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    backgroundColor: colors.secondary,
+    borderRadius: radius.full,
+    minWidth: 16,
+    height: 16,
+    paddingHorizontal: 3,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  bellBadgeText: {
+    fontFamily: fontFamily.bold,
+    color: '#fff',
+    fontSize: 9,
   },
   title: {
     fontFamily: fontFamily.bold,

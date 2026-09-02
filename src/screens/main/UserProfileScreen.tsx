@@ -7,6 +7,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { fetchProfileById } from '../../lib/profile';
 import { fetchPostsByAuthor } from '../../lib/posts';
 import { fetchHelpStats } from '../../lib/points';
+import { fetchAchievementProgress } from '../../lib/achievements';
 import { getOrCreateConversation } from '../../lib/chat';
 import { formatRelativeTime } from '../../lib/time';
 import Avatar from '../../components/Avatar';
@@ -16,7 +17,7 @@ import PrimaryButton from '../../components/PrimaryButton';
 import FadeInView from '../../components/FadeInView';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
 import { CATEGORY_STYLES } from '../../constants/categoryStyles';
-import { MainStackParamList, Profile, Post } from '../../types';
+import { MainStackParamList, Profile, Post, AchievementProgress } from '../../types';
 
 export default function UserProfileScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
@@ -27,6 +28,7 @@ export default function UserProfileScreen() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
   const [studentsHelped, setStudentsHelped] = useState(0);
+  const [achievements, setAchievements] = useState<AchievementProgress[]>([]);
   const [loading, setLoading] = useState(true);
   const [messaging, setMessaging] = useState(false);
 
@@ -36,14 +38,16 @@ export default function UserProfileScreen() {
     useCallback(() => {
       (async () => {
         try {
-          const [profileData, postsData, helpStats] = await Promise.all([
+          const [profileData, postsData, helpStats, achievementProgress] = await Promise.all([
             fetchProfileById(userId),
             fetchPostsByAuthor(userId),
             fetchHelpStats(userId),
+            fetchAchievementProgress(userId),
           ]);
           setProfile(profileData);
           setPosts(postsData);
           setStudentsHelped(helpStats.studentsHelped);
+          setAchievements(achievementProgress);
         } catch {
           setProfile(null);
         } finally {
@@ -52,6 +56,8 @@ export default function UserProfileScreen() {
       })();
     }, [userId])
   );
+
+  const earnedAchievements = achievements.filter((a) => a.earned);
 
   const handleMessage = async () => {
     if (!profile) return;
@@ -139,6 +145,20 @@ export default function UserProfileScreen() {
                   <Text style={styles.chipText}>{interest}</Text>
                 </View>
               ))}
+            </View>
+          )}
+
+          {earnedAchievements.length > 0 && (
+            <View style={styles.achievementsSection}>
+              <Text style={styles.achievementsHeading}>🏆 Achievements</Text>
+              <View style={styles.achievementsRow}>
+                {earnedAchievements.map((achievement) => (
+                  <View key={achievement.id} style={styles.achievementBadge}>
+                    <Text style={styles.achievementIcon}>{achievement.icon}</Text>
+                    <Text style={styles.achievementName}>{achievement.name}</Text>
+                  </View>
+                ))}
+              </View>
             </View>
           )}
 
@@ -267,6 +287,37 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.sm,
     color: colors.textMid,
+  },
+  achievementsSection: {
+    marginTop: spacing.md,
+  },
+  achievementsHeading: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
+    color: colors.textMid,
+    marginBottom: spacing.sm,
+  },
+  achievementsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  achievementBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    backgroundColor: colors.primaryLight,
+    borderRadius: radius.full,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+  },
+  achievementIcon: {
+    fontSize: 16,
+  },
+  achievementName: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.xs,
+    color: colors.textDark,
   },
   messageButton: {
     marginTop: spacing.lg,

@@ -6,13 +6,14 @@ import { File } from 'expo-file-system';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { fetchHelpStats, fetchPointsHistory, formatPointReason } from '../../lib/points';
+import { fetchAchievementProgress } from '../../lib/achievements';
 import { formatRelativeTime } from '../../lib/time';
 import IconInput from '../../components/IconInput';
 import PrimaryButton from '../../components/PrimaryButton';
 import LoadingScreen from '../../components/LoadingScreen';
 import FadeInView from '../../components/FadeInView';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
-import { Profile, PointsHistoryEntry } from '../../types';
+import { Profile, PointsHistoryEntry, AchievementProgress } from '../../types';
 
 const GRADES = ['6th', '7th', '8th', '9th', '10th', '11th', '12th'];
 
@@ -34,6 +35,7 @@ export default function ProfileScreen() {
   const [username, setUsername] = useState<string | null>(null);
   const [studentsHelped, setStudentsHelped] = useState(0);
   const [pointHistory, setPointHistory] = useState<PointsHistoryEntry[]>([]);
+  const [achievements, setAchievements] = useState<AchievementProgress[]>([]);
 
   useEffect(() => {
     if (!user) return;
@@ -60,11 +62,16 @@ export default function ProfileScreen() {
       // Best-effort — a hiccup here shouldn't block the rest of the profile
       // (editable fields above) from loading and being usable.
       try {
-        const [helpStats, history] = await Promise.all([fetchHelpStats(user.id), fetchPointsHistory(user.id)]);
+        const [helpStats, history, achievementProgress] = await Promise.all([
+          fetchHelpStats(user.id),
+          fetchPointsHistory(user.id),
+          fetchAchievementProgress(user.id),
+        ]);
         setStudentsHelped(helpStats.studentsHelped);
         setPointHistory(history);
+        setAchievements(achievementProgress);
       } catch {
-        // leave stats/history at their defaults
+        // leave stats/history/achievements at their defaults
       }
 
       setLoadingProfile(false);
@@ -211,6 +218,37 @@ export default function ProfileScreen() {
               </Text>
             </View>
           </View>
+
+          {achievements.length > 0 && (
+            <>
+              <View style={styles.achievementsDivider} />
+              <Text style={styles.achievementsTitle}>🏆 Achievements</Text>
+              <View style={styles.achievementsGrid}>
+                {achievements.map((achievement) => (
+                  <View
+                    key={achievement.id}
+                    style={[styles.achievementBadge, !achievement.earned && styles.achievementBadgeLocked]}
+                  >
+                    <Text style={styles.achievementIcon}>{achievement.icon}</Text>
+                    <Text
+                      style={[styles.achievementName, !achievement.earned && styles.achievementNameLocked]}
+                      numberOfLines={2}
+                    >
+                      {achievement.name}
+                    </Text>
+                    {!achievement.earned && (
+                      <Ionicons
+                        name="lock-closed"
+                        size={10}
+                        color={colors.textLight}
+                        style={styles.achievementLockIcon}
+                      />
+                    )}
+                  </View>
+                ))}
+              </View>
+            </>
+          )}
         </View>
 
         {pointHistory.length > 0 && (
@@ -393,6 +431,53 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     fontSize: fontSize.xs,
     color: colors.textMid,
+  },
+  achievementsDivider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  achievementsTitle: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
+    color: colors.textMid,
+    marginBottom: spacing.sm,
+  },
+  achievementsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  achievementBadge: {
+    width: '47%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    backgroundColor: colors.primaryLight,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+  },
+  achievementBadgeLocked: {
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  achievementIcon: {
+    fontSize: 20,
+  },
+  achievementName: {
+    flex: 1,
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.xs,
+    color: colors.textDark,
+  },
+  achievementNameLocked: {
+    color: colors.textLight,
+  },
+  achievementLockIcon: {
+    marginLeft: -2,
   },
   activityCard: {
     width: '100%',

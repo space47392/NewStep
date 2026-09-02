@@ -54,6 +54,23 @@ export type PointsHistoryEntry = {
   created_at: string;
 };
 
+// Static achievement definition (see achievements_schema.sql) — public, read-only.
+export type Achievement = {
+  id: string;
+  key: string;
+  name: string;
+  description: string;
+  icon: string;
+  metric: string;
+  requirement: number;
+};
+
+// An Achievement merged with whether/when the profile being viewed earned it.
+export type AchievementProgress = Achievement & {
+  earned: boolean;
+  earnedAt: string | null;
+};
+
 export type PostCategory = 'Need Help' | 'School Question' | 'Looking for Friends';
 
 export type PostStatus = 'open' | 'accepted' | 'completed';

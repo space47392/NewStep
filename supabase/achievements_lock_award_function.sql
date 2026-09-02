@@ -1,0 +1,21 @@
+-- Closes the gap found during live verification: Postgres grants EXECUTE on new
+-- functions to PUBLIC by default, and achievements_schema.sql never revoked it
+-- for award_achievements() — which trusts whatever p_current_count it's handed
+-- instead of computing it. That made it directly callable by any client:
+--   supabase.rpc('award_achievements', { p_user_id: <self>, p_metric: 'help_completed', p_current_count: 999 })
+-- would bypass RLS entirely (the function is SECURITY DEFINER) and self-award
+-- every achievement for that metric in one call.
+--
+-- Unlike volunteer_to_help()/mark_post_completed() (meant to be called directly
+-- by clients, and defended with their own auth.uid() checks), award_achievements()
+-- was only ever meant to be called internally by the three trigger functions —
+-- it has no caller-identity check of its own, so it needs to be unreachable from
+-- the client instead.
+--
+-- This is safe for the legitimate call paths: when handle_post_completed() /
+-- handle_comment_added() / handle_like_added_achievement() (themselves all
+-- SECURITY DEFINER) call award_achievements() internally, Postgres checks the
+-- EXECUTE privilege against the DEFINER's role, not the original client's — so
+-- revoking PUBLIC/anon/authenticated access doesn't touch those internal calls
+-- at all, only a direct supabase.rpc('award_achievements', ...) from a client.
+revoke execute on function public.award_achievements(uuid, text, integer) from public, anon, authenticated;

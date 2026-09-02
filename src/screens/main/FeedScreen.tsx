@@ -11,6 +11,7 @@ import { fetchLikedPostIds } from '../../lib/likes';
 import { fetchActiveStories, uploadStory } from '../../lib/stories';
 import { fetchProfileById } from '../../lib/profile';
 import { fetchSchoolStudentCount } from '../../lib/schools';
+import { isWelcomeBannerDismissed, dismissWelcomeBanner } from '../../lib/newStudentPrefs';
 import { formatRelativeTime } from '../../lib/time';
 import Avatar from '../../components/Avatar';
 import EmptyState from '../../components/EmptyState';
@@ -38,6 +39,8 @@ export default function FeedScreen() {
   const [uploadingStory, setUploadingStory] = useState(false);
   const [mySchoolName, setMySchoolName] = useState<string | null>(null);
   const [mySchoolStudentCount, setMySchoolStudentCount] = useState(0);
+  const [isNewStudent, setIsNewStudent] = useState(false);
+  const [welcomeBannerDismissed, setWelcomeBannerDismissed] = useState(false);
   const hasLoadedOnce = useRef(false);
 
   const loadPosts = useCallback(async () => {
@@ -63,13 +66,19 @@ export default function FeedScreen() {
     }
   }, []);
 
-  // Powers the "your school" banner below — non-critical, so a failure here just
-  // leaves the banner hidden rather than blocking the rest of the feed.
+  // Powers both the "your school" pill and the New Student welcome banner below
+  // — non-critical, so a failure here just leaves them hidden rather than
+  // blocking the rest of the feed.
   const loadSchoolBanner = useCallback(async () => {
     if (!user) return;
     try {
-      const profile = await fetchProfileById(user.id);
+      const [profile, dismissed] = await Promise.all([
+        fetchProfileById(user.id),
+        isWelcomeBannerDismissed(user.id),
+      ]);
       setMySchoolName(profile.school_name);
+      setIsNewStudent(profile.is_new_student === true);
+      setWelcomeBannerDismissed(dismissed);
       if (profile.school_name) {
         const count = await fetchSchoolStudentCount(profile.school_name);
         setMySchoolStudentCount(count);
@@ -78,6 +87,11 @@ export default function FeedScreen() {
       // leave the banner hidden
     }
   }, [user]);
+
+  const handleDismissWelcome = async () => {
+    setWelcomeBannerDismissed(true);
+    if (user) await dismissWelcomeBanner(user.id);
+  };
 
   // Refetch every time this tab gains focus (e.g. returning from editing a post),
   // but only show the full-screen spinner the very first time — later refreshes
@@ -186,6 +200,38 @@ export default function FeedScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />}
         ListHeaderComponent={
           <View>
+            {isNewStudent && mySchoolName && !welcomeBannerDismissed && (
+              <FadeInView style={styles.welcomeCard}>
+                <TouchableOpacity
+                  style={styles.welcomeDismiss}
+                  onPress={handleDismissWelcome}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons name="close" size={18} color={colors.textLight} />
+                </TouchableOpacity>
+                <Text style={styles.welcomeTitle}>👋 Welcome to {mySchoolName}!</Text>
+                <Text style={styles.welcomeSubtitle}>
+                  New here? Find your community and introduce yourself to other students.
+                </Text>
+                <View style={styles.welcomeActions}>
+                  <TouchableOpacity
+                    style={styles.welcomeButton}
+                    onPress={() => navigation.navigate('School', { schoolName: mySchoolName })}
+                  >
+                    <Text style={styles.welcomeButtonText}>Discover your community</Text>
+                    <Ionicons name="arrow-forward" size={14} color={colors.primary} />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.welcomeButtonSecondary}
+                    onPress={() => navigation.navigate('CreatePost')}
+                  >
+                    <Text style={styles.welcomeButtonSecondaryText}>Introduce yourself</Text>
+                    <Ionicons name="arrow-forward" size={14} color="#fff" />
+                  </TouchableOpacity>
+                </View>
+              </FadeInView>
+            )}
+
             <FlatList
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -372,6 +418,67 @@ const styles = StyleSheet.create({
   },
   list: {
     padding: spacing.lg,
+  },
+  welcomeCard: {
+    position: 'relative',
+    backgroundColor: colors.primaryLight,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+  },
+  welcomeDismiss: {
+    position: 'absolute',
+    top: spacing.sm,
+    right: spacing.sm,
+    padding: spacing.xs,
+    zIndex: 1,
+  },
+  welcomeTitle: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.lg,
+    color: colors.textDark,
+    paddingRight: spacing.xl,
+  },
+  welcomeSubtitle: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    color: colors.textMid,
+    marginTop: spacing.xs,
+    lineHeight: 19,
+  },
+  welcomeActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  welcomeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.cardBg,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  welcomeButtonText: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.xs,
+    color: colors.primary,
+  },
+  welcomeButtonSecondary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.primary,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  welcomeButtonSecondaryText: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.xs,
+    color: '#fff',
   },
   storyRail: {
     paddingBottom: spacing.lg,

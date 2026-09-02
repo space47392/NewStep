@@ -3,9 +3,11 @@ import { View, Text, ScrollView, FlatList, TouchableOpacity, StyleSheet } from '
 import { useFocusEffect, useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
-import { fetchSchoolStudentCount, fetchSchoolMembers } from '../../lib/schools';
+import { fetchSchoolStudentCount, fetchSchoolMembers, fetchSchoolMembersByGrade, fetchSchoolMembersByInterests } from '../../lib/schools';
 import { fetchPostsBySchool } from '../../lib/posts';
+import { fetchProfileById } from '../../lib/profile';
 import { formatRelativeTime } from '../../lib/time';
+import { useAuth } from '../../contexts/AuthContext';
 import Avatar from '../../components/Avatar';
 import EmptyState from '../../components/EmptyState';
 import LoadingScreen from '../../components/LoadingScreen';
@@ -19,13 +21,42 @@ import { MainStackParamList, SchoolMember, Post, PostCategory } from '../../type
 // real PostDetailScreen for full interaction (like/comment/volunteer/etc).
 const SECTION_LIMIT = 5;
 const MEMBER_LIMIT = 30;
+const DISCOVERY_LIMIT = 10;
 
 type Section = { key: string; title: string; category?: PostCategory; posts: Post[] };
+
+// Shared by the Members row and both "Find your community" rows — same card
+// shape (avatar + name, tap through to the real profile). Callers own their
+// own heading Text, since "Members" wants a full section title while the two
+// discovery rows want smaller subtitles nested under one shared heading.
+function renderMemberList(data: SchoolMember[], navigation: NativeStackNavigationProp<MainStackParamList>) {
+  return (
+    <FlatList
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      data={data}
+      keyExtractor={(m) => m.id}
+      contentContainerStyle={styles.membersRow}
+      renderItem={({ item }) => (
+        <TouchableOpacity
+          style={styles.memberItem}
+          onPress={() => navigation.navigate('UserProfile', { userId: item.id })}
+        >
+          <Avatar uri={item.avatar_url} size={56} />
+          <Text style={styles.memberName} numberOfLines={1}>
+            {item.full_name ?? 'Unknown'}
+          </Text>
+        </TouchableOpacity>
+      )}
+    />
+  );
+}
 
 export default function SchoolScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
   const route = useRoute<RouteProp<MainStackParamList, 'School'>>();
   const { schoolName } = route.params;
+  const { user } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [studentCount, setStudentCount] = useState(0);
@@ -34,18 +65,22 @@ export default function SchoolScreen() {
   const [helpPosts, setHelpPosts] = useState<Post[]>([]);
   const [questionPosts, setQuestionPosts] = useState<Post[]>([]);
   const [friendPosts, setFriendPosts] = useState<Post[]>([]);
+  const [myGrade, setMyGrade] = useState<string | null>(null);
+  const [gradeMates, setGradeMates] = useState<SchoolMember[]>([]);
+  const [interestMates, setInterestMates] = useState<SchoolMember[]>([]);
 
   useFocusEffect(
     useCallback(() => {
       (async () => {
         try {
-          const [count, memberList, recent, help, questions, friends] = await Promise.all([
+          const [count, memberList, recent, help, questions, friends, myProfile] = await Promise.all([
             fetchSchoolStudentCount(schoolName),
             fetchSchoolMembers(schoolName, MEMBER_LIMIT),
             fetchPostsBySchool(schoolName, undefined, SECTION_LIMIT),
             fetchPostsBySchool(schoolName, 'Need Help', SECTION_LIMIT),
             fetchPostsBySchool(schoolName, 'School Question', SECTION_LIMIT),
             fetchPostsBySchool(schoolName, 'Looking for Friends', SECTION_LIMIT),
+            user ? fetchProfileById(user.id) : Promise.resolve(null),
           ]);
           setStudentCount(count);
           setMembers(memberList);
@@ -53,13 +88,37 @@ export default function SchoolScreen() {
           setHelpPosts(help);
           setQuestionPosts(questions);
           setFriendPosts(friends);
+
+          // "Find your community" only shows on your OWN school's page, and only
+          // if you opted into New Student mode — never on a school you're just
+          // browsing, and never forced on anyone who didn't ask for it.
+          const isOwnSchool = !!myProfile && myProfile.school_name === schoolName;
+          const wantsDiscovery = isOwnSchool && myProfile!.is_new_student === true;
+
+          if (wantsDiscovery && user) {
+            setMyGrade(myProfile!.grade);
+            const [byGrade, byInterests] = await Promise.all([
+              myProfile!.grade
+                ? fetchSchoolMembersByGrade(schoolName, myProfile!.grade, user.id, DISCOVERY_LIMIT)
+                : Promise.resolve([]),
+              myProfile!.interests.length > 0
+                ? fetchSchoolMembersByInterests(schoolName, myProfile!.interests, user.id, DISCOVERY_LIMIT)
+                : Promise.resolve([]),
+            ]);
+            setGradeMates(byGrade);
+            setInterestMates(byInterests);
+          } else {
+            setMyGrade(null);
+            setGradeMates([]);
+            setInterestMates([]);
+          }
         } catch {
           // leave everything at its default (empty) — sections below handle that gracefully
         } finally {
           setLoading(false);
         }
       })();
-    }, [schoolName])
+    }, [schoolName, user])
   );
 
   if (loading) {
@@ -88,27 +147,28 @@ export default function SchoolScreen() {
         </Text>
       </FadeInView>
 
+      {(gradeMates.length > 0 || interestMates.length > 0) && (
+        <FadeInView style={styles.membersSection} delay={40}>
+          <Text style={styles.sectionTitle}>Find your community</Text>
+          {gradeMates.length > 0 && (
+            <View style={styles.memberRowWrap}>
+              <Text style={styles.memberRowTitle}>Students in Grade {myGrade}</Text>
+              {renderMemberList(gradeMates, navigation)}
+            </View>
+          )}
+          {interestMates.length > 0 && (
+            <View style={styles.memberRowWrap}>
+              <Text style={styles.memberRowTitle}>Students with similar interests</Text>
+              {renderMemberList(interestMates, navigation)}
+            </View>
+          )}
+        </FadeInView>
+      )}
+
       {members.length > 0 && (
         <FadeInView style={styles.membersSection} delay={60}>
           <Text style={styles.sectionTitle}>Members</Text>
-          <FlatList
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            data={members}
-            keyExtractor={(m) => m.id}
-            contentContainerStyle={styles.membersRow}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={styles.memberItem}
-                onPress={() => navigation.navigate('UserProfile', { userId: item.id })}
-              >
-                <Avatar uri={item.avatar_url} size={56} />
-                <Text style={styles.memberName} numberOfLines={1}>
-                  {item.full_name ?? 'Unknown'}
-                </Text>
-              </TouchableOpacity>
-            )}
-          />
+          {renderMemberList(members, navigation)}
         </FadeInView>
       )}
 
@@ -197,6 +257,15 @@ const styles = StyleSheet.create({
   },
   membersSection: {
     marginBottom: spacing.lg,
+  },
+  memberRowWrap: {
+    marginBottom: spacing.md,
+  },
+  memberRowTitle: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
+    color: colors.textMid,
+    marginBottom: spacing.sm,
   },
   membersRow: {
     gap: spacing.md,

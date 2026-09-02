@@ -31,6 +31,7 @@ export default function ProfileScreen() {
   const [interests, setInterests] = useState<string[]>([]);
   const [interestInput, setInterestInput] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [isNewStudent, setIsNewStudent] = useState<boolean | null>(null);
   const [points, setPoints] = useState(0);
   const [username, setUsername] = useState<string | null>(null);
   const [studentsHelped, setStudentsHelped] = useState(0);
@@ -55,6 +56,7 @@ export default function ProfileScreen() {
         setGrade(data.grade ?? '');
         setInterests(data.interests ?? []);
         setAvatarUrl(data.avatar_url ?? null);
+        setIsNewStudent(data.is_new_student);
         setPoints(data.points);
         setUsername(data.username);
       }
@@ -147,6 +149,7 @@ export default function ProfileScreen() {
       grade,
       interests,
       avatar_url: avatarUrl,
+      is_new_student: isNewStudent,
       updated_at: new Date().toISOString(),
     });
     setSaving(false);
@@ -273,6 +276,22 @@ export default function ProfileScreen() {
 
         <Text style={styles.label}>School Name</Text>
         <IconInput icon="school-outline" placeholder="Lincoln High School" value={schoolName} onChangeText={setSchoolName} />
+
+        <Text style={styles.label}>Are you new to this school?</Text>
+        <View style={styles.chipRow}>
+          <TouchableOpacity
+            style={[styles.chip, isNewStudent === true && styles.chipSelected]}
+            onPress={() => setIsNewStudent(true)}
+          >
+            <Text style={[styles.chipText, isNewStudent === true && styles.chipTextSelected]}>Yes</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.chip, isNewStudent === false && styles.chipSelected]}
+            onPress={() => setIsNewStudent(false)}
+          >
+            <Text style={[styles.chipText, isNewStudent === false && styles.chipTextSelected]}>Not right now</Text>
+          </TouchableOpacity>
+        </View>
 
         <Text style={styles.label}>Grade</Text>
         <View style={styles.chipRow}>

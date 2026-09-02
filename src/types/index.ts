@@ -38,6 +38,9 @@ export type Profile = {
   interests: string[];
   avatar_url: string | null;
   points: number;
+  // null = hasn't answered "Are you new to this school?" yet — distinct from
+  // false ("Not right now") on purpose, since the question is optional.
+  is_new_student: boolean | null;
   updated_at: string;
 };
 

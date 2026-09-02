@@ -5,6 +5,8 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { searchUsers } from '../../lib/search';
 import { getRecentSearches, addRecentSearch, removeRecentSearch, clearRecentSearches } from '../../lib/recentSearches';
+import { fetchBlockedUserIds } from '../../lib/blocks';
+import { useAuth } from '../../contexts/AuthContext';
 import IconInput from '../../components/IconInput';
 import Avatar from '../../components/Avatar';
 import EmptyState from '../../components/EmptyState';
@@ -16,6 +18,7 @@ const DEBOUNCE_MS = 300;
 
 export default function SearchScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
+  const { user } = useAuth();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Profile[]>([]);
   const [searching, setSearching] = useState(false);
@@ -42,7 +45,9 @@ export default function SearchScreen() {
     debounceRef.current = setTimeout(async () => {
       try {
         const data = await searchUsers(trimmed);
-        setResults(data);
+        // UX filtering only, not a security boundary — see blocks.ts.
+        const blockedIds = user ? await fetchBlockedUserIds(user.id).catch(() => new Set<string>()) : new Set<string>();
+        setResults(data.filter((p) => !blockedIds.has(p.id)));
       } catch {
         setResults([]);
       } finally {
@@ -53,7 +58,7 @@ export default function SearchScreen() {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [query]);
+  }, [query, user]);
 
   const handleSelectResult = async (profile: Profile) => {
     const updated = await addRecentSearch(query.trim());

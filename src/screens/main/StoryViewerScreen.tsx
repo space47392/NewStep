@@ -8,8 +8,9 @@ import { useAuth } from '../../contexts/AuthContext';
 import { deleteStory } from '../../lib/stories';
 import { formatRelativeTime } from '../../lib/time';
 import Avatar from '../../components/Avatar';
+import ReportSheet from '../../components/ReportSheet';
 import { colors, spacing, radius, fontSize, fontFamily } from '../../constants/theme';
-import { MainStackParamList } from '../../types';
+import { MainStackParamList, ReportTargetType } from '../../types';
 
 const STORY_DURATION_MS = 5000;
 
@@ -21,6 +22,7 @@ export default function StoryViewerScreen() {
 
   const [index, setIndex] = useState(initialIndex);
   const [deleting, setDeleting] = useState(false);
+  const [reportTarget, setReportTarget] = useState<{ type: ReportTargetType; id: string } | null>(null);
   const progress = useRef(new Animated.Value(0)).current;
 
   const story = stories[index];
@@ -104,13 +106,20 @@ export default function StoryViewerScreen() {
           <Text style={styles.name}>{story.profiles?.full_name ?? 'Unknown'}</Text>
           <Text style={styles.time}>{formatRelativeTime(story.created_at)}</Text>
         </View>
-        {isOwnStory && (
+        {isOwnStory ? (
           <TouchableOpacity style={styles.iconButton} onPress={handleDelete} disabled={deleting}>
             {deleting ? (
               <ActivityIndicator color="#fff" />
             ) : (
               <Ionicons name="trash-outline" size={20} color="#fff" />
             )}
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => setReportTarget({ type: 'story', id: story.id })}
+          >
+            <Ionicons name="flag-outline" size={20} color="#fff" />
           </TouchableOpacity>
         )}
         <TouchableOpacity style={styles.iconButton} onPress={() => navigation.goBack()}>
@@ -122,6 +131,8 @@ export default function StoryViewerScreen() {
         <TouchableOpacity style={styles.tapZoneLeft} activeOpacity={1} onPress={goToPrevious} />
         <TouchableOpacity style={styles.tapZoneRight} activeOpacity={1} onPress={goToNext} />
       </View>
+
+      <ReportSheet target={reportTarget} reporterId={user?.id} onClose={() => setReportTarget(null)} />
     </View>
   );
 }

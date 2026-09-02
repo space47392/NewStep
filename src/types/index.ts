@@ -7,6 +7,7 @@ export type RootStackParamList = {
 export type AuthStackParamList = {
   Login: undefined;
   Register: undefined;
+  ForgotPassword: undefined;
 };
 
 export type MainTabParamList = {
@@ -45,8 +46,15 @@ export type Profile = {
   // null = hasn't answered "Are you new to this school?" yet — distinct from
   // false ("Not right now") on purpose, since the question is optional.
   is_new_student: boolean | null;
+  // Client-immutable — see guard_profile_role_update() in
+  // safety_moderation_schema.sql. No UI reads or sets this yet.
+  role: 'user' | 'moderator' | 'admin';
   updated_at: string;
 };
+
+// See safety_moderation_schema.sql's reports table.
+export type ReportTargetType = 'post' | 'comment' | 'story' | 'profile' | 'message';
+export type ReportReason = 'harassment' | 'spam' | 'inappropriate' | 'impersonation' | 'hate' | 'other';
 
 // The public-safe subset of Profile shown on the leaderboard — deliberately
 // narrower than a full Profile select (no interests/username/grade/updated_at).

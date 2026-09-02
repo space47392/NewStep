@@ -29,11 +29,12 @@ import { CommentSkeleton } from '../../components/Skeleton';
 import PrimaryButton from '../../components/PrimaryButton';
 import FadeInView from '../../components/FadeInView';
 import ActionSheet, { ActionSheetAction } from '../../components/ActionSheet';
+import ReportSheet from '../../components/ReportSheet';
 import LikeButton from '../../components/LikeButton';
 import PhotoCarousel from '../../components/PhotoCarousel';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
 import { CATEGORY_STYLES } from '../../constants/categoryStyles';
-import { MainStackParamList, Comment } from '../../types';
+import { MainStackParamList, Comment, ReportTargetType } from '../../types';
 
 export default function PostDetailScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
@@ -55,6 +56,7 @@ export default function PostDetailScreen() {
   const [menuVisible, setMenuVisible] = useState(false);
   const [deletingPost, setDeletingPost] = useState(false);
   const [likedByMe, setLikedByMe] = useState(false);
+  const [reportTarget, setReportTarget] = useState<{ type: ReportTargetType; id: string } | null>(null);
 
   // Refetch just the post (not comments) whenever this screen regains focus, so
   // returning from editing shows the new content immediately.
@@ -209,7 +211,7 @@ export default function PostDetailScreen() {
         { label: 'Edit Post', icon: 'create-outline', onPress: handleEditPost },
         { label: 'Delete Post', icon: 'trash-outline', destructive: true, onPress: handleDeletePost },
       ]
-    : [];
+    : [{ label: 'Report Post', icon: 'flag-outline', onPress: () => setReportTarget({ type: 'post', id: post.id }) }];
 
   const handleSend = async () => {
     const trimmed = commentText.trim();
@@ -235,11 +237,9 @@ export default function PostDetailScreen() {
           <Ionicons name="arrow-back" size={20} color={colors.primary} />
           <Text style={styles.backText}>Back</Text>
         </TouchableOpacity>
-        {isAuthor && (
-          <TouchableOpacity style={styles.menuButton} onPress={() => setMenuVisible(true)}>
-            <Ionicons name="ellipsis-horizontal" size={20} color={colors.textMid} />
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity style={styles.menuButton} onPress={() => setMenuVisible(true)}>
+          <Ionicons name="ellipsis-horizontal" size={20} color={colors.textMid} />
+        </TouchableOpacity>
       </View>
 
       <FlatList
@@ -367,11 +367,16 @@ export default function PostDetailScreen() {
             >
               <Avatar uri={item.profiles?.avatar_url} size={32} />
             </TouchableOpacity>
-            <View style={styles.commentBubble}>
+            <TouchableOpacity
+              style={styles.commentBubble}
+              activeOpacity={0.85}
+              disabled={item.profiles?.id === user?.id}
+              onLongPress={() => setReportTarget({ type: 'comment', id: item.id })}
+            >
               <Text style={styles.commentName}>{item.profiles?.full_name ?? 'Unknown'}</Text>
               <Text style={styles.commentContent}>{item.content}</Text>
               <Text style={styles.commentTimestamp}>{formatRelativeTime(item.created_at)}</Text>
-            </View>
+            </TouchableOpacity>
           </View>
         )}
       />
@@ -395,6 +400,7 @@ export default function PostDetailScreen() {
       </View>
 
       <ActionSheet visible={menuVisible} onClose={() => setMenuVisible(false)} actions={menuActions} />
+      <ReportSheet target={reportTarget} reporterId={user?.id} onClose={() => setReportTarget(null)} />
     </KeyboardAvoidingView>
   );
 }

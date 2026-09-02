@@ -175,6 +175,27 @@ export default function ProfileScreen() {
     ]);
   };
 
+  // scope: 'global' revokes every refresh token for this account, not just
+  // this device's — useful if you think another device is still signed in
+  // somewhere you don't want it to be.
+  const handleLogoutAllDevices = () => {
+    Alert.alert(
+      'Log out of all devices?',
+      "This will sign you out everywhere, including this device. You'll need to sign in again.",
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Log Out Everywhere',
+          style: 'destructive',
+          onPress: async () => {
+            setLoggingOut(true);
+            await supabase.auth.signOut({ scope: 'global' });
+          },
+        },
+      ]
+    );
+  };
+
   if (loadingProfile) {
     return <LoadingScreen />;
   }
@@ -344,6 +365,9 @@ export default function ProfileScreen() {
           loading={loggingOut}
           style={styles.logoutButton}
         />
+        <TouchableOpacity onPress={handleLogoutAllDevices} style={styles.logoutEverywhereButton}>
+          <Text style={styles.logoutEverywhereText}>Log out of all devices</Text>
+        </TouchableOpacity>
       </FadeInView>
     </ScrollView>
   );
@@ -594,6 +618,16 @@ const styles = StyleSheet.create({
   },
   logoutButton: {
     marginTop: spacing.sm,
+  },
+  logoutEverywhereButton: {
+    marginTop: spacing.md,
+    alignItems: 'center',
+  },
+  logoutEverywhereText: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
+    color: colors.textLight,
+    textDecorationLine: 'underline',
   },
   email: {
     fontFamily: fontFamily.regular,

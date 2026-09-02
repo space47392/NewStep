@@ -13,15 +13,17 @@ import { fetchProfileById } from '../../lib/profile';
 import { fetchSchoolStudentCount } from '../../lib/schools';
 import { isWelcomeBannerDismissed, dismissWelcomeBanner } from '../../lib/newStudentPrefs';
 import { fetchUnreadNotificationCount } from '../../lib/notifications';
+import { fetchBlockedUserIds } from '../../lib/blocks';
 import { formatRelativeTime } from '../../lib/time';
 import Avatar from '../../components/Avatar';
 import EmptyState from '../../components/EmptyState';
 import { PostCardSkeleton } from '../../components/Skeleton';
 import FadeInView from '../../components/FadeInView';
 import ActionSheet, { ActionSheetAction } from '../../components/ActionSheet';
+import ReportSheet from '../../components/ReportSheet';
 import LikeButton from '../../components/LikeButton';
 import PhotoCarousel from '../../components/PhotoCarousel';
-import { Post, Story, MainStackParamList } from '../../types';
+import { Post, Story, MainStackParamList, ReportTargetType } from '../../types';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
 import { CATEGORY_STYLES } from '../../constants/categoryStyles';
 
@@ -43,6 +45,7 @@ export default function FeedScreen() {
   const [isNewStudent, setIsNewStudent] = useState(false);
   const [welcomeBannerDismissed, setWelcomeBannerDismissed] = useState(false);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+  const [reportTarget, setReportTarget] = useState<{ type: ReportTargetType; id: string } | null>(null);
   const hasLoadedOnce = useRef(false);
 
   const loadNotificationCount = useCallback(async () => {
@@ -58,10 +61,14 @@ export default function FeedScreen() {
   const loadPosts = useCallback(async () => {
     try {
       const data = await fetchPosts();
-      setPosts(data);
+      // UX filtering only, not a security boundary — posts stay publicly
+      // queryable at the RLS layer either way (see blocks.ts).
+      const blockedIds = user ? await fetchBlockedUserIds(user.id).catch(() => new Set<string>()) : new Set<string>();
+      const visible = data.filter((p) => !blockedIds.has(p.author_id));
+      setPosts(visible);
       setErrorMessage(null);
       if (user) {
-        const liked = await fetchLikedPostIds(user.id, data.map((p) => p.id));
+        const liked = await fetchLikedPostIds(user.id, visible.map((p) => p.id));
         setLikedPostIds(liked);
       }
     } catch (err) {
@@ -72,11 +79,13 @@ export default function FeedScreen() {
   const loadStories = useCallback(async () => {
     try {
       const data = await fetchActiveStories();
-      setStories(data);
+      // UX filtering only — see loadPosts' comment above.
+      const blockedIds = user ? await fetchBlockedUserIds(user.id).catch(() => new Set<string>()) : new Set<string>();
+      setStories(data.filter((s) => !blockedIds.has(s.author_id)));
     } catch {
       // Non-critical — the rail just keeps whatever it last had (or stays empty).
     }
-  }, []);
+  }, [user]);
 
   // Powers both the "your school" pill and the New Student welcome banner below
   // — non-critical, so a failure here just leaves them hidden rather than
@@ -186,12 +195,20 @@ export default function FeedScreen() {
     ]);
   };
 
-  const menuActions: ActionSheetAction[] = menuPost
-    ? [
-        { label: 'Edit Post', icon: 'create-outline', onPress: () => handleEditPost(menuPost) },
-        { label: 'Delete Post', icon: 'trash-outline', destructive: true, onPress: () => handleDeletePost(menuPost) },
-      ]
-    : [];
+  const menuActions: ActionSheetAction[] = !menuPost
+    ? []
+    : menuPost.author_id === user?.id
+      ? [
+          { label: 'Edit Post', icon: 'create-outline', onPress: () => handleEditPost(menuPost) },
+          { label: 'Delete Post', icon: 'trash-outline', destructive: true, onPress: () => handleDeletePost(menuPost) },
+        ]
+      : [
+          {
+            label: 'Report Post',
+            icon: 'flag-outline',
+            onPress: () => setReportTarget({ type: 'post', id: menuPost.id }),
+          },
+        ];
 
   if (loading) {
     return (
@@ -333,7 +350,6 @@ export default function FeedScreen() {
         }
         renderItem={({ item, index }) => {
           const category = CATEGORY_STYLES[item.category];
-          const isAuthor = user?.id === item.author_id;
           const isDeleting = item.id === deletingPostId;
           const commentCount = item.comments?.[0]?.count ?? 0;
           return (
@@ -366,17 +382,15 @@ export default function FeedScreen() {
                     </View>
                   </TouchableOpacity>
                   <Text style={styles.timestamp}>{formatRelativeTime(item.created_at)}</Text>
-                  {isAuthor && (
-                    <TouchableOpacity
-                      style={styles.menuButton}
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        setMenuPost(item);
-                      }}
-                    >
-                      <Ionicons name="ellipsis-horizontal" size={18} color={colors.textMid} />
-                    </TouchableOpacity>
-                  )}
+                  <TouchableOpacity
+                    style={styles.menuButton}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      setMenuPost(item);
+                    }}
+                  >
+                    <Ionicons name="ellipsis-horizontal" size={18} color={colors.textMid} />
+                  </TouchableOpacity>
                 </View>
 
                 <View style={[styles.categoryBadge, { backgroundColor: category.bg }]}>
@@ -433,6 +447,7 @@ export default function FeedScreen() {
       </TouchableOpacity>
 
       <ActionSheet visible={menuPost !== null} onClose={() => setMenuPost(null)} actions={menuActions} />
+      <ReportSheet target={reportTarget} reporterId={user?.id} onClose={() => setReportTarget(null)} />
     </View>
   );
 }

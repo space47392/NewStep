@@ -4,26 +4,31 @@ import { useFocusEffect, useNavigation, useRoute, RouteProp } from '@react-navig
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/ToastContext';
 import { fetchProfileById } from '../../lib/profile';
 import { fetchPostsByAuthor } from '../../lib/posts';
 import { fetchHelpStats } from '../../lib/points';
 import { fetchAchievementProgress } from '../../lib/achievements';
 import { getOrCreateConversation } from '../../lib/chat';
+import { fetchBlockedUserIds, blockUser, unblockUser } from '../../lib/blocks';
 import { formatRelativeTime } from '../../lib/time';
 import Avatar from '../../components/Avatar';
 import EmptyState from '../../components/EmptyState';
 import LoadingScreen from '../../components/LoadingScreen';
 import PrimaryButton from '../../components/PrimaryButton';
 import FadeInView from '../../components/FadeInView';
+import ActionSheet, { ActionSheetAction } from '../../components/ActionSheet';
+import ReportSheet from '../../components/ReportSheet';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
 import { CATEGORY_STYLES } from '../../constants/categoryStyles';
-import { MainStackParamList, Profile, Post, AchievementProgress } from '../../types';
+import { MainStackParamList, Profile, Post, AchievementProgress, ReportTargetType } from '../../types';
 
 export default function UserProfileScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
   const route = useRoute<RouteProp<MainStackParamList, 'UserProfile'>>();
   const { userId } = route.params;
   const { user } = useAuth();
+  const { showToast } = useToast();
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
@@ -31,6 +36,9 @@ export default function UserProfileScreen() {
   const [achievements, setAchievements] = useState<AchievementProgress[]>([]);
   const [loading, setLoading] = useState(true);
   const [messaging, setMessaging] = useState(false);
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [reportTarget, setReportTarget] = useState<{ type: ReportTargetType; id: string } | null>(null);
 
   const isOwnProfile = user?.id === userId;
 
@@ -48,14 +56,72 @@ export default function UserProfileScreen() {
           setPosts(postsData);
           setStudentsHelped(helpStats.studentsHelped);
           setAchievements(achievementProgress);
+
+          if (user && user.id !== userId) {
+            // UX-only check — see blocks.ts. The real enforcement (can't
+            // message, no notifications) happens server-side regardless.
+            const blockedIds = await fetchBlockedUserIds(user.id).catch(() => new Set<string>());
+            setIsBlocked(blockedIds.has(userId));
+          }
         } catch {
           setProfile(null);
         } finally {
           setLoading(false);
         }
       })();
-    }, [userId])
+    }, [userId, user])
   );
+
+  const handleToggleBlock = () => {
+    if (!user) return;
+    if (isBlocked) {
+      Alert.alert('Unblock this user?', 'They will be able to message you and appear in your feed again.', [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Unblock',
+          onPress: async () => {
+            try {
+              await unblockUser({ blockerId: user.id, blockedId: userId });
+              setIsBlocked(false);
+              showToast('User unblocked');
+            } catch (err) {
+              const message = err instanceof Error ? err.message : 'Could not unblock this user.';
+              Alert.alert('Error', message);
+            }
+          },
+        },
+      ]);
+    } else {
+      Alert.alert(
+        'Block this user?',
+        "They won't be able to message you, and you won't see their posts. This won't delete anything that already exists.",
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Block',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await blockUser({ blockerId: user.id, blockedId: userId });
+                setIsBlocked(true);
+                showToast('User blocked');
+              } catch (err) {
+                const message = err instanceof Error ? err.message : 'Could not block this user.';
+                Alert.alert('Error', message);
+              }
+            },
+          },
+        ]
+      );
+    }
+  };
+
+  const profileMenuActions: ActionSheetAction[] = [
+    { label: 'Report Profile', icon: 'flag-outline', onPress: () => setReportTarget({ type: 'profile', id: userId }) },
+    isBlocked
+      ? { label: 'Unblock User', icon: 'checkmark-circle-outline', onPress: handleToggleBlock }
+      : { label: 'Block User', icon: 'ban-outline', destructive: true, onPress: handleToggleBlock },
+  ];
 
   const earnedAchievements = achievements.filter((a) => a.earned);
 
@@ -83,16 +149,19 @@ export default function UserProfileScreen() {
   if (!profile) {
     return (
       <View style={styles.container}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={20} color={colors.primary} />
-          <Text style={styles.backText}>Back</Text>
-        </TouchableOpacity>
+        <View style={styles.topBar}>
+          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+            <Ionicons name="arrow-back" size={20} color={colors.primary} />
+            <Text style={styles.backText}>Back</Text>
+          </TouchableOpacity>
+        </View>
         <EmptyState icon="person-outline" title="Profile not found" subtitle="This account may have been removed." />
       </View>
     );
   }
 
   return (
+    <>
     <FlatList
       style={styles.container}
       data={posts}
@@ -100,10 +169,17 @@ export default function UserProfileScreen() {
       contentContainerStyle={styles.list}
       ListHeaderComponent={
         <FadeInView>
-          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={20} color={colors.primary} />
-            <Text style={styles.backText}>Back</Text>
-          </TouchableOpacity>
+          <View style={styles.topBar}>
+            <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+              <Ionicons name="arrow-back" size={20} color={colors.primary} />
+              <Text style={styles.backText}>Back</Text>
+            </TouchableOpacity>
+            {!isOwnProfile && (
+              <TouchableOpacity style={styles.menuButton} onPress={() => setMenuVisible(true)}>
+                <Ionicons name="ellipsis-horizontal" size={20} color={colors.textMid} />
+              </TouchableOpacity>
+            )}
+          </View>
 
           <View style={styles.headerRow}>
             <Avatar uri={profile.avatar_url} size={84} />
@@ -166,7 +242,7 @@ export default function UserProfileScreen() {
             </View>
           )}
 
-          {!isOwnProfile && (
+          {!isOwnProfile && !isBlocked && (
             <PrimaryButton
               title="Message"
               icon="chatbubble-outline"
@@ -202,6 +278,9 @@ export default function UserProfileScreen() {
         );
       }}
     />
+    <ActionSheet visible={menuVisible} onClose={() => setMenuVisible(false)} actions={profileMenuActions} />
+    <ReportSheet target={reportTarget} reporterId={user?.id} onClose={() => setReportTarget(null)} />
+    </>
   );
 }
 
@@ -213,16 +292,24 @@ const styles = StyleSheet.create({
   list: {
     padding: spacing.lg,
   },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.lg,
+  },
   backButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    marginBottom: spacing.lg,
   },
   backText: {
     fontFamily: fontFamily.semibold,
     color: colors.primary,
     fontSize: fontSize.md,
+  },
+  menuButton: {
+    padding: spacing.xs,
   },
   headerRow: {
     flexDirection: 'row',

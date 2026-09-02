@@ -33,8 +33,9 @@ import EmptyState from '../../components/EmptyState';
 import { MessageSkeleton } from '../../components/Skeleton';
 import TypingIndicator from '../../components/TypingIndicator';
 import ActionSheet, { ActionSheetAction } from '../../components/ActionSheet';
+import ReportSheet from '../../components/ReportSheet';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
-import { MainStackParamList, Message } from '../../types';
+import { MainStackParamList, Message, ReportTargetType } from '../../types';
 
 export default function ConversationScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
@@ -49,6 +50,7 @@ export default function ConversationScreen() {
   const [sending, setSending] = useState(false);
   const [menuMessage, setMenuMessage] = useState<Message | null>(null);
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
+  const [reportTarget, setReportTarget] = useState<{ type: ReportTargetType; id: string } | null>(null);
   const [otherTyping, setOtherTyping] = useState(false);
   const listRef = useRef<FlatList>(null);
   const typingRef = useRef<ReturnType<typeof subscribeToTyping> | null>(null);
@@ -205,7 +207,13 @@ export default function ConversationScreen() {
                 onPress: () => handleDeleteMessage(menuMessage),
               },
             ] as ActionSheetAction[])
-          : []),
+          : ([
+              {
+                label: 'Report Message',
+                icon: 'flag-outline',
+                onPress: () => setReportTarget({ type: 'message', id: menuMessage.id }),
+              },
+            ] as ActionSheetAction[])),
       ]
     : [];
 
@@ -344,6 +352,7 @@ export default function ConversationScreen() {
       </View>
 
       <ActionSheet visible={menuMessage !== null} onClose={() => setMenuMessage(null)} actions={menuActions} />
+      <ReportSheet target={reportTarget} reporterId={user?.id} onClose={() => setReportTarget(null)} />
     </KeyboardAvoidingView>
   );
 }

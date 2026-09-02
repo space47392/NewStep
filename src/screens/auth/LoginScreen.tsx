@@ -68,6 +68,10 @@ export default function LoginScreen({ navigation }: Props) {
             autoComplete="password"
           />
 
+          <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')} style={styles.forgotButton}>
+            <Text style={styles.forgotText}>Forgot password?</Text>
+          </TouchableOpacity>
+
           <PrimaryButton title="Sign In" onPress={handleLogin} loading={loading} style={styles.button} />
         </FadeInView>
 
@@ -124,6 +128,15 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.textDark,
     marginTop: spacing.sm,
+  },
+  forgotButton: {
+    alignSelf: 'flex-end',
+    marginTop: spacing.xs,
+  },
+  forgotText: {
+    fontFamily: fontFamily.semibold,
+    color: colors.primary,
+    fontSize: fontSize.sm,
   },
   button: {
     marginTop: spacing.lg,

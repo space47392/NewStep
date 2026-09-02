@@ -7,6 +7,7 @@ import LoadingScreen from '../components/LoadingScreen';
 
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
+import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
 import ChooseUsernameScreen from '../screens/auth/ChooseUsernameScreen';
 import MainNavigator from './MainNavigator';
 import { navigationRef } from './navigationRef';
@@ -19,6 +20,7 @@ function AuthNavigator() {
     <AuthStack.Navigator screenOptions={{ headerShown: false }}>
       <AuthStack.Screen name="Login" component={LoginScreen} />
       <AuthStack.Screen name="Register" component={RegisterScreen} />
+      <AuthStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
     </AuthStack.Navigator>
   );
 }

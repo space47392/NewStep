@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { fetchSchoolStudentCount, fetchSchoolMembers, fetchSchoolMembersByGrade, fetchSchoolMembersByInterests } from '../../lib/schools';
 import { fetchPostsBySchool } from '../../lib/posts';
 import { fetchProfileById } from '../../lib/profile';
+import { fetchBlockedUserIds } from '../../lib/blocks';
 import { formatRelativeTime } from '../../lib/time';
 import { useAuth } from '../../contexts/AuthContext';
 import Avatar from '../../components/Avatar';
@@ -73,7 +74,7 @@ export default function SchoolScreen() {
     useCallback(() => {
       (async () => {
         try {
-          const [count, memberList, recent, help, questions, friends, myProfile] = await Promise.all([
+          const [count, memberList, recent, help, questions, friends, myProfile, blockedIds] = await Promise.all([
             fetchSchoolStudentCount(schoolName),
             fetchSchoolMembers(schoolName, MEMBER_LIMIT),
             fetchPostsBySchool(schoolName, undefined, SECTION_LIMIT),
@@ -81,13 +82,15 @@ export default function SchoolScreen() {
             fetchPostsBySchool(schoolName, 'School Question', SECTION_LIMIT),
             fetchPostsBySchool(schoolName, 'Looking for Friends', SECTION_LIMIT),
             user ? fetchProfileById(user.id) : Promise.resolve(null),
+            user ? fetchBlockedUserIds(user.id).catch(() => new Set<string>()) : Promise.resolve(new Set<string>()),
           ]);
+          // UX filtering only, not a security boundary — see blocks.ts.
           setStudentCount(count);
-          setMembers(memberList);
-          setRecentPosts(recent);
-          setHelpPosts(help);
-          setQuestionPosts(questions);
-          setFriendPosts(friends);
+          setMembers(memberList.filter((m) => !blockedIds.has(m.id)));
+          setRecentPosts(recent.filter((p) => !blockedIds.has(p.author_id)));
+          setHelpPosts(help.filter((p) => !blockedIds.has(p.author_id)));
+          setQuestionPosts(questions.filter((p) => !blockedIds.has(p.author_id)));
+          setFriendPosts(friends.filter((p) => !blockedIds.has(p.author_id)));
 
           // "Find your community" only shows on your OWN school's page, and only
           // if you opted into New Student mode — never on a school you're just
@@ -105,8 +108,8 @@ export default function SchoolScreen() {
                 ? fetchSchoolMembersByInterests(schoolName, myProfile!.interests, user.id, DISCOVERY_LIMIT)
                 : Promise.resolve([]),
             ]);
-            setGradeMates(byGrade);
-            setInterestMates(byInterests);
+            setGradeMates(byGrade.filter((m) => !blockedIds.has(m.id)));
+            setInterestMates(byInterests.filter((m) => !blockedIds.has(m.id)));
           } else {
             setMyGrade(null);
             setGradeMates([]);

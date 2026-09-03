@@ -30,11 +30,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [usernameLoading, setUsernameLoading] = useState(true);
 
   useEffect(() => {
-    // Load the current session when the app starts
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setLoading(false);
-    });
+    // Load the current session when the app starts. The .catch() matters: without
+    // it, a rejected getSession() call (e.g. a SecureStore/network hiccup) would
+    // leave `loading` stuck true forever — the whole app parked on the launch
+    // spinner with no way forward.
+    supabase.auth
+      .getSession()
+      .then(({ data: { session } }) => {
+        setSession(session);
+      })
+      .catch(() => {
+        setSession(null);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
 
     // Listen for login/logout events and update state automatically
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {

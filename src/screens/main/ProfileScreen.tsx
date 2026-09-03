@@ -7,6 +7,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { fetchHelpStats, fetchPointsHistory, formatPointReason } from '../../lib/points';
 import { fetchAchievementProgress } from '../../lib/achievements';
+import { deleteMyAccount } from '../../lib/account';
 import { formatRelativeTime } from '../../lib/time';
 import IconInput from '../../components/IconInput';
 import PrimaryButton from '../../components/PrimaryButton';
@@ -24,6 +25,7 @@ export default function ProfileScreen() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   const [fullName, setFullName] = useState('');
   const [schoolName, setSchoolName] = useState('');
@@ -190,6 +192,51 @@ export default function ProfileScreen() {
           onPress: async () => {
             setLoggingOut(true);
             await supabase.auth.signOut({ scope: 'global' });
+          },
+        },
+      ]
+    );
+  };
+
+  // Two-step confirmation on purpose — this is the one irreversible action on
+  // this whole screen, so it gets more friction than a normal destructive
+  // Alert, not less.
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Delete your account?',
+      'This permanently deletes your profile, posts, comments, stories, and messages. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Continue',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert(
+              'Are you absolutely sure?',
+              'Your account and all of its data will be permanently deleted right now. There is no way to undo this.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Delete My Account',
+                  style: 'destructive',
+                  onPress: async () => {
+                    setDeletingAccount(true);
+                    try {
+                      await deleteMyAccount();
+                      // The account (and its session server-side) is already
+                      // gone at this point — this just clears the local
+                      // cached session so AppNavigator's gate redirects to
+                      // the Auth stack, same as a normal sign-out.
+                      await supabase.auth.signOut().catch(() => {});
+                    } catch (err) {
+                      const message = err instanceof Error ? err.message : 'Could not delete your account.';
+                      Alert.alert('Error', message);
+                      setDeletingAccount(false);
+                    }
+                  },
+                },
+              ]
+            );
           },
         },
       ]
@@ -367,6 +414,18 @@ export default function ProfileScreen() {
         />
         <TouchableOpacity onPress={handleLogoutAllDevices} style={styles.logoutEverywhereButton}>
           <Text style={styles.logoutEverywhereText}>Log out of all devices</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={handleDeleteAccount}
+          style={styles.deleteAccountButton}
+          disabled={deletingAccount}
+        >
+          {deletingAccount ? (
+            <ActivityIndicator size="small" color={colors.error} />
+          ) : (
+            <Text style={styles.deleteAccountText}>Delete Account</Text>
+          )}
         </TouchableOpacity>
       </FadeInView>
     </ScrollView>
@@ -627,6 +686,16 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     fontSize: fontSize.xs,
     color: colors.textLight,
+    textDecorationLine: 'underline',
+  },
+  deleteAccountButton: {
+    marginTop: spacing.lg,
+    alignItems: 'center',
+  },
+  deleteAccountText: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.xs,
+    color: colors.error,
     textDecorationLine: 'underline',
   },
   email: {

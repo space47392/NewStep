@@ -92,6 +92,9 @@ export default function NotificationsScreen() {
           conversationId: notification.conversation_id,
           otherUser: notification.actor,
         });
+      } else if (notification.type === 'follow') {
+        if (!notification.actor) return;
+        navigation.navigate('UserProfile', { userId: notification.actor.id });
       } else {
         // points_earned / achievement_earned
         navigation.navigate('Tabs', { screen: 'Profile' });

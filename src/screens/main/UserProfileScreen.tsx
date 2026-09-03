@@ -3,6 +3,7 @@ import { View, Text, FlatList, TouchableOpacity, Alert, StyleSheet } from 'react
 import { useFocusEffect, useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { fetchProfileById } from '../../lib/profile';
@@ -11,6 +12,7 @@ import { fetchHelpStats } from '../../lib/points';
 import { fetchAchievementProgress } from '../../lib/achievements';
 import { getOrCreateConversation } from '../../lib/chat';
 import { fetchBlockedUserIds, blockUser, unblockUser } from '../../lib/blocks';
+import { fetchFollowCounts, isFollowing, followUser, unfollowUser } from '../../lib/follows';
 import { formatRelativeTime } from '../../lib/time';
 import Avatar from '../../components/Avatar';
 import EmptyState from '../../components/EmptyState';
@@ -39,6 +41,9 @@ export default function UserProfileScreen() {
   const [isBlocked, setIsBlocked] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
   const [reportTarget, setReportTarget] = useState<{ type: ReportTargetType; id: string } | null>(null);
+  const [followCounts, setFollowCounts] = useState({ followers: 0, following: 0 });
+  const [isFollowingUser, setIsFollowingUser] = useState(false);
+  const [followLoading, setFollowLoading] = useState(false);
 
   const isOwnProfile = user?.id === userId;
 
@@ -46,22 +51,25 @@ export default function UserProfileScreen() {
     useCallback(() => {
       (async () => {
         try {
-          const [profileData, postsData, helpStats, achievementProgress] = await Promise.all([
+          const [profileData, postsData, helpStats, achievementProgress, counts] = await Promise.all([
             fetchProfileById(userId),
             fetchPostsByAuthor(userId),
             fetchHelpStats(userId),
             fetchAchievementProgress(userId),
+            fetchFollowCounts(userId),
           ]);
           setProfile(profileData);
           setPosts(postsData);
           setStudentsHelped(helpStats.studentsHelped);
           setAchievements(achievementProgress);
+          setFollowCounts(counts);
 
           if (user && user.id !== userId) {
             // UX-only check — see blocks.ts. The real enforcement (can't
             // message, no notifications) happens server-side regardless.
             const blockedIds = await fetchBlockedUserIds(user.id).catch(() => new Set<string>());
             setIsBlocked(blockedIds.has(userId));
+            setIsFollowingUser(await isFollowing(user.id, userId).catch(() => false));
           }
         } catch {
           setProfile(null);
@@ -114,6 +122,54 @@ export default function UserProfileScreen() {
         ]
       );
     }
+  };
+
+  // Following → tapping asks first ("confirm/unfollow" per spec). Not
+  // following → tapping just follows immediately, matching how most social
+  // apps only add friction to the destructive direction.
+  const handleFollowPress = () => {
+    if (!user) return;
+
+    if (isFollowingUser) {
+      Alert.alert(`Unfollow ${profile?.full_name ?? 'this user'}?`, undefined, [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Unfollow',
+          style: 'destructive',
+          onPress: async () => {
+            setFollowLoading(true);
+            try {
+              await unfollowUser({ followerId: user.id, followingId: userId });
+              setIsFollowingUser(false);
+              setFollowCounts((prev) => ({ ...prev, followers: Math.max(0, prev.followers - 1) }));
+            } catch (err) {
+              const message = err instanceof Error ? err.message : 'Could not unfollow.';
+              Alert.alert('Error', message);
+            } finally {
+              setFollowLoading(false);
+            }
+          },
+        },
+      ]);
+      return;
+    }
+
+    (async () => {
+      setFollowLoading(true);
+      try {
+        await followUser({ followerId: user.id, followingId: userId });
+        setIsFollowingUser(true);
+        setFollowCounts((prev) => ({ ...prev, followers: prev.followers + 1 }));
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      } catch (err) {
+        // Also the path a "they blocked you" attempt takes — the RPC-level
+        // guard's message is deliberately generic, so this doesn't reveal why.
+        const message = err instanceof Error ? err.message : 'Could not follow this user.';
+        Alert.alert('Error', message);
+      } finally {
+        setFollowLoading(false);
+      }
+    })();
   };
 
   const profileMenuActions: ActionSheetAction[] = [
@@ -204,6 +260,19 @@ export default function UserProfileScreen() {
           <Text style={styles.name}>{profile.full_name ?? 'Unknown'}</Text>
           {profile.username ? <Text style={styles.username}>@{profile.username}</Text> : null}
 
+          <View style={styles.followRow}>
+            <TouchableOpacity onPress={() => navigation.navigate('FollowList', { userId, mode: 'followers' })}>
+              <Text style={styles.followText}>
+                <Text style={styles.followCount}>{followCounts.followers}</Text> Followers
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => navigation.navigate('FollowList', { userId, mode: 'following' })}>
+              <Text style={styles.followText}>
+                <Text style={styles.followCount}>{followCounts.following}</Text> Following
+              </Text>
+            </TouchableOpacity>
+          </View>
+
           {profile.school_name ? (
             <TouchableOpacity
               style={styles.metaRow}
@@ -243,13 +312,24 @@ export default function UserProfileScreen() {
           )}
 
           {!isOwnProfile && !isBlocked && (
-            <PrimaryButton
-              title="Message"
-              icon="chatbubble-outline"
-              onPress={handleMessage}
-              loading={messaging}
-              style={styles.messageButton}
-            />
+            <View style={styles.profileActions}>
+              <PrimaryButton
+                title={isFollowingUser ? 'Following' : 'Follow'}
+                icon={isFollowingUser ? 'checkmark' : 'person-add-outline'}
+                variant={isFollowingUser ? 'outline' : undefined}
+                onPress={handleFollowPress}
+                loading={followLoading}
+                style={styles.messageButton}
+              />
+              <PrimaryButton
+                title="Message"
+                icon="chatbubble-outline"
+                variant="outline"
+                onPress={handleMessage}
+                loading={messaging}
+                style={styles.messageButton}
+              />
+            </View>
           )}
 
           <Text style={styles.postsHeading}>Posts</Text>
@@ -349,6 +429,20 @@ const styles = StyleSheet.create({
     color: colors.textMid,
     marginTop: 2,
   },
+  followRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginTop: spacing.xs,
+  },
+  followText: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    color: colors.textMid,
+  },
+  followCount: {
+    fontFamily: fontFamily.bold,
+    color: colors.textDark,
+  },
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -410,8 +504,13 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
     color: colors.textDark,
   },
-  messageButton: {
+  profileActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
     marginTop: spacing.lg,
+  },
+  messageButton: {
+    flex: 1,
   },
   postsHeading: {
     fontFamily: fontFamily.bold,

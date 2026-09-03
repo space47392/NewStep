@@ -30,6 +30,7 @@ export type MainStackParamList = {
   UserProfile: { userId: string };
   School: { schoolName: string };
   Notifications: undefined;
+  FollowList: { userId: string; mode: 'followers' | 'following' };
   StoryViewer: { stories: Story[]; initialIndex: number };
   PhotoViewer: { photoUrls: string[]; initialIndex: number };
 };
@@ -181,7 +182,8 @@ export type NotificationType =
   | 'help_completed'
   | 'points_earned'
   | 'achievement_earned'
-  | 'message';
+  | 'message'
+  | 'follow';
 
 // See notifications_schema.sql — stores only IDs/relationships, never
 // duplicated profile or post data. actor/achievement are joined at read time

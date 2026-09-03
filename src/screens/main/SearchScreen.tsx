@@ -9,6 +9,7 @@ import { fetchProfileById } from '../../lib/profile';
 import { fetchSchoolMembersByGrade, fetchSchoolMembersByInterests } from '../../lib/schools';
 import { getRecentSearches, addRecentSearch, removeRecentSearch, clearRecentSearches } from '../../lib/recentSearches';
 import { fetchBlockedUserIds } from '../../lib/blocks';
+import { fetchFollowingIds } from '../../lib/follows';
 import { useAuth } from '../../contexts/AuthContext';
 import IconInput from '../../components/IconInput';
 import Avatar from '../../components/Avatar';
@@ -87,7 +88,11 @@ export default function SearchScreen() {
         return;
       }
 
-      const blockedIds = await fetchBlockedUserIds(user.id).catch(() => new Set<string>());
+      const [blockedIds, followingIds] = await Promise.all([
+        fetchBlockedUserIds(user.id).catch(() => new Set<string>()),
+        fetchFollowingIds(user.id).catch(() => [] as string[]),
+      ]);
+      const followingIdSet = new Set(followingIds);
       const [byGrade, byInterests, schoolPosts] = await Promise.all([
         myProfile.grade
           ? fetchSchoolMembersByGrade(myProfile.school_name, myProfile.grade, user.id, 10)
@@ -98,8 +103,14 @@ export default function SearchScreen() {
         fetchPostsBySchool(myProfile.school_name, undefined, 5),
       ]);
 
-      // UX filtering only, not a security boundary — see blocks.ts.
-      setSuggestedPeople(dedupeMembers(byGrade, byInterests).filter((m) => !blockedIds.has(m.id)).slice(0, 10));
+      // UX filtering only, not a security boundary — see blocks.ts. Already-
+      // followed people are also skipped here — no strong reason to keep
+      // suggesting someone you're already following.
+      setSuggestedPeople(
+        dedupeMembers(byGrade, byInterests)
+          .filter((m) => !blockedIds.has(m.id) && !followingIdSet.has(m.id))
+          .slice(0, 10)
+      );
       setSuggestedPosts(schoolPosts.filter((p) => !blockedIds.has(p.author_id)));
     } catch {
       // Discovery is a bonus surface, not the primary flow — fail quietly.

@@ -39,6 +39,24 @@ export async function fetchPosts(): Promise<Post[]> {
   return (data ?? []) as unknown as Post[];
 }
 
+// Powers FeedScreen's "Following" mode — same POST_SELECT shape as every
+// other post query, just filtered to a caller-supplied set of author ids
+// (from follows.ts's fetchFollowingIds()) instead of everyone or one school.
+// Paginated the same way NotificationsScreen already is.
+export async function fetchFollowingFeed(followingIds: string[], limit = 20, offset = 0): Promise<Post[]> {
+  if (followingIds.length === 0) return [];
+
+  const { data, error } = await supabase
+    .from('posts')
+    .select(POST_SELECT)
+    .in('author_id', followingIds)
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (error) throw error;
+  return (data ?? []) as unknown as Post[];
+}
+
 export async function fetchPostById(postId: string): Promise<Post> {
   const { data, error } = await supabase.from('posts').select(POST_SELECT).eq('id', postId).single();
 

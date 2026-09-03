@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, Image, ScrollView, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { File } from 'expo-file-system';
@@ -7,6 +9,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { fetchHelpStats, fetchPointsHistory, formatPointReason } from '../../lib/points';
 import { fetchAchievementProgress } from '../../lib/achievements';
+import { fetchFollowCounts } from '../../lib/follows';
 import { deleteMyAccount } from '../../lib/account';
 import { formatRelativeTime } from '../../lib/time';
 import IconInput from '../../components/IconInput';
@@ -14,11 +17,12 @@ import PrimaryButton from '../../components/PrimaryButton';
 import LoadingScreen from '../../components/LoadingScreen';
 import FadeInView from '../../components/FadeInView';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
-import { Profile, PointsHistoryEntry, AchievementProgress } from '../../types';
+import { MainStackParamList, Profile, PointsHistoryEntry, AchievementProgress } from '../../types';
 
 const GRADES = ['6th', '7th', '8th', '9th', '10th', '11th', '12th'];
 
 export default function ProfileScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
   const { user, signOut } = useAuth();
 
   const [loadingProfile, setLoadingProfile] = useState(true);
@@ -39,6 +43,7 @@ export default function ProfileScreen() {
   const [studentsHelped, setStudentsHelped] = useState(0);
   const [pointHistory, setPointHistory] = useState<PointsHistoryEntry[]>([]);
   const [achievements, setAchievements] = useState<AchievementProgress[]>([]);
+  const [followCounts, setFollowCounts] = useState({ followers: 0, following: 0 });
 
   useEffect(() => {
     if (!user) return;
@@ -66,16 +71,18 @@ export default function ProfileScreen() {
       // Best-effort — a hiccup here shouldn't block the rest of the profile
       // (editable fields above) from loading and being usable.
       try {
-        const [helpStats, history, achievementProgress] = await Promise.all([
+        const [helpStats, history, achievementProgress, counts] = await Promise.all([
           fetchHelpStats(user.id),
           fetchPointsHistory(user.id),
           fetchAchievementProgress(user.id),
+          fetchFollowCounts(user.id),
         ]);
         setStudentsHelped(helpStats.studentsHelped);
         setPointHistory(history);
         setAchievements(achievementProgress);
+        setFollowCounts(counts);
       } catch {
-        // leave stats/history/achievements at their defaults
+        // leave stats/history/achievements/followCounts at their defaults
       }
 
       setLoadingProfile(false);
@@ -271,6 +278,21 @@ export default function ProfileScreen() {
         </TouchableOpacity>
 
         {username ? <Text style={styles.username}>@{username}</Text> : null}
+
+        {user && (
+          <View style={styles.followRow}>
+            <TouchableOpacity onPress={() => navigation.navigate('FollowList', { userId: user.id, mode: 'followers' })}>
+              <Text style={styles.followText}>
+                <Text style={styles.followCount}>{followCounts.followers}</Text> Followers
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => navigation.navigate('FollowList', { userId: user.id, mode: 'following' })}>
+              <Text style={styles.followText}>
+                <Text style={styles.followCount}>{followCounts.following}</Text> Following
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         <View style={styles.communityCard}>
           <Text style={styles.communityTitle}>Community</Text>
@@ -494,6 +516,20 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.textMid,
     marginBottom: spacing.sm,
+  },
+  followRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginBottom: spacing.md,
+  },
+  followText: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    color: colors.textMid,
+  },
+  followCount: {
+    fontFamily: fontFamily.bold,
+    color: colors.textDark,
   },
   communityCard: {
     width: '100%',

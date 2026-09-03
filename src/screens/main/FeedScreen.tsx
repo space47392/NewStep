@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, FlatList, RefreshControl, TouchableOpacity, ActivityIndicator, Alert, StyleSheet } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -7,11 +7,12 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
-import { fetchPosts, deletePost, volunteerToHelp } from '../../lib/posts';
+import { fetchPosts, deletePost, volunteerToHelp, fetchFollowingFeed } from '../../lib/posts';
 import { fetchLikedPostIds } from '../../lib/likes';
 import { fetchActiveStories, uploadStory } from '../../lib/stories';
 import { fetchProfileById } from '../../lib/profile';
 import { fetchSchoolStudentCount } from '../../lib/schools';
+import { fetchFollowingIds } from '../../lib/follows';
 import { isWelcomeBannerDismissed, dismissWelcomeBanner } from '../../lib/newStudentPrefs';
 import { fetchUnreadNotificationCount } from '../../lib/notifications';
 import { fetchBlockedUserIds } from '../../lib/blocks';
@@ -28,6 +29,8 @@ import PhotoCarousel from '../../components/PhotoCarousel';
 import { Post, Story, MainStackParamList, ReportTargetType } from '../../types';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
 import { CATEGORY_STYLES } from '../../constants/categoryStyles';
+
+const FOLLOWING_PAGE_SIZE = 20;
 
 export default function FeedScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
@@ -49,6 +52,11 @@ export default function FeedScreen() {
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [reportTarget, setReportTarget] = useState<{ type: ReportTargetType; id: string } | null>(null);
   const [volunteeringPostId, setVolunteeringPostId] = useState<string | null>(null);
+  const [feedMode, setFeedMode] = useState<'forYou' | 'following'>('forYou');
+  const [followingPosts, setFollowingPosts] = useState<Post[]>([]);
+  const [followingLoading, setFollowingLoading] = useState(false);
+  const [followingLoaded, setFollowingLoaded] = useState(false);
+  const [followingHasMore, setFollowingHasMore] = useState(true);
   const hasLoadedOnce = useRef(false);
 
   // Lets a post go straight from "open" to "accepted" right from the feed card
@@ -97,6 +105,48 @@ export default function FeedScreen() {
       setErrorMessage(err instanceof Error ? err.message : 'Could not load posts.');
     }
   }, [user]);
+
+  // Loaded lazily — only once the Following tab is actually opened — rather
+  // than always alongside the For You feed, since most sessions may never
+  // switch to it. fetchFollowingIds() is itself capped (follows.ts), and this
+  // paginates the same way NotificationsScreen/FollowListScreen already do.
+  const loadFollowingFeed = useCallback(async () => {
+    if (!user) return;
+    setFollowingLoading(true);
+    try {
+      const [followingIds, blockedIds] = await Promise.all([
+        fetchFollowingIds(user.id),
+        fetchBlockedUserIds(user.id).catch(() => new Set<string>()),
+      ]);
+      // UX filtering only, not a security boundary — see blocks.ts.
+      const eligibleIds = followingIds.filter((id) => !blockedIds.has(id));
+      const data = await fetchFollowingFeed(eligibleIds, FOLLOWING_PAGE_SIZE, 0);
+      setFollowingPosts(data);
+      setFollowingHasMore(data.length === FOLLOWING_PAGE_SIZE);
+    } catch {
+      setFollowingPosts([]);
+    } finally {
+      setFollowingLoading(false);
+      setFollowingLoaded(true);
+    }
+  }, [user]);
+
+  const handleLoadMoreFollowing = async () => {
+    if (!user || followingLoading || !followingHasMore) return;
+    setFollowingLoading(true);
+    try {
+      const followingIds = await fetchFollowingIds(user.id);
+      const blockedIds = await fetchBlockedUserIds(user.id).catch(() => new Set<string>());
+      const eligibleIds = followingIds.filter((id) => !blockedIds.has(id));
+      const more = await fetchFollowingFeed(eligibleIds, FOLLOWING_PAGE_SIZE, followingPosts.length);
+      setFollowingPosts((prev) => [...prev, ...more]);
+      setFollowingHasMore(more.length === FOLLOWING_PAGE_SIZE);
+    } catch {
+      setFollowingHasMore(false);
+    } finally {
+      setFollowingLoading(false);
+    }
+  };
 
   const loadStories = useCallback(async () => {
     try {
@@ -150,9 +200,21 @@ export default function FeedScreen() {
     }, [loadPosts, loadStories, loadSchoolBanner, loadNotificationCount])
   );
 
+  // Loads the Following feed the first time that tab is opened, not eagerly
+  // on every app launch.
+  useEffect(() => {
+    if (feedMode === 'following' && !followingLoaded) {
+      loadFollowingFeed();
+    }
+  }, [feedMode, followingLoaded, loadFollowingFeed]);
+
   const handleRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([loadPosts(), loadStories(), loadSchoolBanner(), loadNotificationCount()]);
+    if (feedMode === 'following') {
+      await loadFollowingFeed();
+    } else {
+      await Promise.all([loadPosts(), loadStories(), loadSchoolBanner(), loadNotificationCount()]);
+    }
     setRefreshing(false);
   };
 
@@ -242,10 +304,12 @@ export default function FeedScreen() {
     );
   }
 
+  const displayedPosts = feedMode === 'following' ? followingPosts : posts;
+
   return (
     <View style={styles.container}>
       <FlatList
-        data={posts}
+        data={displayedPosts}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />}
@@ -361,14 +425,44 @@ export default function FeedScreen() {
                 </Text>
               </View>
             )}
+
+            <View style={styles.feedModeRow}>
+              <TouchableOpacity
+                style={[styles.feedModeTab, feedMode === 'forYou' && styles.feedModeTabActive]}
+                onPress={() => setFeedMode('forYou')}
+              >
+                <Text style={[styles.feedModeText, feedMode === 'forYou' && styles.feedModeTextActive]}>For You</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.feedModeTab, feedMode === 'following' && styles.feedModeTabActive]}
+                onPress={() => setFeedMode('following')}
+              >
+                <Text style={[styles.feedModeText, feedMode === 'following' && styles.feedModeTextActive]}>
+                  Following
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         }
         ListEmptyComponent={
-          <EmptyState
-            icon="newspaper-outline"
-            title="No posts yet"
-            subtitle={errorMessage ?? 'Be the first to share something with your school community!'}
-          />
+          feedMode === 'following' && followingLoading && !followingLoaded ? (
+            <>
+              <PostCardSkeleton />
+              <PostCardSkeleton />
+            </>
+          ) : feedMode === 'following' ? (
+            <EmptyState
+              icon="people-outline"
+              title="No posts yet"
+              subtitle="Follow classmates from Search to see their posts here."
+            />
+          ) : (
+            <EmptyState
+              icon="newspaper-outline"
+              title="No posts yet"
+              subtitle={errorMessage ?? 'Be the first to share something with your school community!'}
+            />
+          )
         }
         renderItem={({ item, index }) => {
           const category = CATEGORY_STYLES[item.category];
@@ -486,6 +580,17 @@ export default function FeedScreen() {
             </FadeInView>
           );
         }}
+        ListFooterComponent={
+          feedMode === 'following' && followingHasMore && followingPosts.length > 0 ? (
+            <TouchableOpacity style={styles.loadMoreButton} onPress={handleLoadMoreFollowing} disabled={followingLoading}>
+              {followingLoading ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <Text style={styles.loadMoreText}>Load more</Text>
+              )}
+            </TouchableOpacity>
+          ) : null
+        }
       />
 
       <TouchableOpacity style={styles.fab} activeOpacity={0.85} onPress={() => navigation.navigate('CreatePost')}>
@@ -680,6 +785,40 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     fontSize: fontSize.xs,
     color: colors.textMid,
+  },
+  feedModeRow: {
+    flexDirection: 'row',
+    backgroundColor: colors.border,
+    borderRadius: radius.full,
+    padding: 3,
+    marginTop: spacing.md,
+  },
+  feedModeTab: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: spacing.xs,
+    borderRadius: radius.full,
+  },
+  feedModeTabActive: {
+    backgroundColor: colors.cardBg,
+    ...shadow.subtle,
+  },
+  feedModeText: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
+    color: colors.textMid,
+  },
+  feedModeTextActive: {
+    color: colors.primary,
+  },
+  loadMoreButton: {
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+  },
+  loadMoreText: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
+    color: colors.primary,
   },
   fab: {
     position: 'absolute',

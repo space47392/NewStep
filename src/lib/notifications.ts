@@ -153,6 +153,8 @@ export function formatNotificationMessage(notification: AppNotification): string
       return `You earned "${notification.achievement?.name ?? 'an achievement'}"`;
     case 'message':
       return `${actorName} sent you a message`;
+    case 'follow':
+      return `${actorName} started following you`;
     default:
       return 'New notification';
   }
@@ -174,6 +176,8 @@ export function getNotificationIcon(type: NotificationType): string {
       return '🏆';
     case 'message':
       return '💬';
+    case 'follow':
+      return '👋';
     default:
       return '🔔';
   }

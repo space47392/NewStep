@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, RefreshControl, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
-import { searchUsers } from '../../lib/search';
+import { searchUsers, searchPosts, searchSchools } from '../../lib/search';
+import { fetchPostsBySchool } from '../../lib/posts';
+import { fetchProfileById } from '../../lib/profile';
+import { fetchSchoolMembersByGrade, fetchSchoolMembersByInterests } from '../../lib/schools';
 import { getRecentSearches, addRecentSearch, removeRecentSearch, clearRecentSearches } from '../../lib/recentSearches';
 import { fetchBlockedUserIds } from '../../lib/blocks';
 import { useAuth } from '../../contexts/AuthContext';
@@ -11,45 +14,143 @@ import IconInput from '../../components/IconInput';
 import Avatar from '../../components/Avatar';
 import EmptyState from '../../components/EmptyState';
 import FadeInView from '../../components/FadeInView';
-import { colors, spacing, fontSize, fontFamily } from '../../constants/theme';
-import { MainStackParamList, Profile } from '../../types';
+import PostPreviewCard from '../../components/PostPreviewCard';
+import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
+import {
+  MainStackParamList,
+  PersonSearchResult,
+  SchoolSearchResult,
+  SchoolMember,
+  Post,
+  PostCategory,
+} from '../../types';
 
 const DEBOUNCE_MS = 300;
+const RESULT_DISPLAY_LIMIT = 5; // per section, when searching — avoid overwhelming the user
+const CATEGORY_FILTERS: { label: string; value: PostCategory | undefined }[] = [
+  { label: 'All', value: undefined },
+  { label: 'Need Help', value: 'Need Help' },
+  { label: 'School Question', value: 'School Question' },
+  { label: 'Looking for Friends', value: 'Looking for Friends' },
+];
+
+// Dedupes across grade-mates and interest-mates for "People You May Know" —
+// first list wins on overlap (deterministic: grade match takes priority over
+// interest match), no scoring involved.
+function dedupeMembers(...lists: SchoolMember[][]): SchoolMember[] {
+  const seen = new Set<string>();
+  const result: SchoolMember[] = [];
+  for (const list of lists) {
+    for (const member of list) {
+      if (!seen.has(member.id)) {
+        seen.add(member.id);
+        result.push(member);
+      }
+    }
+  }
+  return result;
+}
 
 export default function SearchScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
   const { user } = useAuth();
+
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<Profile[]>([]);
+  const [postCategory, setPostCategory] = useState<PostCategory | undefined>(undefined);
   const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
+
+  const [people, setPeople] = useState<PersonSearchResult[]>([]);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [schools, setSchools] = useState<SchoolSearchResult[]>([]);
+
+  const [mySchoolName, setMySchoolName] = useState<string | null>(null);
+  const [suggestedPeople, setSuggestedPeople] = useState<SchoolMember[]>([]);
+  const [suggestedPosts, setSuggestedPosts] = useState<Post[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
+
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Reused by both the initial focus load and pull-to-refresh — reuses the
+  // exact same Step 5 discovery functions SchoolScreen's "Find your
+  // community" section already calls, just surfaced generally instead of
+  // gated behind New Student mode.
+  const loadDiscovery = useCallback(async () => {
+    if (!user) return;
+    try {
+      const myProfile = await fetchProfileById(user.id);
+      setMySchoolName(myProfile.school_name);
+      if (!myProfile.school_name) {
+        setSuggestedPeople([]);
+        setSuggestedPosts([]);
+        return;
+      }
+
+      const blockedIds = await fetchBlockedUserIds(user.id).catch(() => new Set<string>());
+      const [byGrade, byInterests, schoolPosts] = await Promise.all([
+        myProfile.grade
+          ? fetchSchoolMembersByGrade(myProfile.school_name, myProfile.grade, user.id, 10)
+          : Promise.resolve([]),
+        myProfile.interests.length > 0
+          ? fetchSchoolMembersByInterests(myProfile.school_name, myProfile.interests, user.id, 10)
+          : Promise.resolve([]),
+        fetchPostsBySchool(myProfile.school_name, undefined, 5),
+      ]);
+
+      // UX filtering only, not a security boundary — see blocks.ts.
+      setSuggestedPeople(dedupeMembers(byGrade, byInterests).filter((m) => !blockedIds.has(m.id)).slice(0, 10));
+      setSuggestedPosts(schoolPosts.filter((p) => !blockedIds.has(p.author_id)));
+    } catch {
+      // Discovery is a bonus surface, not the primary flow — fail quietly.
+    }
+  }, [user]);
 
   useFocusEffect(
     useCallback(() => {
       getRecentSearches().then(setRecentSearches);
-    }, [])
+      loadDiscovery();
+    }, [loadDiscovery])
   );
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadDiscovery();
+    setRefreshing(false);
+  };
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
     const trimmed = query.trim();
     if (!trimmed) {
-      setResults([]);
+      setPeople([]);
+      setPosts([]);
+      setSchools([]);
       setSearching(false);
+      setSearchError(null);
       return;
     }
 
     setSearching(true);
     debounceRef.current = setTimeout(async () => {
       try {
-        const data = await searchUsers(trimmed);
+        const [peopleResults, postResults, schoolResults, blockedIds] = await Promise.all([
+          searchUsers(trimmed, mySchoolName),
+          searchPosts(trimmed, postCategory),
+          searchSchools(trimmed),
+          user ? fetchBlockedUserIds(user.id).catch(() => new Set<string>()) : Promise.resolve(new Set<string>()),
+        ]);
         // UX filtering only, not a security boundary — see blocks.ts.
-        const blockedIds = user ? await fetchBlockedUserIds(user.id).catch(() => new Set<string>()) : new Set<string>();
-        setResults(data.filter((p) => !blockedIds.has(p.id)));
-      } catch {
-        setResults([]);
+        setPeople(peopleResults.filter((p) => !blockedIds.has(p.id)));
+        setPosts(postResults.filter((p) => !blockedIds.has(p.author_id)));
+        setSchools(schoolResults);
+        setSearchError(null);
+      } catch (err) {
+        setPeople([]);
+        setPosts([]);
+        setSchools([]);
+        setSearchError(err instanceof Error ? err.message : 'Could not search right now.');
       } finally {
         setSearching(false);
       }
@@ -58,12 +159,26 @@ export default function SearchScreen() {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [query, user]);
+  }, [query, postCategory, user, mySchoolName]);
 
-  const handleSelectResult = async (profile: Profile) => {
+  const recordSearch = async () => {
     const updated = await addRecentSearch(query.trim());
     setRecentSearches(updated);
-    navigation.navigate('UserProfile', { userId: profile.id });
+  };
+
+  const handleSelectPerson = async (person: PersonSearchResult) => {
+    await recordSearch();
+    navigation.navigate('UserProfile', { userId: person.id });
+  };
+
+  const handleSelectPost = async (post: Post) => {
+    await recordSearch();
+    navigation.navigate('PostDetail', { post });
+  };
+
+  const handleSelectSchool = async (schoolName: string) => {
+    await recordSearch();
+    navigation.navigate('School', { schoolName });
   };
 
   const handleSelectRecent = (term: string) => {
@@ -82,80 +197,176 @@ export default function SearchScreen() {
   };
 
   const showRecent = query.trim().length === 0;
+  const hasAnyResults = people.length > 0 || posts.length > 0 || schools.length > 0;
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Search</Text>
-      <IconInput
-        icon="search-outline"
-        placeholder="Search by name, school, or interest"
-        value={query}
-        onChangeText={setQuery}
-        autoCapitalize="none"
-        autoCorrect={false}
-        style={styles.input}
-      />
+
+      <View style={styles.inputWrap}>
+        <IconInput
+          icon="search-outline"
+          placeholder="Search students, posts, or schools"
+          value={query}
+          onChangeText={setQuery}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+        {query.length > 0 && (
+          <TouchableOpacity
+            style={styles.clearButton}
+            onPress={() => setQuery('')}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name="close-circle" size={18} color={colors.textLight} />
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {!showRecent && (
+        <View style={styles.chipRow}>
+          {CATEGORY_FILTERS.map((f) => (
+            <TouchableOpacity
+              key={f.label}
+              style={[styles.chip, postCategory === f.value && styles.chipSelected]}
+              onPress={() => setPostCategory(f.value)}
+            >
+              <Text style={[styles.chipText, postCategory === f.value && styles.chipTextSelected]}>{f.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
 
       {showRecent ? (
-        <FlatList
-          data={recentSearches}
-          keyExtractor={(item) => item}
+        <ScrollView
           contentContainerStyle={styles.list}
-          ListHeaderComponent={
-            recentSearches.length > 0 ? (
+          keyboardShouldPersistTaps="handled"
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />}
+        >
+          {recentSearches.length > 0 && (
+            <View style={styles.section}>
               <View style={styles.recentHeader}>
                 <Text style={styles.sectionTitle}>Recent Searches</Text>
                 <TouchableOpacity onPress={handleClearRecent}>
                   <Text style={styles.clearText}>Clear All</Text>
                 </TouchableOpacity>
               </View>
-            ) : null
-          }
-          ListEmptyComponent={
+              {recentSearches.map((term) => (
+                <TouchableOpacity key={term} style={styles.recentRow} onPress={() => handleSelectRecent(term)}>
+                  <Ionicons name="time-outline" size={18} color={colors.textMid} />
+                  <Text style={styles.recentText}>{term}</Text>
+                  <TouchableOpacity
+                    onPress={(e) => handleRemoveRecent(e, term)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons name="close" size={16} color={colors.textLight} />
+                  </TouchableOpacity>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          {suggestedPeople.length > 0 && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>People You May Know</Text>
+              {suggestedPeople.map((person) => (
+                <TouchableOpacity
+                  key={person.id}
+                  style={styles.resultRow}
+                  onPress={() => navigation.navigate('UserProfile', { userId: person.id })}
+                >
+                  <Avatar uri={person.avatar_url} size={44} />
+                  <View style={styles.resultText}>
+                    <Text style={styles.resultName}>{person.full_name ?? 'Unknown'}</Text>
+                    {person.grade ? <Text style={styles.resultMeta}>Grade {person.grade}</Text> : null}
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          {suggestedPosts.length > 0 && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Suggested for You</Text>
+              {suggestedPosts.map((post) => (
+                <PostPreviewCard key={post.id} post={post} onPress={() => navigation.navigate('PostDetail', { post })} />
+              ))}
+            </View>
+          )}
+
+          {recentSearches.length === 0 && suggestedPeople.length === 0 && suggestedPosts.length === 0 && (
             <EmptyState
               icon="search-outline"
-              title="Search for students"
-              subtitle="Find classmates by name, school, or interest."
+              title="Search for students, posts, or schools"
+              subtitle="Find classmates by name, username, school, or interest."
             />
-          }
-          renderItem={({ item }) => (
-            <TouchableOpacity style={styles.recentRow} onPress={() => handleSelectRecent(item)}>
-              <Ionicons name="time-outline" size={18} color={colors.textMid} />
-              <Text style={styles.recentText}>{item}</Text>
-              <TouchableOpacity
-                onPress={(e) => handleRemoveRecent(e, item)}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Ionicons name="close" size={16} color={colors.textLight} />
-              </TouchableOpacity>
-            </TouchableOpacity>
           )}
-        />
+        </ScrollView>
       ) : searching ? (
         <View style={styles.center}>
           <ActivityIndicator color={colors.primary} />
         </View>
       ) : (
-        <FlatList
-          data={results}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.list}
-          keyboardShouldPersistTaps="handled"
-          ListEmptyComponent={
-            <EmptyState icon="person-outline" title="No users found" subtitle={`No results for "${query.trim()}"`} />
-          }
-          renderItem={({ item, index }) => (
-            <FadeInView delay={Math.min(index, 6) * 30}>
-              <TouchableOpacity style={styles.resultRow} onPress={() => handleSelectResult(item)}>
-                <Avatar uri={item.avatar_url} size={48} />
-                <View style={styles.resultText}>
-                  <Text style={styles.resultName}>{item.full_name ?? 'Unknown'}</Text>
-                  {item.school_name ? <Text style={styles.resultSchool}>{item.school_name}</Text> : null}
+        <ScrollView contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled">
+          {!hasAnyResults ? (
+            <EmptyState
+              icon="search-outline"
+              title="No results found"
+              subtitle={searchError ?? `No matches for "${query.trim()}"`}
+            />
+          ) : (
+            <>
+              {people.length > 0 && (
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>People</Text>
+                  {people.slice(0, RESULT_DISPLAY_LIMIT).map((person, index) => (
+                    <FadeInView key={person.id} delay={Math.min(index, 6) * 30}>
+                      <TouchableOpacity style={styles.resultRow} onPress={() => handleSelectPerson(person)}>
+                        <Avatar uri={person.avatar_url} size={48} />
+                        <View style={styles.resultText}>
+                          <Text style={styles.resultName}>{person.full_name ?? 'Unknown'}</Text>
+                          {person.username ? <Text style={styles.resultMeta}>@{person.username}</Text> : null}
+                          {person.school_name ? <Text style={styles.resultMeta}>{person.school_name}</Text> : null}
+                        </View>
+                      </TouchableOpacity>
+                    </FadeInView>
+                  ))}
                 </View>
-              </TouchableOpacity>
-            </FadeInView>
+              )}
+
+              {posts.length > 0 && (
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Posts</Text>
+                  {posts.slice(0, RESULT_DISPLAY_LIMIT).map((post) => (
+                    <PostPreviewCard key={post.id} post={post} onPress={() => handleSelectPost(post)} />
+                  ))}
+                </View>
+              )}
+
+              {schools.length > 0 && (
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Schools</Text>
+                  {schools.slice(0, RESULT_DISPLAY_LIMIT).map((school) => (
+                    <TouchableOpacity
+                      key={school.schoolName}
+                      style={styles.schoolRow}
+                      onPress={() => handleSelectSchool(school.schoolName)}
+                    >
+                      <Text style={styles.schoolEmoji}>🏫</Text>
+                      <View style={styles.resultText}>
+                        <Text style={styles.resultName}>{school.schoolName}</Text>
+                        <Text style={styles.resultMeta}>
+                          {school.studentCount} {school.studentCount === 1 ? 'student' : 'students'}
+                        </Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={16} color={colors.textLight} />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </>
           )}
-        />
+        </ScrollView>
       )}
     </View>
   );
@@ -174,8 +385,41 @@ const styles = StyleSheet.create({
     color: colors.textDark,
     marginBottom: spacing.md,
   },
-  input: {
-    marginBottom: spacing.md,
+  inputWrap: {
+    position: 'relative',
+    justifyContent: 'center',
+  },
+  clearButton: {
+    position: 'absolute',
+    right: spacing.md,
+  },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+    marginTop: spacing.sm,
+  },
+  chip: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    borderRadius: radius.full,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.cardBg,
+  },
+  chipSelected: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  chipText: {
+    fontFamily: fontFamily.semibold,
+    color: colors.textMid,
+    fontSize: fontSize.xs,
+  },
+  chipTextSelected: {
+    fontFamily: fontFamily.semibold,
+    color: '#fff',
+    fontSize: fontSize.xs,
   },
   center: {
     flex: 1,
@@ -183,7 +427,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   list: {
+    paddingTop: spacing.md,
     paddingBottom: spacing.lg,
+  },
+  section: {
+    marginBottom: spacing.lg,
   },
   recentHeader: {
     flexDirection: 'row',
@@ -195,6 +443,7 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.sm,
     color: colors.textMid,
+    marginBottom: spacing.sm,
   },
   clearText: {
     fontFamily: fontFamily.semibold,
@@ -227,9 +476,22 @@ const styles = StyleSheet.create({
     fontSize: fontSize.md,
     color: colors.textDark,
   },
-  resultSchool: {
+  resultMeta: {
     fontFamily: fontFamily.regular,
     fontSize: fontSize.xs,
     color: colors.textMid,
+  },
+  schoolRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.cardBg,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    ...shadow.subtle,
+  },
+  schoolEmoji: {
+    fontSize: 24,
   },
 });

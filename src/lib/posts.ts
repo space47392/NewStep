@@ -57,6 +57,21 @@ export async function fetchPostsByAuthor(authorId: string): Promise<Post[]> {
   return (data ?? []) as unknown as Post[];
 }
 
+// Hydrates full Post objects (with the same joins every other post query
+// uses) from a list of ids — used by search.ts's searchPosts() to turn
+// search_posts()'s ranked (id, rank) pairs into real, renderable posts.
+// `.in()` doesn't preserve the input order, so this restores it afterward.
+export async function fetchPostsByIds(ids: string[]): Promise<Post[]> {
+  if (ids.length === 0) return [];
+
+  const { data, error } = await supabase.from('posts').select(POST_SELECT).in('id', ids);
+  if (error) throw error;
+
+  const posts = (data ?? []) as unknown as Post[];
+  const order = new Map(ids.map((id, index) => [id, index]));
+  return posts.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+}
+
 // `!inner` on the author join turns .eq('profiles.school_name', ...) into a real
 // filter on which POSTS come back (not just on the nested profile object) — the
 // PostgREST convention for filtering by an embedded relation's column. Built from

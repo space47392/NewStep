@@ -64,6 +64,21 @@ export type LeaderboardEntry = Pick<Profile, 'id' | 'full_name' | 'school_name' 
 // excludes points/username-adjacent internals; see fetchSchoolMembers().
 export type SchoolMember = Pick<Profile, 'id' | 'full_name' | 'username' | 'avatar_url' | 'grade' | 'interests'>;
 
+// Public-safe subset of Profile for people search — see search.ts's
+// searchUsers(). Same fields SchoolMember exposes, plus school_name (search
+// results span schools, unlike a single school's member list).
+export type PersonSearchResult = Pick<
+  Profile,
+  'id' | 'username' | 'full_name' | 'avatar_url' | 'school_name' | 'grade' | 'interests'
+>;
+
+// One row from search_schools_by_name() — see search_discovery_schema.sql.
+// Deliberately just a name + count, never per-student data.
+export type SchoolSearchResult = {
+  schoolName: string;
+  studentCount: number;
+};
+
 // One row of a user's private points_history ledger (see points_history_schema.sql).
 // Only ever inserted by handle_post_completed() — never client-writable.
 export type PointsHistoryEntry = {

@@ -7,14 +7,13 @@ import { fetchSchoolStudentCount, fetchSchoolMembers, fetchSchoolMembersByGrade,
 import { fetchPostsBySchool } from '../../lib/posts';
 import { fetchProfileById } from '../../lib/profile';
 import { fetchBlockedUserIds } from '../../lib/blocks';
-import { formatRelativeTime } from '../../lib/time';
 import { useAuth } from '../../contexts/AuthContext';
 import Avatar from '../../components/Avatar';
 import EmptyState from '../../components/EmptyState';
 import LoadingScreen from '../../components/LoadingScreen';
 import FadeInView from '../../components/FadeInView';
+import PostPreviewCard from '../../components/PostPreviewCard';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
-import { CATEGORY_STYLES } from '../../constants/categoryStyles';
 import { MainStackParamList, SchoolMember, Post, PostCategory } from '../../types';
 
 // Each section pulls a small, capped slice rather than everything — this page
@@ -185,34 +184,14 @@ export default function SchoolScreen() {
         sections.map((section, sectionIndex) => (
           <FadeInView key={section.key} style={styles.section} delay={100 + sectionIndex * 40}>
             <Text style={styles.sectionTitle}>{section.title}</Text>
-            {section.posts.map((post) => {
-              const category = CATEGORY_STYLES[post.category];
-              return (
-                <TouchableOpacity
-                  key={post.id}
-                  style={styles.postCard}
-                  activeOpacity={0.85}
-                  onPress={() => navigation.navigate('PostDetail', { post })}
-                >
-                  <View style={styles.postHeader}>
-                    <Avatar uri={post.profiles?.avatar_url} size={32} />
-                    <View style={styles.postHeaderText}>
-                      <Text style={styles.postAuthor}>{post.profiles?.full_name ?? 'Unknown'}</Text>
-                      <Text style={styles.postTimestamp}>{formatRelativeTime(post.created_at)}</Text>
-                    </View>
-                    {!section.category && (
-                      <View style={[styles.categoryBadge, { backgroundColor: category.bg }]}>
-                        <Ionicons name={category.icon} size={11} color={category.text} />
-                        <Text style={[styles.categoryText, { color: category.text }]}>{post.category}</Text>
-                      </View>
-                    )}
-                  </View>
-                  <Text style={styles.postContent} numberOfLines={2}>
-                    {post.content}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
+            {section.posts.map((post) => (
+              <PostPreviewCard
+                key={post.id}
+                post={post}
+                showCategory={!section.category}
+                onPress={() => navigation.navigate('PostDetail', { post })}
+              />
+            ))}
           </FadeInView>
         ))
       )}
@@ -292,49 +271,5 @@ const styles = StyleSheet.create({
   },
   section: {
     marginBottom: spacing.lg,
-  },
-  postCard: {
-    backgroundColor: colors.cardBg,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-    ...shadow.subtle,
-  },
-  postHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.xs,
-  },
-  postHeaderText: {
-    flex: 1,
-    marginLeft: spacing.sm,
-  },
-  postAuthor: {
-    fontFamily: fontFamily.semibold,
-    fontSize: fontSize.sm,
-    color: colors.textDark,
-  },
-  postTimestamp: {
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.xs,
-    color: colors.textLight,
-  },
-  categoryBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    borderRadius: radius.full,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 3,
-  },
-  categoryText: {
-    fontFamily: fontFamily.bold,
-    fontSize: 10,
-  },
-  postContent: {
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.sm,
-    color: colors.textDark,
-    lineHeight: 19,
   },
 });

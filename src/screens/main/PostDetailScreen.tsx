@@ -22,6 +22,8 @@ import { fetchComments, addComment, subscribeToComments } from '../../lib/commen
 import { volunteerToHelp, markPostCompleted, fetchPostById, deletePost } from '../../lib/posts';
 import { getOrCreateConversation } from '../../lib/chat';
 import { fetchLikedPostIds } from '../../lib/likes';
+import { fetchHelpStats } from '../../lib/points';
+import { fetchProfileById } from '../../lib/profile';
 import { formatRelativeTime } from '../../lib/time';
 import Avatar from '../../components/Avatar';
 import EmptyState from '../../components/EmptyState';
@@ -30,6 +32,7 @@ import PrimaryButton from '../../components/PrimaryButton';
 import FadeInView from '../../components/FadeInView';
 import ActionSheet, { ActionSheetAction } from '../../components/ActionSheet';
 import ReportSheet from '../../components/ReportSheet';
+import HelpStatusBadge from '../../components/HelpStatusBadge';
 import LikeButton from '../../components/LikeButton';
 import PhotoCarousel from '../../components/PhotoCarousel';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
@@ -57,6 +60,8 @@ export default function PostDetailScreen() {
   const [deletingPost, setDeletingPost] = useState(false);
   const [likedByMe, setLikedByMe] = useState(false);
   const [reportTarget, setReportTarget] = useState<{ type: ReportTargetType; id: string } | null>(null);
+  const [thanking, setThanking] = useState(false);
+  const [contribution, setContribution] = useState<{ studentsHelped: number; points: number } | null>(null);
 
   // Refetch just the post (not comments) whenever this screen regains focus, so
   // returning from editing shows the new content immediately.
@@ -102,6 +107,33 @@ export default function PostDetailScreen() {
     };
   }, [post.id]);
 
+  // Community contribution summary — reuses the existing help-stats/points
+  // reads (Step 3) rather than any new counter; only fetched once a helper
+  // actually exists and the request is done, not on every load.
+  useEffect(() => {
+    if (post.status !== 'completed' || !post.helper) {
+      setContribution(null);
+      return;
+    }
+
+    let isMounted = true;
+    (async () => {
+      try {
+        const [stats, helperProfile] = await Promise.all([
+          fetchHelpStats(post.helper!.id),
+          fetchProfileById(post.helper!.id),
+        ]);
+        if (isMounted) setContribution({ studentsHelped: stats.studentsHelped, points: helperProfile.points });
+      } catch {
+        if (isMounted) setContribution(null);
+      }
+    })();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [post.status, post.helper?.id]);
+
   const category = CATEGORY_STYLES[post.category];
   const canVolunteer = post.category === 'Need Help' && post.status === 'open' && post.author_id !== user?.id;
   const canComplete = post.status === 'accepted' && post.author_id === user?.id;
@@ -137,6 +169,29 @@ export default function PostDetailScreen() {
       Alert.alert('Error', message);
     } finally {
       setCompleting(false);
+    }
+  };
+
+  // Appreciation, kept deliberately lightweight: it's just a friendly comment
+  // through the existing addComment() — no new table, no points, no rating.
+  // Real-time delivery, notification, and RLS are all whatever comments
+  // already have; nothing new to secure here.
+  const handleThankHelper = async () => {
+    if (!user || !post.helper) return;
+    setThanking(true);
+    try {
+      await addComment({
+        postId: post.id,
+        authorId: user.id,
+        content: `Thank you for your help, ${post.helper.full_name ?? 'friend'}! 🙏`,
+      });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      showToast('Thanks sent!');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Could not send thanks.';
+      Alert.alert('Error', message);
+    } finally {
+      setThanking(false);
     }
   };
 
@@ -270,9 +325,12 @@ export default function PostDetailScreen() {
               <Text style={styles.timestamp}>{formatRelativeTime(post.created_at)}</Text>
             </View>
 
-            <View style={[styles.categoryBadge, { backgroundColor: category.bg }]}>
-              <Ionicons name={category.icon} size={12} color={category.text} />
-              <Text style={[styles.categoryText, { color: category.text }]}>{post.category}</Text>
+            <View style={styles.badgeRow}>
+              <View style={[styles.categoryBadge, { backgroundColor: category.bg }]}>
+                <Ionicons name={category.icon} size={12} color={category.text} />
+                <Text style={[styles.categoryText, { color: category.text }]}>{post.category}</Text>
+              </View>
+              {post.category === 'Need Help' && <HelpStatusBadge status={post.status} />}
             </View>
 
             <Text style={styles.postContent}>{post.content}</Text>
@@ -294,7 +352,7 @@ export default function PostDetailScreen() {
 
             {canVolunteer && (
               <PrimaryButton
-                title="Volunteer to Help"
+                title="I Can Help"
                 icon="hand-left-outline"
                 onPress={handleVolunteer}
                 loading={volunteering}
@@ -305,7 +363,7 @@ export default function PostDetailScreen() {
             {showHelper && post.helper && (
               <View style={styles.helperCard}>
                 <Text style={styles.helperLabel}>
-                  {post.status === 'completed' ? '✓ Completed — Helped by' : '✓ Helper'}
+                  {post.status === 'completed' ? '✅ Helped by' : '🤝 Helping'}
                 </Text>
                 <TouchableOpacity
                   style={styles.helperRow}
@@ -319,16 +377,40 @@ export default function PostDetailScreen() {
                     ) : null}
                   </View>
                 </TouchableOpacity>
-                {(user?.id === post.author_id || user?.id === post.helper.id) && (
-                  <PrimaryButton
-                    title="Message"
-                    icon="chatbubble-outline"
-                    variant="outline"
-                    onPress={handleMessage}
-                    loading={messaging}
-                    style={styles.messageButton}
-                  />
+
+                {post.status === 'completed' && contribution && (
+                  <View style={styles.contributionRow}>
+                    <Text style={styles.contributionText}>
+                      🤝 Helped {contribution.studentsHelped} {contribution.studentsHelped === 1 ? 'student' : 'students'}
+                    </Text>
+                    <Text style={styles.contributionText}>
+                      ⭐ {contribution.points} Community {contribution.points === 1 ? 'Point' : 'Points'}
+                    </Text>
+                  </View>
                 )}
+
+                <View style={styles.helperActions}>
+                  {(user?.id === post.author_id || user?.id === post.helper.id) && (
+                    <PrimaryButton
+                      title="Message"
+                      icon="chatbubble-outline"
+                      variant="outline"
+                      onPress={handleMessage}
+                      loading={messaging}
+                      style={styles.messageButton}
+                    />
+                  )}
+                  {user?.id === post.author_id && post.status === 'completed' && (
+                    <PrimaryButton
+                      title={`Thank ${post.helper.full_name?.split(' ')[0] ?? 'them'}`}
+                      icon="heart-outline"
+                      variant="outline"
+                      onPress={handleThankHelper}
+                      loading={thanking}
+                      style={styles.messageButton}
+                    />
+                  )}
+                </View>
               </View>
             )}
 
@@ -494,6 +576,21 @@ const styles = StyleSheet.create({
     color: colors.success,
     marginBottom: spacing.xs,
   },
+  contributionRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginTop: spacing.sm,
+  },
+  contributionText: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.xs,
+    color: colors.textMid,
+  },
+  helperActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
   messageButton: {
     marginTop: spacing.sm,
     alignSelf: 'flex-start',
@@ -521,6 +618,12 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
     color: colors.textLight,
   },
+  badgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginBottom: spacing.sm,
+  },
   categoryBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -529,7 +632,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.full,
     paddingHorizontal: spacing.sm,
     paddingVertical: 4,
-    marginBottom: spacing.sm,
   },
   categoryText: {
     fontFamily: fontFamily.bold,

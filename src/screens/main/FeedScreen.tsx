@@ -4,9 +4,10 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import * as Haptics from 'expo-haptics';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
-import { fetchPosts, deletePost } from '../../lib/posts';
+import { fetchPosts, deletePost, volunteerToHelp } from '../../lib/posts';
 import { fetchLikedPostIds } from '../../lib/likes';
 import { fetchActiveStories, uploadStory } from '../../lib/stories';
 import { fetchProfileById } from '../../lib/profile';
@@ -21,6 +22,7 @@ import { PostCardSkeleton } from '../../components/Skeleton';
 import FadeInView from '../../components/FadeInView';
 import ActionSheet, { ActionSheetAction } from '../../components/ActionSheet';
 import ReportSheet from '../../components/ReportSheet';
+import HelpStatusBadge from '../../components/HelpStatusBadge';
 import LikeButton from '../../components/LikeButton';
 import PhotoCarousel from '../../components/PhotoCarousel';
 import { Post, Story, MainStackParamList, ReportTargetType } from '../../types';
@@ -46,7 +48,27 @@ export default function FeedScreen() {
   const [welcomeBannerDismissed, setWelcomeBannerDismissed] = useState(false);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [reportTarget, setReportTarget] = useState<{ type: ReportTargetType; id: string } | null>(null);
+  const [volunteeringPostId, setVolunteeringPostId] = useState<string | null>(null);
   const hasLoadedOnce = useRef(false);
+
+  // Lets a post go straight from "open" to "accepted" right from the feed card
+  // — same secure volunteer_to_help() RPC PostDetailScreen already uses (Step 1),
+  // just reachable without navigating in first.
+  const handleQuickVolunteer = async (post: Post) => {
+    if (!user) return;
+    setVolunteeringPostId(post.id);
+    try {
+      const updated = await volunteerToHelp(post.id);
+      setPosts((prev) => prev.map((p) => (p.id === post.id ? updated : p)));
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      showToast('You volunteered to help!');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Could not volunteer to help.';
+      Alert.alert('Error', message);
+    } finally {
+      setVolunteeringPostId(null);
+    }
+  };
 
   const loadNotificationCount = useCallback(async () => {
     if (!user) return;
@@ -393,9 +415,12 @@ export default function FeedScreen() {
                   </TouchableOpacity>
                 </View>
 
-                <View style={[styles.categoryBadge, { backgroundColor: category.bg }]}>
-                  <Ionicons name={category.icon} size={12} color={category.text} />
-                  <Text style={[styles.categoryText, { color: category.text }]}>{item.category}</Text>
+                <View style={styles.badgeRow}>
+                  <View style={[styles.categoryBadge, { backgroundColor: category.bg }]}>
+                    <Ionicons name={category.icon} size={12} color={category.text} />
+                    <Text style={[styles.categoryText, { color: category.text }]}>{item.category}</Text>
+                  </View>
+                  {item.category === 'Need Help' && <HelpStatusBadge status={item.status} />}
                 </View>
 
                 <Text style={styles.content}>{item.content}</Text>
@@ -422,6 +447,27 @@ export default function FeedScreen() {
                     </Text>
                   </View>
                 ) : null}
+
+                {item.category === 'Need Help' && item.status === 'open' && item.author_id !== user?.id && (
+                  <TouchableOpacity
+                    style={styles.canHelpButton}
+                    activeOpacity={0.85}
+                    disabled={volunteeringPostId === item.id}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      handleQuickVolunteer(item);
+                    }}
+                  >
+                    {volunteeringPostId === item.id ? (
+                      <ActivityIndicator size="small" color={colors.primary} />
+                    ) : (
+                      <>
+                        <Ionicons name="hand-left-outline" size={16} color={colors.primary} />
+                        <Text style={styles.canHelpText}>I can help</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                )}
 
                 <View style={styles.cardFooter}>
                   <LikeButton
@@ -647,6 +693,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     ...shadow.floating,
   },
+  badgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginBottom: spacing.sm,
+  },
   categoryBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -655,7 +707,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.full,
     paddingHorizontal: spacing.sm,
     paddingVertical: 4,
-    marginBottom: spacing.sm,
   },
   categoryText: {
     fontFamily: fontFamily.bold,
@@ -748,5 +799,23 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.sm,
     color: colors.success,
+  },
+  canHelpButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    backgroundColor: colors.primaryLight,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    marginTop: spacing.sm,
+    minWidth: 110,
+  },
+  canHelpText: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.sm,
+    color: colors.primary,
   },
 });

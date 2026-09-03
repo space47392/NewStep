@@ -25,12 +25,15 @@ export type MainStackParamList = {
   // not a new architecture.
   Tabs: { screen: keyof MainTabParamList } | undefined;
   CreatePost: { post?: Post } | undefined;
-  PostDetail: { post: Post };
+  // focusComment: true lets a caller (e.g. FeedScreen's "X Comments" link)
+  // ask the screen to focus the comment input as soon as it opens.
+  PostDetail: { post: Post; focusComment?: boolean };
   Conversation: { conversationId: string; otherUser: ChatProfile };
   UserProfile: { userId: string };
   School: { schoolName: string };
   Notifications: undefined;
   FollowList: { userId: string; mode: 'followers' | 'following' };
+  SavedPosts: undefined;
   StoryViewer: { stories: Story[]; initialIndex: number };
   PhotoViewer: { photoUrls: string[]; initialIndex: number };
 };

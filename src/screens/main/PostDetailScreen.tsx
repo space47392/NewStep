@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -22,6 +22,8 @@ import { fetchComments, addComment, subscribeToComments } from '../../lib/commen
 import { volunteerToHelp, markPostCompleted, fetchPostById, deletePost } from '../../lib/posts';
 import { getOrCreateConversation } from '../../lib/chat';
 import { fetchLikedPostIds } from '../../lib/likes';
+import { fetchSavedPostIds, savePost, unsavePost } from '../../lib/postSaves';
+import { sharePost } from '../../lib/share';
 import { fetchHelpStats } from '../../lib/points';
 import { fetchProfileById } from '../../lib/profile';
 import { formatRelativeTime } from '../../lib/time';
@@ -34,6 +36,7 @@ import ActionSheet, { ActionSheetAction } from '../../components/ActionSheet';
 import ReportSheet from '../../components/ReportSheet';
 import HelpStatusBadge from '../../components/HelpStatusBadge';
 import LikeButton from '../../components/LikeButton';
+import SaveButton from '../../components/SaveButton';
 import PhotoCarousel from '../../components/PhotoCarousel';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
 import { CATEGORY_STYLES } from '../../constants/categoryStyles';
@@ -59,9 +62,11 @@ export default function PostDetailScreen() {
   const [menuVisible, setMenuVisible] = useState(false);
   const [deletingPost, setDeletingPost] = useState(false);
   const [likedByMe, setLikedByMe] = useState(false);
+  const [savedByMe, setSavedByMe] = useState(false);
   const [reportTarget, setReportTarget] = useState<{ type: ReportTargetType; id: string } | null>(null);
   const [thanking, setThanking] = useState(false);
   const [contribution, setContribution] = useState<{ studentsHelped: number; points: number } | null>(null);
+  const commentInputRef = useRef<TextInput>(null);
 
   // Refetch just the post (not comments) whenever this screen regains focus, so
   // returning from editing shows the new content immediately.
@@ -72,8 +77,12 @@ export default function PostDetailScreen() {
           const freshPost = await fetchPostById(route.params.post.id);
           setPost(freshPost);
           if (user) {
-            const liked = await fetchLikedPostIds(user.id, [freshPost.id]);
+            const [liked, saved] = await Promise.all([
+              fetchLikedPostIds(user.id, [freshPost.id]),
+              fetchSavedPostIds(user.id, [freshPost.id]),
+            ]);
             setLikedByMe(liked.has(freshPost.id));
+            setSavedByMe(saved.has(freshPost.id));
           }
         } catch {
           // ignored — comments effect below still loads independently
@@ -106,6 +115,15 @@ export default function PostDetailScreen() {
       unsubscribe();
     };
   }, [post.id]);
+
+  // Lets FeedScreen's "X Comments" link open straight into a focused input,
+  // instead of requiring a second tap once the screen has already loaded.
+  // Delayed slightly so the KeyboardAvoidingView layout settles first.
+  useEffect(() => {
+    if (!route.params.focusComment) return;
+    const timer = setTimeout(() => commentInputRef.current?.focus(), 350);
+    return () => clearTimeout(timer);
+  }, [route.params.focusComment]);
 
   // Community contribution summary — reuses the existing help-stats/points
   // reads (Step 3) rather than any new counter; only fetched once a helper
@@ -202,8 +220,12 @@ export default function PostDetailScreen() {
       setPost(freshPost);
       setComments(freshComments);
       if (user) {
-        const liked = await fetchLikedPostIds(user.id, [freshPost.id]);
+        const [liked, saved] = await Promise.all([
+          fetchLikedPostIds(user.id, [freshPost.id]),
+          fetchSavedPostIds(user.id, [freshPost.id]),
+        ]);
         setLikedByMe(liked.has(freshPost.id));
+        setSavedByMe(saved.has(freshPost.id));
       }
     } catch {
       // best-effort — leave whatever is currently shown on failure
@@ -261,12 +283,39 @@ export default function PostDetailScreen() {
     ]);
   };
 
+  // Same toggle SaveButton itself calls — kept here too so the ⋯ menu offers
+  // Save/Share on another user's post (section 9's spec), in addition to the
+  // inline bookmark icon next to Like.
+  const handleToggleSaveFromMenu = async () => {
+    if (!user) return;
+    const next = !savedByMe;
+    setSavedByMe(next);
+    try {
+      if (next) {
+        await savePost({ postId: post.id, userId: user.id });
+        showToast('Saved');
+      } else {
+        await unsavePost({ postId: post.id, userId: user.id });
+      }
+    } catch {
+      setSavedByMe(!next);
+    }
+  };
+
   const menuActions: ActionSheetAction[] = isAuthor
     ? [
         { label: 'Edit Post', icon: 'create-outline', onPress: handleEditPost },
         { label: 'Delete Post', icon: 'trash-outline', destructive: true, onPress: handleDeletePost },
       ]
-    : [{ label: 'Report Post', icon: 'flag-outline', onPress: () => setReportTarget({ type: 'post', id: post.id }) }];
+    : [
+        {
+          label: savedByMe ? 'Unsave Post' : 'Save Post',
+          icon: savedByMe ? 'bookmark' : 'bookmark-outline',
+          onPress: handleToggleSaveFromMenu,
+        },
+        { label: 'Share Post', icon: 'share-outline', onPress: () => sharePost(post) },
+        { label: 'Report Post', icon: 'flag-outline', onPress: () => setReportTarget({ type: 'post', id: post.id }) },
+      ];
 
   const handleSend = async () => {
     const trimmed = commentText.trim();
@@ -348,6 +397,16 @@ export default function PostDetailScreen() {
 
             <View style={styles.likeRow}>
               <LikeButton postId={post.id} initialLikeCount={post.like_count} initialLikedByMe={likedByMe} />
+              <View style={styles.likeRowRight}>
+                <SaveButton postId={post.id} initialSaved={savedByMe} />
+                <TouchableOpacity
+                  style={styles.footerIconButton}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  onPress={() => sharePost(post)}
+                >
+                  <Ionicons name="share-outline" size={20} color={colors.textMid} />
+                </TouchableOpacity>
+              </View>
             </View>
 
             {canVolunteer && (
@@ -465,6 +524,7 @@ export default function PostDetailScreen() {
 
       <View style={styles.inputRow}>
         <TextInput
+          ref={commentInputRef}
           style={styles.input}
           placeholder="Write a comment..."
           placeholderTextColor={colors.textLight}
@@ -648,7 +708,18 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   likeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: spacing.md,
+  },
+  likeRowRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  footerIconButton: {
+    padding: 2,
   },
   commentsLabel: {
     fontFamily: fontFamily.semibold,

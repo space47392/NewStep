@@ -1,11 +1,45 @@
 import { useState } from 'react';
-import { View, Image, FlatList, TouchableOpacity, NativeSyntheticEvent, NativeScrollEvent, StyleSheet } from 'react-native';
-import { colors, radius, spacing } from '../constants/theme';
+import {
+  View,
+  Image,
+  FlatList,
+  Text,
+  TouchableOpacity,
+  GestureResponderEvent,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
+  StyleSheet,
+} from 'react-native';
+import { colors, radius, spacing, fontSize, fontFamily } from '../constants/theme';
+import { Skeleton } from './Skeleton';
 
 type Props = {
   photoUrls: string[];
   onPressPhoto: (index: number) => void;
 };
+
+// One photo tile with its own loaded state, so a slow-loading later photo in
+// the carousel doesn't hold up (or get conflated with) an already-loaded one.
+function CarouselPhoto({
+  uri,
+  size,
+  onPress,
+}: {
+  uri: string;
+  size: number;
+  onPress: (e: GestureResponderEvent) => void;
+}) {
+  const [loaded, setLoaded] = useState(false);
+
+  return (
+    <TouchableOpacity activeOpacity={0.9} onPress={onPress}>
+      <View style={{ width: size, height: size, borderRadius: radius.md, overflow: 'hidden' }}>
+        {!loaded && <Skeleton width={size} height={size} radius={0} style={StyleSheet.absoluteFill} />}
+        <Image source={{ uri }} style={{ width: size, height: size }} onLoad={() => setLoaded(true)} />
+      </View>
+    </TouchableOpacity>
+  );
+}
 
 export default function PhotoCarousel({ photoUrls, onPressPhoto }: Props) {
   const [containerWidth, setContainerWidth] = useState(0);
@@ -22,29 +56,34 @@ export default function PhotoCarousel({ photoUrls, onPressPhoto }: Props) {
   return (
     <View onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}>
       {containerWidth > 0 && (
-        <FlatList
-          data={photoUrls}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          keyExtractor={(url, i) => `${url}-${i}`}
-          onScroll={handleScroll}
-          scrollEventThrottle={16}
-          renderItem={({ item, index }) => (
-            <TouchableOpacity
-              activeOpacity={0.9}
-              onPress={(e) => {
-                e.stopPropagation();
-                onPressPhoto(index);
-              }}
-            >
-              <Image
-                source={{ uri: item }}
-                style={{ width: containerWidth, height: containerWidth, borderRadius: radius.md }}
+        <View>
+          <FlatList
+            data={photoUrls}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={(url, i) => `${url}-${i}`}
+            onScroll={handleScroll}
+            scrollEventThrottle={16}
+            renderItem={({ item, index }) => (
+              <CarouselPhoto
+                uri={item}
+                size={containerWidth}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  onPressPhoto(index);
+                }}
               />
-            </TouchableOpacity>
+            )}
+          />
+          {photoUrls.length > 1 && (
+            <View style={styles.counterBadge}>
+              <Text style={styles.counterText}>
+                {activeIndex + 1}/{photoUrls.length}
+              </Text>
+            </View>
           )}
-        />
+        </View>
       )}
       {photoUrls.length > 1 && (
         <View style={styles.dots}>
@@ -72,5 +111,19 @@ const styles = StyleSheet.create({
   },
   dotActive: {
     backgroundColor: colors.primary,
+  },
+  counterBadge: {
+    position: 'absolute',
+    top: spacing.sm,
+    right: spacing.sm,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+  },
+  counterText: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.xs,
+    color: '#fff',
   },
 });

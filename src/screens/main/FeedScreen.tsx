@@ -9,6 +9,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { fetchPosts, deletePost, volunteerToHelp, fetchFollowingFeed } from '../../lib/posts';
 import { fetchLikedPostIds } from '../../lib/likes';
+import { fetchSavedPostIds, savePost, unsavePost } from '../../lib/postSaves';
+import { sharePost } from '../../lib/share';
 import { fetchActiveStories, uploadStory } from '../../lib/stories';
 import { fetchProfileById } from '../../lib/profile';
 import { fetchSchoolStudentCount } from '../../lib/schools';
@@ -25,6 +27,7 @@ import ActionSheet, { ActionSheetAction } from '../../components/ActionSheet';
 import ReportSheet from '../../components/ReportSheet';
 import HelpStatusBadge from '../../components/HelpStatusBadge';
 import LikeButton from '../../components/LikeButton';
+import SaveButton from '../../components/SaveButton';
 import PhotoCarousel from '../../components/PhotoCarousel';
 import { Post, Story, MainStackParamList, ReportTargetType } from '../../types';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
@@ -43,6 +46,7 @@ export default function FeedScreen() {
   const [menuPost, setMenuPost] = useState<Post | null>(null);
   const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
   const [likedPostIds, setLikedPostIds] = useState<Set<string>>(new Set());
+  const [savedPostIds, setSavedPostIds] = useState<Set<string>>(new Set());
   const [stories, setStories] = useState<Story[]>([]);
   const [uploadingStory, setUploadingStory] = useState(false);
   const [mySchoolName, setMySchoolName] = useState<string | null>(null);
@@ -98,8 +102,12 @@ export default function FeedScreen() {
       setPosts(visible);
       setErrorMessage(null);
       if (user) {
-        const liked = await fetchLikedPostIds(user.id, visible.map((p) => p.id));
+        const [liked, saved] = await Promise.all([
+          fetchLikedPostIds(user.id, visible.map((p) => p.id)),
+          fetchSavedPostIds(user.id, visible.map((p) => p.id)),
+        ]);
         setLikedPostIds(liked);
+        setSavedPostIds(saved);
       }
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : 'Could not load posts.');
@@ -123,6 +131,17 @@ export default function FeedScreen() {
       const data = await fetchFollowingFeed(eligibleIds, FOLLOWING_PAGE_SIZE, 0);
       setFollowingPosts(data);
       setFollowingHasMore(data.length === FOLLOWING_PAGE_SIZE);
+      // Bug fix: this feed's like/save state was never fetched before, so
+      // LikeButton/SaveButton always rendered as "off" here regardless of the
+      // real state — same batched-fetch pattern loadPosts() already uses.
+      if (data.length > 0) {
+        const [liked, saved] = await Promise.all([
+          fetchLikedPostIds(user.id, data.map((p) => p.id)),
+          fetchSavedPostIds(user.id, data.map((p) => p.id)),
+        ]);
+        setLikedPostIds((prev) => new Set([...prev, ...liked]));
+        setSavedPostIds((prev) => new Set([...prev, ...saved]));
+      }
     } catch {
       setFollowingPosts([]);
     } finally {
@@ -141,6 +160,14 @@ export default function FeedScreen() {
       const more = await fetchFollowingFeed(eligibleIds, FOLLOWING_PAGE_SIZE, followingPosts.length);
       setFollowingPosts((prev) => [...prev, ...more]);
       setFollowingHasMore(more.length === FOLLOWING_PAGE_SIZE);
+      if (more.length > 0) {
+        const [liked, saved] = await Promise.all([
+          fetchLikedPostIds(user.id, more.map((p) => p.id)),
+          fetchSavedPostIds(user.id, more.map((p) => p.id)),
+        ]);
+        setLikedPostIds((prev) => new Set([...prev, ...liked]));
+        setSavedPostIds((prev) => new Set([...prev, ...saved]));
+      }
     } catch {
       setFollowingHasMore(false);
     } finally {
@@ -279,6 +306,35 @@ export default function FeedScreen() {
     ]);
   };
 
+  // Same toggle savePost/unsavePost calls SaveButton makes — kept here too so
+  // the ⋯ menu (section 9's spec) offers Save/Share for another user's post,
+  // in addition to the inline bookmark icon on the card itself.
+  const handleToggleSaveFromMenu = async (post: Post) => {
+    if (!user) return;
+    const currentlySaved = savedPostIds.has(post.id);
+    setSavedPostIds((prev) => {
+      const next = new Set(prev);
+      if (currentlySaved) next.delete(post.id);
+      else next.add(post.id);
+      return next;
+    });
+    try {
+      if (currentlySaved) {
+        await unsavePost({ postId: post.id, userId: user.id });
+      } else {
+        await savePost({ postId: post.id, userId: user.id });
+        showToast('Saved');
+      }
+    } catch {
+      setSavedPostIds((prev) => {
+        const next = new Set(prev);
+        if (currentlySaved) next.add(post.id);
+        else next.delete(post.id);
+        return next;
+      });
+    }
+  };
+
   const menuActions: ActionSheetAction[] = !menuPost
     ? []
     : menuPost.author_id === user?.id
@@ -287,6 +343,12 @@ export default function FeedScreen() {
           { label: 'Delete Post', icon: 'trash-outline', destructive: true, onPress: () => handleDeletePost(menuPost) },
         ]
       : [
+          {
+            label: savedPostIds.has(menuPost.id) ? 'Unsave Post' : 'Save Post',
+            icon: savedPostIds.has(menuPost.id) ? 'bookmark' : 'bookmark-outline',
+            onPress: () => handleToggleSaveFromMenu(menuPost),
+          },
+          { label: 'Share Post', icon: 'share-outline', onPress: () => sharePost(menuPost) },
           {
             label: 'Report Post',
             icon: 'flag-outline',
@@ -569,11 +631,31 @@ export default function FeedScreen() {
                     initialLikeCount={item.like_count}
                     initialLikedByMe={likedPostIds.has(item.id)}
                   />
-                  <View style={styles.commentsLink}>
-                    <Ionicons name="chatbubble-outline" size={14} color={colors.primary} />
-                    <Text style={styles.viewComments}>
-                      {commentCount > 0 ? `${commentCount} Comment${commentCount === 1 ? '' : 's'}` : 'Add a comment'}
-                    </Text>
+                  <View style={styles.footerRight}>
+                    <SaveButton postId={item.id} initialSaved={savedPostIds.has(item.id)} />
+                    <TouchableOpacity
+                      style={styles.footerIconButton}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        sharePost(item);
+                      }}
+                    >
+                      <Ionicons name="share-outline" size={20} color={colors.textMid} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.commentsLink}
+                      hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        navigation.navigate('PostDetail', { post: item, focusComment: true });
+                      }}
+                    >
+                      <Ionicons name="chatbubble-outline" size={14} color={colors.primary} />
+                      <Text style={styles.viewComments}>
+                        {commentCount > 0 ? `${commentCount} Comment${commentCount === 1 ? '' : 's'}` : 'Add a comment'}
+                      </Text>
+                    </TouchableOpacity>
                   </View>
                 </View>
               </TouchableOpacity>
@@ -917,6 +999,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginTop: spacing.sm,
+  },
+  footerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  footerIconButton: {
+    padding: 2,
   },
   commentsLink: {
     flexDirection: 'row',

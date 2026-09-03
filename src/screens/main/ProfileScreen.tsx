@@ -294,6 +294,11 @@ export default function ProfileScreen() {
           </View>
         )}
 
+        <TouchableOpacity style={styles.savedPostsButton} onPress={() => navigation.navigate('SavedPosts')}>
+          <Ionicons name="bookmark-outline" size={16} color={colors.primary} />
+          <Text style={styles.savedPostsText}>Saved Posts</Text>
+        </TouchableOpacity>
+
         <View style={styles.communityCard}>
           <Text style={styles.communityTitle}>Community</Text>
           <View style={styles.communityStatsRow}>
@@ -530,6 +535,21 @@ const styles = StyleSheet.create({
   followCount: {
     fontFamily: fontFamily.bold,
     color: colors.textDark,
+  },
+  savedPostsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.primaryLight,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  savedPostsText: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
+    color: colors.primary,
   },
   communityCard: {
     width: '100%',

@@ -13,6 +13,8 @@ import {
   fetchSchoolMembersByGradeById,
   fetchSchoolMembersByInterestsById,
   fetchSchoolById,
+  fetchSchoolContributors,
+  fetchSchoolContributorsById,
 } from '../../lib/schools';
 import { fetchPostsBySchool, fetchPostsBySchoolId } from '../../lib/posts';
 import { fetchStoriesBySchool, fetchStoriesBySchoolId } from '../../lib/stories';
@@ -26,7 +28,7 @@ import LoadingScreen from '../../components/LoadingScreen';
 import FadeInView from '../../components/FadeInView';
 import PostPreviewCard from '../../components/PostPreviewCard';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
-import { MainStackParamList, SchoolMember, Post, PostCategory, Story, School } from '../../types';
+import { MainStackParamList, SchoolMember, Post, PostCategory, Story, School, SchoolContributor } from '../../types';
 
 // Each section pulls a small, capped slice rather than everything — this page
 // is a discovery surface, not a full feed. Tapping any post still goes to the
@@ -34,6 +36,7 @@ import { MainStackParamList, SchoolMember, Post, PostCategory, Story, School } f
 const SECTION_LIMIT = 5;
 const MEMBER_LIMIT = 30;
 const DISCOVERY_LIMIT = 10;
+const CONTRIBUTOR_LIMIT = 5;
 
 type Section = { key: string; title: string; category?: PostCategory; posts: Post[] };
 
@@ -73,6 +76,7 @@ export default function SchoolScreen() {
   const [loading, setLoading] = useState(true);
   const [directorySchool, setDirectorySchool] = useState<School | null>(null);
   const [studentCount, setStudentCount] = useState(0);
+  const [contributors, setContributors] = useState<SchoolContributor[]>([]);
   const [members, setMembers] = useState<SchoolMember[]>([]);
   const [schoolStories, setSchoolStories] = useState<Story[]>([]);
   const [seenSchoolStoryIds, setSeenSchoolStoryIds] = useState<Set<string>>(new Set());
@@ -91,9 +95,13 @@ export default function SchoolScreen() {
           // Prefer the stable school_id once this page was reached with one;
           // school_name stays the fallback for every link that only ever had
           // a free-text name to pass (see MainStackParamList's School route).
-          const [count, memberList, recent, help, questions, friends, stories, directoryRow, myProfile, blockedIds] =
+          const [count, contributorList, memberList, recent, help, questions, friends, stories, directoryRow, myProfile, blockedIds] =
             await Promise.all([
               schoolId ? fetchSchoolStudentCountById(schoolId) : fetchSchoolStudentCount(schoolName),
+              (schoolId
+                ? fetchSchoolContributorsById(schoolId, CONTRIBUTOR_LIMIT)
+                : fetchSchoolContributors(schoolName, CONTRIBUTOR_LIMIT)
+              ).catch(() => [] as SchoolContributor[]),
               schoolId ? fetchSchoolMembersById(schoolId, MEMBER_LIMIT) : fetchSchoolMembers(schoolName, MEMBER_LIMIT),
               schoolId
                 ? fetchPostsBySchoolId(schoolId, undefined, SECTION_LIMIT)
@@ -117,6 +125,7 @@ export default function SchoolScreen() {
             ]);
           // UX filtering only, not a security boundary — see blocks.ts.
           setStudentCount(count);
+          setContributors(contributorList.filter((c) => !blockedIds.has(c.id)));
           setDirectorySchool(directoryRow);
           setMembers(memberList.filter((m) => !blockedIds.has(m.id)));
           setRecentPosts(recent.filter((p) => !blockedIds.has(p.author_id)));
@@ -207,6 +216,34 @@ export default function SchoolScreen() {
           {studentCount} {studentCount === 1 ? 'Student' : 'Students'}
         </Text>
       </FadeInView>
+
+      {contributors.length > 0 && (
+        <FadeInView style={styles.membersSection} delay={10}>
+          <Text style={styles.sectionTitle}>🌟 Community Contributors</Text>
+          <Text style={styles.contributorsSubtitle}>Students who've helped others in this community</Text>
+          <FlatList
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            data={contributors}
+            keyExtractor={(c) => c.id}
+            contentContainerStyle={styles.membersRow}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={styles.memberItem}
+                onPress={() => navigation.navigate('UserProfile', { userId: item.id })}
+              >
+                <Avatar uri={item.avatar_url} size={56} />
+                <Text style={styles.memberName} numberOfLines={1}>
+                  {item.full_name ?? 'Unknown'}
+                </Text>
+                <Text style={styles.contributorMeta}>
+                  💙 {item.thanks_received_count}
+                </Text>
+              </TouchableOpacity>
+            )}
+          />
+        </FadeInView>
+      )}
 
       {schoolStories.length > 0 && (
         <FadeInView style={styles.membersSection} delay={20}>
@@ -337,6 +374,19 @@ const styles = StyleSheet.create({
   },
   membersSection: {
     marginBottom: spacing.lg,
+  },
+  contributorsSubtitle: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
+    color: colors.textLight,
+    marginTop: -spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  contributorMeta: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.xs,
+    color: colors.textMid,
+    marginTop: 1,
   },
   memberRowWrap: {
     marginBottom: spacing.md,

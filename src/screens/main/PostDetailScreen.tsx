@@ -24,7 +24,7 @@ import { getOrCreateConversation } from '../../lib/chat';
 import { fetchLikedPostIds } from '../../lib/likes';
 import { fetchSavedPostIds, savePost, unsavePost } from '../../lib/postSaves';
 import { sharePost } from '../../lib/share';
-import { fetchHelpStats } from '../../lib/points';
+import { fetchHelpStats, thankHelper } from '../../lib/points';
 import { fetchProfileById } from '../../lib/profile';
 import { formatRelativeTime } from '../../lib/time';
 import Avatar from '../../components/Avatar';
@@ -66,7 +66,11 @@ export default function PostDetailScreen() {
   const [savedByMe, setSavedByMe] = useState(false);
   const [reportTarget, setReportTarget] = useState<{ type: ReportTargetType; id: string } | null>(null);
   const [thanking, setThanking] = useState(false);
-  const [contribution, setContribution] = useState<{ studentsHelped: number; points: number } | null>(null);
+  const [contribution, setContribution] = useState<{
+    studentsHelped: number;
+    points: number;
+    thanksReceived: number;
+  } | null>(null);
   const commentInputRef = useRef<TextInput>(null);
 
   // Refetch just the post (not comments) whenever this screen regains focus, so
@@ -142,7 +146,13 @@ export default function PostDetailScreen() {
           fetchHelpStats(post.helper!.id),
           fetchProfileById(post.helper!.id),
         ]);
-        if (isMounted) setContribution({ studentsHelped: stats.studentsHelped, points: helperProfile.points });
+        if (isMounted) {
+          setContribution({
+            studentsHelped: stats.studentsHelped,
+            points: helperProfile.points,
+            thanksReceived: helperProfile.thanks_received_count,
+          });
+        }
       } catch {
         if (isMounted) setContribution(null);
       }
@@ -161,6 +171,14 @@ export default function PostDetailScreen() {
   // author renaming the category afterwards shouldn't make an existing helper
   // vanish from the UI while the DB relationship (and points trigger) still stands.
   const showHelper = (post.status === 'accepted' || post.status === 'completed') && post.helper;
+  // UI-only convenience to hide the button after a thanks was already sent —
+  // not the security boundary (thank_helper() itself is, via the unique
+  // points_history index). Comments are already loaded, so this needs no
+  // extra fetch; it can't see a thanks sent from a different device/session,
+  // but tapping again in that case is a harmless server-side no-op regardless.
+  const alreadyThanked = comments.some(
+    (c) => c.profiles?.id === user?.id && c.content.startsWith('Thank you for your help,')
+  );
 
   const handleVolunteer = async () => {
     if (!user) return;
@@ -191,19 +209,22 @@ export default function PostDetailScreen() {
     }
   };
 
-  // Appreciation, kept deliberately lightweight: it's just a friendly comment
-  // through the existing addComment() — no new table, no points, no rating.
-  // Real-time delivery, notification, and RLS are all whatever comments
-  // already have; nothing new to secure here.
+  // The real signal is thank_helper() — a plain comment can't be trusted as
+  // "a real thank-you event" (anyone could type similar text, and nothing
+  // stopped duplicates or self-thanks). The friendly comment still gets
+  // posted too, best-effort, purely for the human-readable thread — it's
+  // cosmetic now, not the mechanism. If the RPC itself fails, nothing is
+  // posted and the user sees the real error instead of a false "Thanks sent!".
   const handleThankHelper = async () => {
     if (!user || !post.helper) return;
     setThanking(true);
     try {
+      await thankHelper(post.id);
       await addComment({
         postId: post.id,
         authorId: user.id,
         content: `Thank you for your help, ${post.helper.full_name ?? 'friend'}! 🙏`,
-      });
+      }).catch(() => {});
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       showToast('Thanks sent!');
     } catch (err) {
@@ -447,6 +468,7 @@ export default function PostDetailScreen() {
                     <Text style={styles.contributionText}>
                       ⭐ {contribution.points} Community {contribution.points === 1 ? 'Point' : 'Points'}
                     </Text>
+                    <Text style={styles.contributionText}>💙 {contribution.thanksReceived} Thanks Received</Text>
                   </View>
                 )}
 
@@ -461,7 +483,7 @@ export default function PostDetailScreen() {
                       style={styles.messageButton}
                     />
                   )}
-                  {user?.id === post.author_id && post.status === 'completed' && (
+                  {user?.id === post.author_id && post.status === 'completed' && !alreadyThanked && (
                     <PrimaryButton
                       title={`Thank ${post.helper.full_name?.split(' ')[0] ?? 'them'}`}
                       icon="heart-outline"
@@ -640,6 +662,7 @@ const styles = StyleSheet.create({
   },
   contributionRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.md,
     marginTop: spacing.sm,
   },

@@ -87,6 +87,9 @@ export type Profile = {
   // safety_moderation_schema.sql. No UI reads or sets this yet.
   role: 'user' | 'moderator' | 'admin';
   updated_at: string;
+  // Public total, same shape as `points` — see thanks_received_schema.sql.
+  // Only ever incremented by thank_helper(); client-immutable otherwise.
+  thanks_received_count: number;
 };
 
 // See safety_moderation_schema.sql's reports table.
@@ -108,6 +111,11 @@ export type PersonSearchResult = Pick<
   Profile,
   'id' | 'username' | 'full_name' | 'avatar_url' | 'school_name' | 'grade' | 'interests'
 >;
+
+// Public-safe subset of Profile for "Community Contributors" — ranked by
+// real contribution signals only (thanks_received_count), never
+// followers/likes. See schools.ts's fetchSchoolContributors*().
+export type SchoolContributor = Pick<Profile, 'id' | 'full_name' | 'avatar_url' | 'points' | 'thanks_received_count'>;
 
 // One row from search_schools_by_name() — see search_discovery_schema.sql.
 // Deliberately just a name + count, never per-student data.
@@ -237,7 +245,8 @@ export type NotificationType =
   | 'achievement_earned'
   | 'message'
   | 'follow'
-  | 'story_wave';
+  | 'story_wave'
+  | 'thanks_received';
 
 // See notifications_schema.sql — stores only IDs/relationships, never
 // duplicated profile or post data. actor/achievement are joined at read time

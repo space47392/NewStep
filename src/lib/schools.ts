@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { SchoolMember, School } from '../types';
+import { SchoolMember, School, SchoolContributor } from '../types';
 
 // head: true skips fetching any rows at all — just the count header — so this
 // never pulls whole profile records just to display a number.
@@ -219,4 +219,41 @@ export async function fetchSchoolById(schoolId: string): Promise<School | null> 
 export async function setMySchool(userId: string, schoolId: string): Promise<void> {
   const { error } = await supabase.from('profiles').update({ school_id: schoolId }).eq('id', userId);
   if (error) throw error;
+}
+
+// =============================================================================
+// "Community Contributors" (Step 17) — ranked by thanks_received_count only:
+// a real, hard-to-fake signal (only created by thank_helper(), see
+// thanks_received_schema.sql) rather than followers/likes. Deliberately
+// small and uncapped-looking (no rank numbers, no "#1" styling) — recognition,
+// not a leaderboard. gt(0) so an empty/all-zero school just shows nothing
+// rather than an arbitrary list of students with zero contributions.
+// =============================================================================
+
+const CONTRIBUTOR_FIELDS = 'id, full_name, avatar_url, points, thanks_received_count';
+
+export async function fetchSchoolContributors(schoolName: string, limit = 5): Promise<SchoolContributor[]> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select(CONTRIBUTOR_FIELDS)
+    .eq('school_name', schoolName)
+    .gt('thanks_received_count', 0)
+    .order('thanks_received_count', { ascending: false })
+    .limit(limit);
+
+  if (error) throw error;
+  return (data ?? []) as SchoolContributor[];
+}
+
+export async function fetchSchoolContributorsById(schoolId: string, limit = 5): Promise<SchoolContributor[]> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select(CONTRIBUTOR_FIELDS)
+    .eq('school_id', schoolId)
+    .gt('thanks_received_count', 0)
+    .order('thanks_received_count', { ascending: false })
+    .limit(limit);
+
+  if (error) throw error;
+  return (data ?? []) as SchoolContributor[];
 }

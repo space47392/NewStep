@@ -41,6 +41,7 @@ export default function ProfileScreen() {
   const [points, setPoints] = useState(0);
   const [username, setUsername] = useState<string | null>(null);
   const [studentsHelped, setStudentsHelped] = useState(0);
+  const [thanksReceived, setThanksReceived] = useState(0);
   const [pointHistory, setPointHistory] = useState<PointsHistoryEntry[]>([]);
   const [achievements, setAchievements] = useState<AchievementProgress[]>([]);
   const [followCounts, setFollowCounts] = useState({ followers: 0, following: 0 });
@@ -66,6 +67,7 @@ export default function ProfileScreen() {
         setAvatarUrl(data.avatar_url ?? null);
         setIsNewStudent(data.is_new_student);
         setPoints(data.points);
+        setThanksReceived(data.thanks_received_count);
         setUsername(data.username);
         setSchoolId(data.school_id);
       }
@@ -342,6 +344,12 @@ export default function ProfileScreen() {
                 Helped {studentsHelped === 1 ? 'Student' : 'Students'}
               </Text>
             </View>
+            <View style={styles.communityStatDivider} />
+            <View style={styles.communityStat}>
+              <Ionicons name="heart" size={20} color={colors.secondary} />
+              <Text style={styles.communityStatNumber}>{thanksReceived}</Text>
+              <Text style={styles.communityStatLabel}>Thanks Received</Text>
+            </View>
           </View>
 
           {achievements.length > 0 && (
@@ -382,7 +390,11 @@ export default function ProfileScreen() {
             {pointHistory.map((entry) => (
               <View key={entry.id} style={styles.activityRow}>
                 <View style={styles.activityAmountBadge}>
-                  <Text style={styles.activityAmountText}>+{entry.amount}</Text>
+                  {/* Thanks are a 0-point entry (see thanks_received_schema.sql) —
+                      "+0" would read as a mistake, so it gets its own icon instead. */}
+                  <Text style={styles.activityAmountText}>
+                    {entry.reason === 'help_thanked' ? '💙' : `+${entry.amount}`}
+                  </Text>
                 </View>
                 <Text style={styles.activityReason}>{formatPointReason(entry.reason)}</Text>
                 <Text style={styles.activityTime}>{formatRelativeTime(entry.created_at)}</Text>

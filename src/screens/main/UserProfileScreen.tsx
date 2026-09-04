@@ -254,6 +254,11 @@ export default function UserProfileScreen() {
                 <Text style={styles.statNumber}>{studentsHelped}</Text>
                 <Text style={styles.statLabel}>Helped</Text>
               </View>
+              <View style={styles.statBlock}>
+                <Ionicons name="heart" size={16} color={colors.secondary} style={styles.statIcon} />
+                <Text style={styles.statNumber}>{profile.thanks_received_count}</Text>
+                <Text style={styles.statLabel}>Thanks</Text>
+              </View>
             </View>
           </View>
 

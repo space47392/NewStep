@@ -24,7 +24,7 @@ const PAGE_SIZE = 20;
 // Post-related types all resolve to the same destination — fetching the full
 // Post is unavoidable since PostDetailScreen's route needs the whole object,
 // not just an id, matching how every other screen already navigates there.
-const POST_TYPES = new Set(['like', 'comment', 'volunteer', 'help_completed']);
+const POST_TYPES = new Set(['like', 'comment', 'volunteer', 'help_completed', 'thanks_received']);
 
 export default function NotificationsScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();

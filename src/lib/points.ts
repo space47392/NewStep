@@ -45,7 +45,21 @@ export function formatPointReason(reason: string): string {
   switch (reason) {
     case 'help_completed':
       return 'Help completed';
+    case 'help_thanked':
+      return 'Received a thank you';
     default:
       return reason.replace(/_/g, ' ');
   }
+}
+
+// Goes through the thank_helper() RPC rather than any direct write — it's
+// the only legitimate way to create a Thanks Received (see
+// thanks_received_schema.sql): re-validates the caller is really the post's
+// author and the post is really completed, and is safe to call more than
+// once (a repeat is a silent no-op server-side, never an error or a
+// duplicate). Never awards points — thanks_received_count is tracked
+// separately from profiles.points.
+export async function thankHelper(postId: string): Promise<void> {
+  const { error } = await supabase.rpc('thank_helper', { p_post_id: postId });
+  if (error) throw error;
 }

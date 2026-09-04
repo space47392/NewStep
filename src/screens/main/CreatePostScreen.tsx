@@ -38,7 +38,9 @@ export default function CreatePostScreen() {
   const { user } = useAuth();
   const { showToast } = useToast();
 
-  const [content, setContent] = useState(editingPost?.content ?? '');
+  // Never auto-posted — just starts the draft already typed (e.g. StoryViewer's
+  // "I Can Help"); the user still has to review, edit, and tap Post themselves.
+  const [content, setContent] = useState(editingPost?.content ?? route.params?.prefillContent ?? '');
   const [category, setCategory] = useState<PostCategory>(editingPost?.category ?? 'Looking for Friends');
   const [existingPhotoUrls, setExistingPhotoUrls] = useState<string[]>(editingPost?.photo_urls ?? []);
   const [newPhotos, setNewPhotos] = useState<ImagePicker.ImagePickerAsset[]>([]);

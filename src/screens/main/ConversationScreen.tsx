@@ -46,7 +46,9 @@ export default function ConversationScreen() {
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
-  const [text, setText] = useState('');
+  // Never auto-sent — just starts the composer with a draft already typed
+  // (e.g. StoryViewer's "Say Hi"); the user still has to review and hit Send.
+  const [text, setText] = useState(route.params.prefillText ?? '');
   const [sending, setSending] = useState(false);
   const [menuMessage, setMenuMessage] = useState<Message | null>(null);
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);

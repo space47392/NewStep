@@ -1,14 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
-import { View, Text, Image, TouchableOpacity, Animated, ActivityIndicator, Alert, StyleSheet } from 'react-native';
+import { View, Text, Image, TouchableOpacity, Animated, ActivityIndicator, Alert, BackHandler, StyleSheet } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
-import { deleteStory } from '../../lib/stories';
+import { deleteStory, recordStoryView, fetchStoryViewers } from '../../lib/stories';
+import { markStorySeen } from '../../lib/storyPrefs';
+import { getOrCreateConversation } from '../../lib/chat';
 import { formatRelativeTime } from '../../lib/time';
 import Avatar from '../../components/Avatar';
+import ActionSheet, { ActionSheetAction } from '../../components/ActionSheet';
 import ReportSheet from '../../components/ReportSheet';
+import StoryViewsModal from '../../components/StoryViewsModal';
 import { colors, spacing, radius, fontSize, fontFamily } from '../../constants/theme';
 import { MainStackParamList, ReportTargetType } from '../../types';
 
@@ -22,25 +26,20 @@ export default function StoryViewerScreen() {
 
   const [index, setIndex] = useState(initialIndex);
   const [deleting, setDeleting] = useState(false);
+  const [messaging, setMessaging] = useState(false);
+  const [menuVisible, setMenuVisible] = useState(false);
   const [reportTarget, setReportTarget] = useState<{ type: ReportTargetType; id: string } | null>(null);
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [viewCount, setViewCount] = useState(0);
+  const [viewsModalVisible, setViewsModalVisible] = useState(false);
   const progress = useRef(new Animated.Value(0)).current;
+  // Only set while an onLongPress has actually fired — a plain tap's onPressOut
+  // shouldn't try to "resume" an animation that was never paused.
+  const isPausedRef = useRef(false);
+  const pausedValueRef = useRef(0);
 
   const story = stories[index];
   const isOwnStory = user?.id === story.author_id;
-
-  useEffect(() => {
-    progress.setValue(0);
-    const animation = Animated.timing(progress, {
-      toValue: 1,
-      duration: STORY_DURATION_MS,
-      useNativeDriver: false,
-    });
-    animation.start(({ finished }) => {
-      if (finished) goToNext();
-    });
-    return () => animation.stop();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [index]);
 
   const goToNext = () => {
     if (index < stories.length - 1) {
@@ -52,6 +51,93 @@ export default function StoryViewerScreen() {
 
   const goToPrevious = () => {
     if (index > 0) setIndex((i) => i - 1);
+  };
+
+  // Android hardware back should exit to Feed exactly like the close button —
+  // returning true suppresses the default handling so this is the only thing
+  // that runs (no double pop).
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      navigation.goBack();
+      return true;
+    });
+    return () => subscription.remove();
+  }, [navigation]);
+
+  const startProgress = (fromValue: number) => {
+    progress.setValue(fromValue);
+    const remainingMs = Math.max(STORY_DURATION_MS * (1 - fromValue), 0);
+    Animated.timing(progress, {
+      toValue: 1,
+      duration: remainingMs,
+      useNativeDriver: false,
+    }).start(({ finished }) => {
+      if (finished) goToNext();
+    });
+  };
+
+  // A new story: reset everything, mark it seen right away (opening it is
+  // enough), and — for someone else's story — record a view. Never counts a
+  // story owner viewing their own story.
+  useEffect(() => {
+    setImageLoaded(false);
+    isPausedRef.current = false;
+    progress.setValue(0);
+    if (user) {
+      markStorySeen(user.id, story.id).catch(() => {});
+      if (story.author_id !== user.id) {
+        recordStoryView({ storyId: story.id, viewerId: user.id }).catch(() => {});
+      }
+    }
+    return () => {
+      progress.stopAnimation();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [index]);
+
+  // Don't start the auto-advance timer until the image has actually finished
+  // loading — otherwise a slow connection can advance past a story before its
+  // photo was ever visible.
+  useEffect(() => {
+    if (!imageLoaded) return;
+    startProgress(0);
+    return () => {
+      progress.stopAnimation();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [imageLoaded]);
+
+  // Own-story view count, for the "👁 N views" row — fetched fresh per story
+  // since it's cheap and keeps the count accurate as new views come in.
+  useEffect(() => {
+    if (!isOwnStory) {
+      setViewCount(0);
+      return;
+    }
+    let isMounted = true;
+    fetchStoryViewers(story.id)
+      .then((viewers) => {
+        if (isMounted) setViewCount(viewers.length);
+      })
+      .catch(() => {
+        if (isMounted) setViewCount(0);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [story.id, isOwnStory]);
+
+  const handleHoldStart = () => {
+    progress.stopAnimation((value) => {
+      pausedValueRef.current = value;
+    });
+    isPausedRef.current = true;
+  };
+
+  const handleHoldEnd = () => {
+    if (!isPausedRef.current) return;
+    isPausedRef.current = false;
+    startProgress(pausedValueRef.current);
   };
 
   const handleDelete = () => {
@@ -75,10 +161,87 @@ export default function StoryViewerScreen() {
     ]);
   };
 
+  const menuActions: ActionSheetAction[] = [
+    { label: 'Delete Story', icon: 'trash-outline', destructive: true, onPress: handleDelete },
+  ];
+
+  // Shared by Say Hi and Reply — both just open the same conversation, only
+  // the starting draft differs. Never sends anything on its own; the user
+  // still has to review the composer and tap Send.
+  const openConversationWithAuthor = async (prefillText?: string) => {
+    if (!user || messaging) return;
+    setMessaging(true);
+    try {
+      const conversationId = await getOrCreateConversation(story.author_id);
+      navigation.navigate('Conversation', {
+        conversationId,
+        otherUser: {
+          id: story.author_id,
+          full_name: story.profiles?.full_name ?? null,
+          avatar_url: story.profiles?.avatar_url ?? null,
+        },
+        prefillText,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Could not start a conversation.';
+      Alert.alert('Error', message);
+    } finally {
+      setMessaging(false);
+    }
+  };
+
+  const handleSayHi = () => openConversationWithAuthor('👋 Hi! I saw your story.');
+  const handleReply = () => openConversationWithAuthor();
+
+  // Opens a fresh post draft rather than messaging the author directly — this
+  // is a public offer to the community, not a DM, so it goes through the same
+  // CreatePost flow any other post does (the user still reviews/edits/taps
+  // Post themselves).
+  const handleICanHelp = () => {
+    const firstName = story.profiles?.full_name?.split(' ')[0];
+    navigation.navigate('CreatePost', {
+      prefillContent: `Reaching out to see if ${firstName ?? 'anyone'} — or anyone else — needs a hand today! 🤝`,
+    });
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
-      <Image source={{ uri: story.image_url }} style={styles.image} resizeMode="cover" />
+      <Image
+        source={{ uri: story.image_url }}
+        style={styles.image}
+        resizeMode="cover"
+        onLoad={() => setImageLoaded(true)}
+        onError={() => setImageLoaded(true)}
+      />
+
+      {!imageLoaded && (
+        <View style={styles.loadingOverlay} pointerEvents="none">
+          <ActivityIndicator color="#fff" />
+        </View>
+      )}
+
+      {/* Rendered first (i.e. underneath) so the header/action controls below,
+          which render after and therefore paint on top, actually receive their
+          own taps instead of this full-screen overlay swallowing them. */}
+      <View style={styles.tapZones}>
+        <TouchableOpacity
+          style={styles.tapZoneLeft}
+          activeOpacity={1}
+          delayLongPress={180}
+          onPress={goToPrevious}
+          onLongPress={handleHoldStart}
+          onPressOut={handleHoldEnd}
+        />
+        <TouchableOpacity
+          style={styles.tapZoneRight}
+          activeOpacity={1}
+          delayLongPress={180}
+          onPress={goToNext}
+          onLongPress={handleHoldStart}
+          onPressOut={handleHoldEnd}
+        />
+      </View>
 
       <View style={styles.progressRow}>
         {stories.map((s, i) => (
@@ -101,17 +264,25 @@ export default function StoryViewerScreen() {
       </View>
 
       <View style={styles.header}>
-        <Avatar uri={story.profiles?.avatar_url} size={36} />
-        <View style={styles.headerText}>
-          <Text style={styles.name}>{story.profiles?.full_name ?? 'Unknown'}</Text>
-          <Text style={styles.time}>{formatRelativeTime(story.created_at)}</Text>
-        </View>
+        <TouchableOpacity
+          style={styles.headerUser}
+          onPress={() => navigation.navigate('UserProfile', { userId: story.author_id })}
+        >
+          <Avatar uri={story.profiles?.avatar_url} size={36} />
+          <View style={styles.headerText}>
+            <Text style={styles.name}>{story.profiles?.full_name ?? 'Unknown'}</Text>
+            <Text style={styles.time} numberOfLines={1}>
+              {formatRelativeTime(story.created_at)}
+              {story.profiles?.school_name ? ` · ${story.profiles.school_name}` : ''}
+            </Text>
+          </View>
+        </TouchableOpacity>
         {isOwnStory ? (
-          <TouchableOpacity style={styles.iconButton} onPress={handleDelete} disabled={deleting}>
+          <TouchableOpacity style={styles.iconButton} onPress={() => setMenuVisible(true)} disabled={deleting}>
             {deleting ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Ionicons name="trash-outline" size={20} color="#fff" />
+              <Ionicons name="ellipsis-horizontal" size={20} color="#fff" />
             )}
           </TouchableOpacity>
         ) : (
@@ -127,12 +298,38 @@ export default function StoryViewerScreen() {
         </TouchableOpacity>
       </View>
 
-      <View style={styles.tapZones}>
-        <TouchableOpacity style={styles.tapZoneLeft} activeOpacity={1} onPress={goToPrevious} />
-        <TouchableOpacity style={styles.tapZoneRight} activeOpacity={1} onPress={goToNext} />
-      </View>
+      {isOwnStory ? (
+        <TouchableOpacity style={styles.viewsRow} onPress={() => setViewsModalVisible(true)}>
+          <Ionicons name="eye-outline" size={16} color="#fff" />
+          <Text style={styles.viewsText}>
+            {viewCount} {viewCount === 1 ? 'view' : 'views'}
+          </Text>
+        </TouchableOpacity>
+      ) : (
+        <View style={styles.actionsRow}>
+          <TouchableOpacity style={styles.actionPill} onPress={handleSayHi} disabled={messaging}>
+            <Text style={styles.actionPillText}>👋 Say Hi</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.actionPill} onPress={handleICanHelp} disabled={messaging}>
+            <Text style={styles.actionPillText}>🤝 I Can Help</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.actionPill} onPress={handleReply} disabled={messaging}>
+            <Text style={styles.actionPillText}>💬 Reply</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
+      <ActionSheet visible={menuVisible} onClose={() => setMenuVisible(false)} actions={menuActions} />
       <ReportSheet target={reportTarget} reporterId={user?.id} onClose={() => setReportTarget(null)} />
+      <StoryViewsModal
+        storyId={story.id}
+        visible={viewsModalVisible}
+        onClose={() => setViewsModalVisible(false)}
+        onSelectUser={(userId) => {
+          setViewsModalVisible(false);
+          navigation.navigate('UserProfile', { userId });
+        }}
+      />
     </View>
   );
 }
@@ -145,6 +342,15 @@ const styles = StyleSheet.create({
   image: {
     flex: 1,
     width: '100%',
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   progressRow: {
     position: 'absolute',
@@ -174,8 +380,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
+  headerUser: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   headerText: {
     flex: 1,
+    marginLeft: spacing.sm,
   },
   name: {
     fontFamily: fontFamily.semibold,
@@ -203,5 +415,44 @@ const styles = StyleSheet.create({
   },
   tapZoneRight: {
     flex: 1,
+  },
+  viewsRow: {
+    position: 'absolute',
+    left: spacing.md,
+    bottom: spacing.xl,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  viewsText: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
+    color: '#fff',
+  },
+  actionsRow: {
+    position: 'absolute',
+    left: spacing.md,
+    right: spacing.md,
+    bottom: spacing.xl,
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  actionPill: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    borderRadius: radius.full,
+    paddingVertical: spacing.sm,
+  },
+  actionPillText: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.xs,
+    color: '#fff',
   },
 });

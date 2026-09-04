@@ -12,6 +12,7 @@ import { fetchLikedPostIds } from '../../lib/likes';
 import { fetchSavedPostIds, savePost, unsavePost } from '../../lib/postSaves';
 import { sharePost } from '../../lib/share';
 import { fetchActiveStories, uploadStory } from '../../lib/stories';
+import { getSeenStoryIds, pruneSeenStoryIds } from '../../lib/storyPrefs';
 import { fetchProfileById } from '../../lib/profile';
 import { fetchSchoolStudentCount } from '../../lib/schools';
 import { fetchFollowingIds } from '../../lib/follows';
@@ -48,6 +49,7 @@ export default function FeedScreen() {
   const [likedPostIds, setLikedPostIds] = useState<Set<string>>(new Set());
   const [savedPostIds, setSavedPostIds] = useState<Set<string>>(new Set());
   const [stories, setStories] = useState<Story[]>([]);
+  const [seenStoryIds, setSeenStoryIds] = useState<Set<string>>(new Set());
   const [uploadingStory, setUploadingStory] = useState(false);
   const [mySchoolName, setMySchoolName] = useState<string | null>(null);
   const [mySchoolStudentCount, setMySchoolStudentCount] = useState(0);
@@ -180,7 +182,14 @@ export default function FeedScreen() {
       const data = await fetchActiveStories();
       // UX filtering only — see loadPosts' comment above.
       const blockedIds = user ? await fetchBlockedUserIds(user.id).catch(() => new Set<string>()) : new Set<string>();
-      setStories(data.filter((s) => !blockedIds.has(s.author_id)));
+      const visible = data.filter((s) => !blockedIds.has(s.author_id));
+      setStories(visible);
+      // Refreshed on every focus, so returning from StoryViewerScreen (which
+      // just marked a story seen) immediately updates the rail's rings.
+      if (user) {
+        await pruneSeenStoryIds(user.id, visible.map((s) => s.id));
+        setSeenStoryIds(await getSeenStoryIds(user.id));
+      }
     } catch {
       // Non-critical — the rail just keeps whatever it last had (or stays empty).
     }
@@ -434,12 +443,18 @@ export default function FeedScreen() {
               }
               renderItem={({ item, index }) => {
                 const mine = item.author_id === user?.id;
+                const seen = seenStoryIds.has(item.id);
+                // Own story keeps its own color regardless of seen state; everyone
+                // else's ring fades to a muted gray once viewed — same "seen" cue
+                // as any commercial story rail, without touching what the ring
+                // looks like before that (still colored/unmissable for new posts).
+                const ringColor = mine ? colors.success : seen ? colors.border : colors.secondary;
                 return (
                   <TouchableOpacity
                     style={styles.storyItem}
                     onPress={() => navigation.navigate('StoryViewer', { stories: storyRail, initialIndex: index })}
                   >
-                    <View style={[styles.storyAvatarWrap, { borderColor: mine ? colors.success : colors.secondary }]}>
+                    <View style={[styles.storyAvatarWrap, { borderColor: ringColor }]}>
                       <Avatar uri={item.profiles?.avatar_url} size={60} />
                     </View>
                     <Text style={styles.storyName} numberOfLines={1}>

@@ -24,11 +24,17 @@ export type MainStackParamList = {
   // specific tab — standard React Navigation nested-navigator navigation,
   // not a new architecture.
   Tabs: { screen: keyof MainTabParamList } | undefined;
-  CreatePost: { post?: Post } | undefined;
+  // prefillContent: lets a caller (e.g. StoryViewer's "I Can Help") start a
+  // new post with a draft already in the box — the user still has to review
+  // and tap Post themselves, same as editing an existing draft would.
+  CreatePost: { post?: Post; prefillContent?: string } | undefined;
   // focusComment: true lets a caller (e.g. FeedScreen's "X Comments" link)
   // ask the screen to focus the comment input as soon as it opens.
   PostDetail: { post: Post; focusComment?: boolean };
-  Conversation: { conversationId: string; otherUser: ChatProfile };
+  // prefillText: same idea as CreatePost's prefillContent, for a caller (e.g.
+  // StoryViewer's "Say Hi") that wants to start the composer with a friendly
+  // draft already typed — never sent automatically, the user still has to hit Send.
+  Conversation: { conversationId: string; otherUser: ChatProfile; prefillText?: string };
   UserProfile: { userId: string };
   School: { schoolName: string };
   Notifications: undefined;
@@ -212,5 +218,6 @@ export type Story = {
     id: string;
     full_name: string | null;
     avatar_url: string | null;
+    school_name: string | null;
   } | null;
 };

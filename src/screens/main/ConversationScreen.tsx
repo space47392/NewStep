@@ -37,6 +37,8 @@ import ReportSheet from '../../components/ReportSheet';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
 import { MainStackParamList, Message, ReportTargetType } from '../../types';
 
+const PAGE_SIZE = 50;
+
 export default function ConversationScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
   const route = useRoute<RouteProp<MainStackParamList, 'Conversation'>>();
@@ -52,11 +54,18 @@ export default function ConversationScreen() {
   const [sending, setSending] = useState(false);
   const [menuMessage, setMenuMessage] = useState<Message | null>(null);
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
+  const [replyTarget, setReplyTarget] = useState<Message | null>(null);
   const [reportTarget, setReportTarget] = useState<{ type: ReportTargetType; id: string } | null>(null);
   const [otherTyping, setOtherTyping] = useState(false);
+  const [hasMoreOlder, setHasMoreOlder] = useState(true);
+  const [loadingOlder, setLoadingOlder] = useState(false);
   const listRef = useRef<FlatList>(null);
   const typingRef = useRef<ReturnType<typeof subscribeToTyping> | null>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Suppresses the auto-scroll-to-bottom while an older page is being
+  // prepended — without this, loading history would immediately yank the
+  // view back down to the newest message instead of staying put.
+  const isLoadingOlderRef = useRef(false);
 
   // Only the very last bubble I sent ever shows a read receipt — matching how
   // iMessage/Instagram DMs do it, instead of stamping every message.
@@ -72,8 +81,11 @@ export default function ConversationScreen() {
 
     (async () => {
       try {
-        const data = await fetchMessages(conversationId);
-        if (isMounted) setMessages(data);
+        const data = await fetchMessages(conversationId, PAGE_SIZE);
+        if (isMounted) {
+          setMessages(data);
+          setHasMoreOlder(data.length === PAGE_SIZE);
+        }
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Could not load messages.';
         Alert.alert('Error', message);
@@ -127,6 +139,39 @@ export default function ConversationScreen() {
     };
   }, [conversationId]);
 
+  const handleLoadOlder = async () => {
+    if (loadingOlder || !hasMoreOlder || messages.length === 0) return;
+    setLoadingOlder(true);
+    isLoadingOlderRef.current = true;
+    try {
+      const older = await fetchMessages(conversationId, PAGE_SIZE, messages[0].created_at);
+      setMessages((prev) => [...older, ...prev]);
+      setHasMoreOlder(older.length === PAGE_SIZE);
+    } catch {
+      // leave hasMoreOlder as-is — the button just stays available to retry
+    } finally {
+      setLoadingOlder(false);
+      // Let the list finish re-rendering with the prepended items before
+      // auto-scroll is allowed to react to content-size changes again.
+      setTimeout(() => {
+        isLoadingOlderRef.current = false;
+      }, 0);
+    }
+  };
+
+  // Scrolls to a message already loaded in this conversation (e.g. tapping a
+  // quoted reply) — best-effort, since FlatList can't always resolve the
+  // index of an item it hasn't measured yet.
+  const handleJumpToMessage = (messageId: string) => {
+    const index = messages.findIndex((m) => m.id === messageId);
+    if (index === -1) return;
+    try {
+      listRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.5 });
+    } catch {
+      // ignored — not worth a fallback for a nice-to-have jump
+    }
+  };
+
   const handleChangeText = (value: string) => {
     setText(value);
     if (user && value.trim()) {
@@ -144,7 +189,13 @@ export default function ConversationScreen() {
         await editMessage(editingMessage.id, trimmed);
         setEditingMessage(null);
       } else {
-        await sendMessage({ conversationId, senderId: user.id, content: trimmed });
+        await sendMessage({
+          conversationId,
+          senderId: user.id,
+          content: trimmed,
+          replyToMessageId: replyTarget?.id,
+        });
+        setReplyTarget(null);
       }
       setText(''); // the sent/edited message arrives back via the real-time subscription above
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -167,6 +218,7 @@ export default function ConversationScreen() {
   };
 
   const handleEditMessage = (message: Message) => {
+    setReplyTarget(null); // mutually exclusive with editing — only one banner at a time
     setEditingMessage(message);
     setText(message.content);
   };
@@ -175,6 +227,13 @@ export default function ConversationScreen() {
     setEditingMessage(null);
     setText('');
   };
+
+  const handleReplyMessage = (message: Message) => {
+    setEditingMessage(null); // mutually exclusive with editing — only one banner at a time
+    setReplyTarget(message);
+  };
+
+  const handleCancelReply = () => setReplyTarget(null);
 
   const handleDeleteMessage = (message: Message) => {
     Alert.alert('Delete message?', 'This cannot be undone.', [
@@ -198,6 +257,7 @@ export default function ConversationScreen() {
   const isMenuMessageMine = menuMessage?.sender_id === user?.id;
   const menuActions: ActionSheetAction[] = menuMessage
     ? [
+        { label: 'Reply', icon: 'arrow-undo-outline', onPress: () => handleReplyMessage(menuMessage) },
         { label: 'Copy', icon: 'copy-outline', onPress: () => handleCopyMessage(menuMessage) },
         ...(isMenuMessageMine
           ? ([
@@ -247,7 +307,22 @@ export default function ConversationScreen() {
           data={messages}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
-          onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
+          maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
+          onContentSizeChange={() => {
+            if (isLoadingOlderRef.current) return;
+            listRef.current?.scrollToEnd({ animated: true });
+          }}
+          ListHeaderComponent={
+            hasMoreOlder && messages.length > 0 ? (
+              <TouchableOpacity style={styles.loadOlderButton} onPress={handleLoadOlder} disabled={loadingOlder}>
+                {loadingOlder ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : (
+                  <Text style={styles.loadOlderText}>Load earlier messages</Text>
+                )}
+              </TouchableOpacity>
+            ) : null
+          }
           ListEmptyComponent={<EmptyState icon="happy-outline" title="Say hello!" subtitle="Start the conversation." />}
           renderItem={({ item, index }) => {
             const isMine = item.sender_id === user?.id;
@@ -291,7 +366,35 @@ export default function ConversationScreen() {
                           {isMine ? 'You deleted this message' : 'This message was deleted'}
                         </Text>
                       ) : (
-                        <Text style={isMine ? styles.bubbleTextMine : styles.bubbleTextTheirs}>{item.content}</Text>
+                        <>
+                          {item.reply_to_message_id &&
+                            (() => {
+                              const repliedTo = messages.find((m) => m.id === item.reply_to_message_id);
+                              // Not currently loaded (e.g. an older page that hasn't been
+                              // fetched yet) — omit rather than show a broken reference.
+                              if (!repliedTo) return null;
+                              return (
+                                <TouchableOpacity
+                                  style={[styles.replyQuote, isMine ? styles.replyQuoteMine : styles.replyQuoteTheirs]}
+                                  onPress={(e) => {
+                                    e.stopPropagation();
+                                    handleJumpToMessage(repliedTo.id);
+                                  }}
+                                >
+                                  <Text
+                                    style={[
+                                      styles.replyQuoteText,
+                                      isMine ? styles.replyQuoteTextMine : styles.replyQuoteTextTheirs,
+                                    ]}
+                                    numberOfLines={1}
+                                  >
+                                    {repliedTo.deleted_at ? 'Original message deleted' : repliedTo.content}
+                                  </Text>
+                                </TouchableOpacity>
+                              );
+                            })()}
+                          <Text style={isMine ? styles.bubbleTextMine : styles.bubbleTextTheirs}>{item.content}</Text>
+                        </>
                       )}
                     </TouchableOpacity>
                     <View style={styles.messageFooter}>
@@ -326,6 +429,23 @@ export default function ConversationScreen() {
           <Ionicons name="create-outline" size={14} color={colors.textMid} />
           <Text style={styles.editingBannerText}>Editing message</Text>
           <TouchableOpacity onPress={handleCancelEdit} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Ionicons name="close" size={16} color={colors.textMid} />
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {replyTarget && !editingMessage && (
+        <View style={styles.editingBanner}>
+          <Ionicons name="arrow-undo-outline" size={14} color={colors.textMid} />
+          <View style={styles.replyBannerText}>
+            <Text style={styles.editingBannerText} numberOfLines={1}>
+              Replying to {replyTarget.sender_id === user?.id ? 'yourself' : otherUser.full_name ?? 'them'}
+            </Text>
+            <Text style={styles.replyBannerPreview} numberOfLines={1}>
+              {replyTarget.deleted_at ? 'Message deleted' : replyTarget.content}
+            </Text>
+          </View>
+          <TouchableOpacity onPress={handleCancelReply} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
             <Ionicons name="close" size={16} color={colors.textMid} />
           </TouchableOpacity>
         </View>
@@ -389,6 +509,37 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     flexGrow: 1,
+  },
+  loadOlderButton: {
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  loadOlderText: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
+    color: colors.primary,
+  },
+  replyQuote: {
+    borderLeftWidth: 2,
+    paddingLeft: spacing.sm,
+    marginBottom: 4,
+  },
+  replyQuoteMine: {
+    borderLeftColor: 'rgba(255,255,255,0.6)',
+  },
+  replyQuoteTheirs: {
+    borderLeftColor: colors.primary,
+  },
+  replyQuoteText: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
+  },
+  replyQuoteTextMine: {
+    color: 'rgba(255,255,255,0.85)',
+  },
+  replyQuoteTextTheirs: {
+    color: colors.textMid,
   },
   daySeparator: {
     alignItems: 'center',
@@ -500,6 +651,15 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.medium,
     fontSize: fontSize.sm,
     color: colors.textMid,
+  },
+  replyBannerText: {
+    flex: 1,
+  },
+  replyBannerPreview: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
+    color: colors.textLight,
+    marginTop: 1,
   },
   inputRow: {
     flexDirection: 'row',

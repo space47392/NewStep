@@ -79,29 +79,59 @@ async function fetchUnreadCounts(
   return counts;
 }
 
-export async function fetchMessages(conversationId: string): Promise<Message[]> {
-  const { data, error } = await supabase
+// Newest-first under the hood (so LIMIT actually caps at "the most recent N"
+// rather than "the first N ever sent"), then reversed back to chronological
+// order for rendering — same index (conversation_id, created_at) that
+// already existed powers both this and the "older" page below, no new index
+// needed. Omit beforeCreatedAt for the initial/most-recent page; pass the
+// oldest currently-loaded message's created_at to page further back.
+export async function fetchMessages(
+  conversationId: string,
+  limit = 50,
+  beforeCreatedAt?: string
+): Promise<Message[]> {
+  let query = supabase
     .from('messages')
     .select('*')
     .eq('conversation_id', conversationId)
-    .order('created_at', { ascending: true });
+    .order('created_at', { ascending: false })
+    .limit(limit);
 
+  if (beforeCreatedAt) {
+    query = query.lt('created_at', beforeCreatedAt);
+  }
+
+  const { data, error } = await query;
   if (error) throw error;
-  return (data ?? []) as Message[];
+  return ((data ?? []) as Message[]).reverse();
 }
 
 export async function sendMessage(params: {
   conversationId: string;
   senderId: string;
   content: string;
+  // Optional — see message_replies_schema.sql. Only ever a message the
+  // caller can already see (RLS re-validates it belongs to this same
+  // conversation server-side, independent of whatever the client sends).
+  replyToMessageId?: string;
 }): Promise<void> {
   const { error } = await supabase.from('messages').insert({
     conversation_id: params.conversationId,
     sender_id: params.senderId,
     content: params.content,
+    reply_to_message_id: params.replyToMessageId ?? null,
   });
 
-  if (error) throw error;
+  // TEMPORARY diagnostic logging — remove once the send failure is root-caused.
+  if (error) {
+    console.error('[sendMessage] insert failed', {
+      code: error.code,
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+    });
+    throw error;
+  }
 }
 
 export async function markMessagesAsRead(conversationId: string, currentUserId: string): Promise<void> {

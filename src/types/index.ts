@@ -234,6 +234,10 @@ export type Message = {
   read_at: string | null;
   edited_at: string | null;
   deleted_at: string | null;
+  // Nullable, self-referencing — see message_replies_schema.sql. The reply
+  // preview is resolved client-side from messages already loaded, never
+  // duplicated; this is just the pointer.
+  reply_to_message_id: string | null;
 };
 
 export type NotificationType =

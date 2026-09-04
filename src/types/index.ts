@@ -62,6 +62,7 @@ export type MainStackParamList = {
   FollowList: { userId: string; mode: 'followers' | 'following' };
   SavedPosts: undefined;
   ChooseSchool: undefined;
+  EditProfile: undefined;
   StoryViewer: { stories: Story[]; initialIndex: number };
   PhotoViewer: { photoUrls: string[]; initialIndex: number };
 };

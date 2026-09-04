@@ -13,18 +13,20 @@ import { fetchAchievementProgress } from '../../lib/achievements';
 import { getOrCreateConversation } from '../../lib/chat';
 import { fetchBlockedUserIds, blockUser, unblockUser } from '../../lib/blocks';
 import { fetchFollowCounts, isFollowing, followUser, unfollowUser } from '../../lib/follows';
-import { formatRelativeTime } from '../../lib/time';
 import Avatar from '../../components/Avatar';
 import EmptyState from '../../components/EmptyState';
 import LoadingScreen from '../../components/LoadingScreen';
 import PrimaryButton from '../../components/PrimaryButton';
+import PostPreviewCard from '../../components/PostPreviewCard';
 import FadeInView from '../../components/FadeInView';
 import ActionSheet, { ActionSheetAction } from '../../components/ActionSheet';
 import ReportSheet from '../../components/ReportSheet';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
-import { CATEGORY_STYLES } from '../../constants/categoryStyles';
 import { MainStackParamList, Profile, Post, AchievementProgress, ReportTargetType } from '../../types';
 
+// Same visual language as ProfileScreen's own read-only view — the "Community"
+// card, the achievement grid, the Posts list all match, so viewing yourself
+// vs. viewing someone else doesn't feel like two different products.
 export default function UserProfileScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
   const route = useRoute<RouteProp<MainStackParamList, 'UserProfile'>>();
@@ -179,6 +181,8 @@ export default function UserProfileScreen() {
       : { label: 'Block User', icon: 'ban-outline', destructive: true, onPress: handleToggleBlock },
   ];
 
+  // Never anything unearned — a visitor to someone else's profile only ever
+  // sees what that person has actually achieved, same privacy rule as before.
   const earnedAchievements = achievements.filter((a) => a.earned);
 
   const handleMessage = async () => {
@@ -237,133 +241,125 @@ export default function UserProfileScreen() {
             )}
           </View>
 
-          <View style={styles.headerRow}>
-            <Avatar uri={profile.avatar_url} size={84} />
+          <View style={styles.headerArea}>
+            <Avatar uri={profile.avatar_url} size={96} />
+            <Text style={styles.name}>{profile.full_name ?? 'Unknown'}</Text>
+            {profile.username ? <Text style={styles.username}>@{profile.username}</Text> : null}
+
             <View style={styles.statsRow}>
-              <View style={styles.statBlock}>
-                <Text style={styles.statNumber}>{posts.length}</Text>
-                <Text style={styles.statLabel}>Posts</Text>
-              </View>
-              <View style={styles.statBlock}>
-                <Ionicons name="trophy" size={16} color={colors.primary} style={styles.statIcon} />
-                <Text style={styles.statNumber}>{profile.points}</Text>
-                <Text style={styles.statLabel}>Points</Text>
-              </View>
-              <View style={styles.statBlock}>
-                <Ionicons name="people" size={16} color={colors.success} style={styles.statIcon} />
-                <Text style={styles.statNumber}>{studentsHelped}</Text>
-                <Text style={styles.statLabel}>Helped</Text>
-              </View>
-              <View style={styles.statBlock}>
-                <Ionicons name="heart" size={16} color={colors.secondary} style={styles.statIcon} />
-                <Text style={styles.statNumber}>{profile.thanks_received_count}</Text>
-                <Text style={styles.statLabel}>Thanks</Text>
-              </View>
+              <Text style={styles.statText}>
+                <Text style={styles.statNumber}>{posts.length}</Text> Posts
+              </Text>
+              <TouchableOpacity onPress={() => navigation.navigate('FollowList', { userId, mode: 'followers' })}>
+                <Text style={styles.statText}>
+                  <Text style={styles.statNumber}>{followCounts.followers}</Text> Followers
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => navigation.navigate('FollowList', { userId, mode: 'following' })}>
+                <Text style={styles.statText}>
+                  <Text style={styles.statNumber}>{followCounts.following}</Text> Following
+                </Text>
+              </TouchableOpacity>
             </View>
-          </View>
 
-          <Text style={styles.name}>{profile.full_name ?? 'Unknown'}</Text>
-          {profile.username ? <Text style={styles.username}>@{profile.username}</Text> : null}
+            {profile.school_name ? (
+              <TouchableOpacity
+                style={styles.metaRow}
+                onPress={() =>
+                  navigation.navigate('School', { schoolId: profile.school_id ?? undefined, schoolName: profile.school_name! })
+                }
+              >
+                <Ionicons name="school-outline" size={14} color={colors.textMid} />
+                <Text style={styles.metaText}>
+                  {profile.school_name}
+                  {profile.grade ? ` · Grade ${profile.grade}` : ''}
+                </Text>
+              </TouchableOpacity>
+            ) : profile.grade ? (
+              <Text style={styles.metaTextPlain}>Grade {profile.grade}</Text>
+            ) : null}
 
-          <View style={styles.followRow}>
-            <TouchableOpacity onPress={() => navigation.navigate('FollowList', { userId, mode: 'followers' })}>
-              <Text style={styles.followText}>
-                <Text style={styles.followCount}>{followCounts.followers}</Text> Followers
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => navigation.navigate('FollowList', { userId, mode: 'following' })}>
-              <Text style={styles.followText}>
-                <Text style={styles.followCount}>{followCounts.following}</Text> Following
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {profile.school_name ? (
-            <TouchableOpacity
-              style={styles.metaRow}
-              onPress={() =>
-                navigation.navigate('School', { schoolId: profile.school_id ?? undefined, schoolName: profile.school_name! })
-              }
-            >
-              <Ionicons name="school-outline" size={14} color={colors.textMid} />
-              <Text style={styles.metaText}>
-                {profile.school_name}
-                {profile.grade ? ` · Grade ${profile.grade}` : ''}
-              </Text>
-              <Ionicons name="chevron-forward" size={14} color={colors.textLight} />
-            </TouchableOpacity>
-          ) : null}
-
-          {profile.interests.length > 0 && (
-            <View style={styles.chipRow}>
-              {profile.interests.map((interest) => (
-                <View key={interest} style={styles.chip}>
-                  <Text style={styles.chipText}>{interest}</Text>
-                </View>
-              ))}
-            </View>
-          )}
-
-          {earnedAchievements.length > 0 && (
-            <View style={styles.achievementsSection}>
-              <Text style={styles.achievementsHeading}>🏆 Achievements</Text>
-              <View style={styles.achievementsRow}>
-                {earnedAchievements.map((achievement) => (
-                  <View key={achievement.id} style={styles.achievementBadge}>
-                    <Text style={styles.achievementIcon}>{achievement.icon}</Text>
-                    <Text style={styles.achievementName}>{achievement.name}</Text>
+            {profile.interests.length > 0 && (
+              <View style={styles.chipRow}>
+                {profile.interests.map((interest) => (
+                  <View key={interest} style={styles.chip}>
+                    <Text style={styles.chipText}>{interest}</Text>
                   </View>
                 ))}
               </View>
-            </View>
-          )}
+            )}
 
-          {!isOwnProfile && !isBlocked && (
-            <View style={styles.profileActions}>
-              <PrimaryButton
-                title={isFollowingUser ? 'Following' : 'Follow'}
-                icon={isFollowingUser ? 'checkmark' : 'person-add-outline'}
-                variant={isFollowingUser ? 'outline' : undefined}
-                onPress={handleFollowPress}
-                loading={followLoading}
-                style={styles.messageButton}
-              />
-              <PrimaryButton
-                title="Message"
-                icon="chatbubble-outline"
-                variant="outline"
-                onPress={handleMessage}
-                loading={messaging}
-                style={styles.messageButton}
-              />
-            </View>
-          )}
+            {!isOwnProfile && !isBlocked && (
+              <View style={styles.profileActions}>
+                <PrimaryButton
+                  title={isFollowingUser ? 'Following' : 'Follow'}
+                  icon={isFollowingUser ? 'checkmark' : 'person-add-outline'}
+                  variant={isFollowingUser ? 'outline' : undefined}
+                  onPress={handleFollowPress}
+                  loading={followLoading}
+                  style={styles.actionButton}
+                />
+                <PrimaryButton
+                  title="Message"
+                  icon="chatbubble-outline"
+                  variant="outline"
+                  onPress={handleMessage}
+                  loading={messaging}
+                  style={styles.actionButton}
+                />
+              </View>
+            )}
 
-          <Text style={styles.postsHeading}>Posts</Text>
+            <View style={styles.communityCard}>
+              <Text style={styles.communityTitle}>Community</Text>
+              <View style={styles.communityStatsRow}>
+                <View style={styles.communityStat}>
+                  <Ionicons name="star" size={20} color={colors.primary} />
+                  <Text style={styles.communityStatNumber}>{profile.points}</Text>
+                  <Text style={styles.communityStatLabel}>{profile.points === 1 ? 'Point' : 'Points'}</Text>
+                </View>
+                <View style={styles.communityStatDivider} />
+                <View style={styles.communityStat}>
+                  <Ionicons name="people" size={20} color={colors.success} />
+                  <Text style={styles.communityStatNumber}>{studentsHelped}</Text>
+                  <Text style={styles.communityStatLabel}>
+                    Helped {studentsHelped === 1 ? 'Student' : 'Students'}
+                  </Text>
+                </View>
+                <View style={styles.communityStatDivider} />
+                <View style={styles.communityStat}>
+                  <Ionicons name="heart" size={20} color={colors.secondary} />
+                  <Text style={styles.communityStatNumber}>{profile.thanks_received_count}</Text>
+                  <Text style={styles.communityStatLabel}>Thanks Received</Text>
+                </View>
+              </View>
+
+              {earnedAchievements.length > 0 && (
+                <>
+                  <View style={styles.achievementsDivider} />
+                  <Text style={styles.achievementsTitle}>🏆 Achievements</Text>
+                  <View style={styles.achievementsGrid}>
+                    {earnedAchievements.map((achievement) => (
+                      <View key={achievement.id} style={styles.achievementBadge}>
+                        <Text style={styles.achievementIcon}>{achievement.icon}</Text>
+                        <Text style={styles.achievementName} numberOfLines={2}>
+                          {achievement.name}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                </>
+              )}
+            </View>
+
+            <Text style={styles.postsHeading}>Posts</Text>
+          </View>
         </FadeInView>
       }
       ListEmptyComponent={<EmptyState icon="newspaper-outline" title="No posts yet" />}
-      renderItem={({ item, index }) => {
-        const category = CATEGORY_STYLES[item.category];
-        return (
-          <FadeInView delay={Math.min(index, 6) * 40}>
-            <TouchableOpacity
-              style={styles.card}
-              activeOpacity={0.85}
-              onPress={() => navigation.navigate('PostDetail', { post: item })}
-            >
-              <View style={styles.cardTop}>
-                <View style={[styles.categoryBadge, { backgroundColor: category.bg }]}>
-                  <Ionicons name={category.icon} size={12} color={category.text} />
-                  <Text style={[styles.categoryText, { color: category.text }]}>{item.category}</Text>
-                </View>
-                <Text style={styles.timestamp}>{formatRelativeTime(item.created_at)}</Text>
-              </View>
-              <Text style={styles.content}>{item.content}</Text>
-            </TouchableOpacity>
-          </FadeInView>
-        );
-      }}
+      renderItem={({ item }) => (
+        <PostPreviewCard post={item} onPress={() => navigation.navigate('PostDetail', { post: item })} />
+      )}
     />
     <ActionSheet visible={menuVisible} onClose={() => setMenuVisible(false)} actions={profileMenuActions} />
     <ReportSheet target={reportTarget} reporterId={user?.id} onClose={() => setReportTarget(null)} />
@@ -398,37 +394,15 @@ const styles = StyleSheet.create({
   menuButton: {
     padding: spacing.xs,
   },
-  headerRow: {
-    flexDirection: 'row',
+  headerArea: {
     alignItems: 'center',
     marginBottom: spacing.md,
-  },
-  statsRow: {
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginLeft: spacing.lg,
-  },
-  statBlock: {
-    alignItems: 'center',
-  },
-  statIcon: {
-    marginBottom: 2,
-  },
-  statNumber: {
-    fontFamily: fontFamily.bold,
-    fontSize: fontSize.xl,
-    color: colors.textDark,
-  },
-  statLabel: {
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.xs,
-    color: colors.textMid,
   },
   name: {
     fontFamily: fontFamily.bold,
     fontSize: fontSize.xl,
     color: colors.textDark,
+    marginTop: spacing.md,
   },
   username: {
     fontFamily: fontFamily.medium,
@@ -436,17 +410,17 @@ const styles = StyleSheet.create({
     color: colors.textMid,
     marginTop: 2,
   },
-  followRow: {
+  statsRow: {
     flexDirection: 'row',
-    gap: spacing.md,
-    marginTop: spacing.xs,
+    gap: spacing.lg,
+    marginTop: spacing.md,
   },
-  followText: {
+  statText: {
     fontFamily: fontFamily.regular,
     fontSize: fontSize.sm,
     color: colors.textMid,
   },
-  followCount: {
+  statNumber: {
     fontFamily: fontFamily.bold,
     color: colors.textDark,
   },
@@ -454,16 +428,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    marginTop: spacing.xs,
+    marginTop: spacing.sm,
   },
   metaText: {
     fontFamily: fontFamily.regular,
     fontSize: fontSize.sm,
     color: colors.textMid,
   },
+  metaTextPlain: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    color: colors.textMid,
+    marginTop: spacing.sm,
+  },
   chipRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    justifyContent: 'center',
     gap: spacing.xs,
     marginTop: spacing.md,
   },
@@ -480,86 +461,97 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.textMid,
   },
-  achievementsSection: {
-    marginTop: spacing.md,
+  profileActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.lg,
+    width: '100%',
   },
-  achievementsHeading: {
+  actionButton: {
+    flex: 1,
+  },
+  communityCard: {
+    width: '100%',
+    backgroundColor: colors.cardBg,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    marginTop: spacing.lg,
+    ...shadow.card,
+  },
+  communityTitle: {
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.sm,
     color: colors.textMid,
     marginBottom: spacing.sm,
   },
-  achievementsRow: {
+  communityStatsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  communityStat: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 2,
+  },
+  communityStatDivider: {
+    width: 1,
+    height: 36,
+    backgroundColor: colors.border,
+  },
+  communityStatNumber: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.xl,
+    color: colors.textDark,
+    marginTop: 2,
+  },
+  communityStatLabel: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
+    color: colors.textMid,
+    textAlign: 'center',
+  },
+  achievementsDivider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  achievementsTitle: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
+    color: colors.textMid,
+    marginBottom: spacing.sm,
+  },
+  achievementsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
   },
   achievementBadge: {
+    width: '47%',
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
     backgroundColor: colors.primaryLight,
-    borderRadius: radius.full,
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
   },
   achievementIcon: {
-    fontSize: 16,
+    fontSize: 20,
   },
   achievementName: {
+    flex: 1,
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.xs,
     color: colors.textDark,
   },
-  profileActions: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginTop: spacing.lg,
-  },
-  messageButton: {
-    flex: 1,
-  },
   postsHeading: {
+    alignSelf: 'flex-start',
     fontFamily: fontFamily.bold,
     fontSize: fontSize.lg,
     color: colors.textDark,
     marginTop: spacing.xl,
     marginBottom: spacing.md,
-  },
-  card: {
-    backgroundColor: colors.cardBg,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-    ...shadow.card,
-  },
-  cardTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.sm,
-  },
-  categoryBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    borderRadius: radius.full,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-  },
-  categoryText: {
-    fontFamily: fontFamily.bold,
-    fontSize: fontSize.xs,
-  },
-  timestamp: {
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.xs,
-    color: colors.textLight,
-  },
-  content: {
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.md,
-    color: colors.textDark,
-    lineHeight: 21,
   },
 });

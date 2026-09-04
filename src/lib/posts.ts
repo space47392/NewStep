@@ -70,12 +70,16 @@ export async function fetchPostById(postId: string): Promise<Post> {
   return data as unknown as Post;
 }
 
-export async function fetchPostsByAuthor(authorId: string): Promise<Post[]> {
+// Powers the Posts section of both profile screens — a preview of someone's
+// history, not a full archive, so this is capped rather than unbounded (it
+// previously fetched every post the author had ever made).
+export async function fetchPostsByAuthor(authorId: string, limit = 20, offset = 0): Promise<Post[]> {
   const { data, error } = await supabase
     .from('posts')
     .select(POST_SELECT)
     .eq('author_id', authorId)
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1);
 
   if (error) throw error;
   return (data ?? []) as unknown as Post[];

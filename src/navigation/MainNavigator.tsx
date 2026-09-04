@@ -10,6 +10,7 @@ import NotificationsScreen from '../screens/main/NotificationsScreen';
 import FollowListScreen from '../screens/main/FollowListScreen';
 import SavedPostsScreen from '../screens/main/SavedPostsScreen';
 import ChooseSchoolScreen from '../screens/main/ChooseSchoolScreen';
+import EditProfileScreen from '../screens/main/EditProfileScreen';
 import StoryViewerScreen from '../screens/main/StoryViewerScreen';
 import PhotoViewerScreen from '../screens/main/PhotoViewerScreen';
 
@@ -28,6 +29,7 @@ export default function MainNavigator() {
       <Stack.Screen name="FollowList" component={FollowListScreen} />
       <Stack.Screen name="SavedPosts" component={SavedPostsScreen} />
       <Stack.Screen name="ChooseSchool" component={ChooseSchoolScreen} options={{ presentation: 'modal' }} />
+      <Stack.Screen name="EditProfile" component={EditProfileScreen} />
       <Stack.Screen name="StoryViewer" component={StoryViewerScreen} options={{ presentation: 'fullScreenModal' }} />
       <Stack.Screen name="PhotoViewer" component={PhotoViewerScreen} options={{ presentation: 'fullScreenModal' }} />
     </Stack.Navigator>

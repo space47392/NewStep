@@ -155,6 +155,8 @@ export function formatNotificationMessage(notification: AppNotification): string
       return `${actorName} sent you a message`;
     case 'follow':
       return `${actorName} started following you`;
+    case 'story_wave':
+      return `${actorName} said hi to your story`;
     default:
       return 'New notification';
   }
@@ -177,6 +179,8 @@ export function getNotificationIcon(type: NotificationType): string {
     case 'message':
       return '💬';
     case 'follow':
+      return '👋';
+    case 'story_wave':
       return '👋';
     default:
       return '🔔';

@@ -92,7 +92,7 @@ export default function NotificationsScreen() {
           conversationId: notification.conversation_id,
           otherUser: notification.actor,
         });
-      } else if (notification.type === 'follow') {
+      } else if (notification.type === 'follow' || notification.type === 'story_wave') {
         if (!notification.actor) return;
         navigation.navigate('UserProfile', { userId: notification.actor.id });
       } else {

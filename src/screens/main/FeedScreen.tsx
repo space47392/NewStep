@@ -418,6 +418,12 @@ export default function FeedScreen() {
               </FadeInView>
             )}
 
+            {/* Context label only — the rail below is unchanged: same stories,
+                same order (mine first, then everyone else) as before this step. */}
+            {mySchoolName && (
+              <Text style={styles.storyRailLabel}>🏫 {mySchoolName} Stories</Text>
+            )}
+
             <FlatList
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -768,6 +774,12 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.xs,
     color: '#fff',
+  },
+  storyRailLabel: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.xs,
+    color: colors.textMid,
+    marginBottom: spacing.sm,
   },
   storyRail: {
     paddingBottom: spacing.lg,

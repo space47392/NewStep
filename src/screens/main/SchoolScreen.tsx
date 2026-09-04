@@ -5,6 +5,8 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { fetchSchoolStudentCount, fetchSchoolMembers, fetchSchoolMembersByGrade, fetchSchoolMembersByInterests } from '../../lib/schools';
 import { fetchPostsBySchool } from '../../lib/posts';
+import { fetchStoriesBySchool } from '../../lib/stories';
+import { getSeenStoryIds } from '../../lib/storyPrefs';
 import { fetchProfileById } from '../../lib/profile';
 import { fetchBlockedUserIds } from '../../lib/blocks';
 import { useAuth } from '../../contexts/AuthContext';
@@ -14,7 +16,7 @@ import LoadingScreen from '../../components/LoadingScreen';
 import FadeInView from '../../components/FadeInView';
 import PostPreviewCard from '../../components/PostPreviewCard';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
-import { MainStackParamList, SchoolMember, Post, PostCategory } from '../../types';
+import { MainStackParamList, SchoolMember, Post, PostCategory, Story } from '../../types';
 
 // Each section pulls a small, capped slice rather than everything — this page
 // is a discovery surface, not a full feed. Tapping any post still goes to the
@@ -61,6 +63,8 @@ export default function SchoolScreen() {
   const [loading, setLoading] = useState(true);
   const [studentCount, setStudentCount] = useState(0);
   const [members, setMembers] = useState<SchoolMember[]>([]);
+  const [schoolStories, setSchoolStories] = useState<Story[]>([]);
+  const [seenSchoolStoryIds, setSeenSchoolStoryIds] = useState<Set<string>>(new Set());
   const [recentPosts, setRecentPosts] = useState<Post[]>([]);
   const [helpPosts, setHelpPosts] = useState<Post[]>([]);
   const [questionPosts, setQuestionPosts] = useState<Post[]>([]);
@@ -73,13 +77,14 @@ export default function SchoolScreen() {
     useCallback(() => {
       (async () => {
         try {
-          const [count, memberList, recent, help, questions, friends, myProfile, blockedIds] = await Promise.all([
+          const [count, memberList, recent, help, questions, friends, stories, myProfile, blockedIds] = await Promise.all([
             fetchSchoolStudentCount(schoolName),
             fetchSchoolMembers(schoolName, MEMBER_LIMIT),
             fetchPostsBySchool(schoolName, undefined, SECTION_LIMIT),
             fetchPostsBySchool(schoolName, 'Need Help', SECTION_LIMIT),
             fetchPostsBySchool(schoolName, 'School Question', SECTION_LIMIT),
             fetchPostsBySchool(schoolName, 'Looking for Friends', SECTION_LIMIT),
+            fetchStoriesBySchool(schoolName, MEMBER_LIMIT).catch(() => [] as Story[]),
             user ? fetchProfileById(user.id) : Promise.resolve(null),
             user ? fetchBlockedUserIds(user.id).catch(() => new Set<string>()) : Promise.resolve(new Set<string>()),
           ]);
@@ -90,6 +95,16 @@ export default function SchoolScreen() {
           setHelpPosts(help.filter((p) => !blockedIds.has(p.author_id)));
           setQuestionPosts(questions.filter((p) => !blockedIds.has(p.author_id)));
           setFriendPosts(friends.filter((p) => !blockedIds.has(p.author_id)));
+
+          const visibleStories = stories.filter((s) => !blockedIds.has(s.author_id));
+          setSchoolStories(visibleStories);
+          // Read-only here — same local seen/unseen state Feed's story rail
+          // already reads, just consulted again, never pruned from this screen:
+          // pruning against only THIS school's ids would wrongly forget that
+          // other-school stories (visible in Feed's own rail) were seen.
+          if (user) {
+            setSeenSchoolStoryIds(await getSeenStoryIds(user.id));
+          }
 
           // "Find your community" only shows on your OWN school's page, and only
           // if you opted into New Student mode — never on a school you're just
@@ -148,6 +163,39 @@ export default function SchoolScreen() {
           {studentCount} {studentCount === 1 ? 'Student' : 'Students'}
         </Text>
       </FadeInView>
+
+      {schoolStories.length > 0 && (
+        <FadeInView style={styles.membersSection} delay={20}>
+          <Text style={styles.sectionTitle}>Stories</Text>
+          <FlatList
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            data={schoolStories}
+            keyExtractor={(s) => s.id}
+            contentContainerStyle={styles.membersRow}
+            renderItem={({ item, index }) => {
+              const mine = item.author_id === user?.id;
+              const seen = seenSchoolStoryIds.has(item.id);
+              // Same seen/mine ring convention as Feed's story rail — see the
+              // matching comment there.
+              const ringColor = mine ? colors.success : seen ? colors.border : colors.secondary;
+              return (
+                <TouchableOpacity
+                  style={styles.memberItem}
+                  onPress={() => navigation.navigate('StoryViewer', { stories: schoolStories, initialIndex: index })}
+                >
+                  <View style={[styles.storyAvatarWrap, { borderColor: ringColor }]}>
+                    <Avatar uri={item.profiles?.avatar_url} size={56} />
+                  </View>
+                  <Text style={styles.memberName} numberOfLines={1}>
+                    {mine ? 'Your Story' : item.profiles?.full_name ?? 'Unknown'}
+                  </Text>
+                </TouchableOpacity>
+              );
+            }}
+          />
+        </FadeInView>
+      )}
 
       {(gradeMates.length > 0 || interestMates.length > 0) && (
         <FadeInView style={styles.membersSection} delay={40}>
@@ -255,6 +303,14 @@ const styles = StyleSheet.create({
   memberItem: {
     alignItems: 'center',
     width: 64,
+  },
+  storyAvatarWrap: {
+    width: 60,
+    height: 60,
+    borderRadius: radius.full,
+    borderWidth: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   memberName: {
     fontFamily: fontFamily.medium,

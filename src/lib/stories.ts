@@ -27,6 +27,30 @@ export async function fetchActiveStories(): Promise<Story[]> {
   return (data ?? []) as unknown as Story[];
 }
 
+// `!inner` on the author join turns .eq('profiles.school_name', ...) into a real
+// filter on which STORIES come back — the same PostgREST convention posts.ts's
+// fetchPostsBySchool already relies on, built from STORY_SELECT so it can't
+// quietly drift out of sync with what fetchActiveStories() already selects.
+const STORY_SELECT_BY_SCHOOL = STORY_SELECT.replace('profiles:author_id (', 'profiles:author_id!inner (');
+
+// Powers SchoolScreen's "Stories" row and SearchScreen's School Stories
+// discovery prompt — same active-only filter as fetchActiveStories(), just
+// narrowed to one school. No new index needed: profiles.school_name is
+// already indexed (schools_performance_index.sql) and stories is inherently
+// small given the 24-hour expiry.
+export async function fetchStoriesBySchool(schoolName: string, limit = 20): Promise<Story[]> {
+  const { data, error } = await supabase
+    .from('stories')
+    .select(STORY_SELECT_BY_SCHOOL)
+    .eq('profiles.school_name', schoolName)
+    .gt('expires_at', new Date().toISOString())
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error) throw error;
+  return (data ?? []) as unknown as Story[];
+}
+
 export async function uploadStory(params: {
   userId: string;
   localUri: string;
@@ -82,4 +106,13 @@ export async function fetchStoryViewers(storyId: string): Promise<ChatProfile[]>
   if (error) throw error;
   const rows = (data ?? []) as unknown as StoryViewerRow[];
   return rows.map((row) => row.profiles).filter((p): p is ChatProfile => p !== null);
+}
+
+// Goes through the send_story_wave() RPC rather than inserting a notification
+// directly — create_notification() is guard-flag protected and was never
+// meant to be reachable from the client (see story_wave_schema.sql). No
+// conversation is created here — this is the entire action.
+export async function sayHiToStory(storyId: string): Promise<void> {
+  const { error } = await supabase.rpc('send_story_wave', { p_story_id: storyId });
+  if (error) throw error;
 }

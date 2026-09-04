@@ -4,8 +4,10 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { useAuth } from '../../contexts/AuthContext';
-import { deleteStory, recordStoryView, fetchStoryViewers } from '../../lib/stories';
+import { useToast } from '../../contexts/ToastContext';
+import { deleteStory, recordStoryView, fetchStoryViewers, sayHiToStory } from '../../lib/stories';
 import { markStorySeen } from '../../lib/storyPrefs';
 import { getOrCreateConversation } from '../../lib/chat';
 import { formatRelativeTime } from '../../lib/time';
@@ -23,10 +25,12 @@ export default function StoryViewerScreen() {
   const route = useRoute<RouteProp<MainStackParamList, 'StoryViewer'>>();
   const { stories, initialIndex } = route.params;
   const { user } = useAuth();
+  const { showToast } = useToast();
 
   const [index, setIndex] = useState(initialIndex);
   const [deleting, setDeleting] = useState(false);
   const [messaging, setMessaging] = useState(false);
+  const [waving, setWaving] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
   const [reportTarget, setReportTarget] = useState<{ type: ReportTargetType; id: string } | null>(null);
   const [imageLoaded, setImageLoaded] = useState(false);
@@ -165,9 +169,8 @@ export default function StoryViewerScreen() {
     { label: 'Delete Story', icon: 'trash-outline', destructive: true, onPress: handleDelete },
   ];
 
-  // Shared by Say Hi and Reply — both just open the same conversation, only
-  // the starting draft differs. Never sends anything on its own; the user
-  // still has to review the composer and tap Send.
+  // Opens a conversation for Reply — never sends anything on its own, the
+  // user still has to review the composer and tap Send.
   const openConversationWithAuthor = async (prefillText?: string) => {
     if (!user || messaging) return;
     setMessaging(true);
@@ -190,8 +193,26 @@ export default function StoryViewerScreen() {
     }
   };
 
-  const handleSayHi = () => openConversationWithAuthor('👋 Hi! I saw your story.');
   const handleReply = () => openConversationWithAuthor();
+
+  // No conversation is created here — send_story_wave() only fires one
+  // lightweight notification through the existing guard-flag-protected
+  // create_notification() (see story_wave_schema.sql). Nothing to review or
+  // send afterward — this action is complete as soon as it succeeds.
+  const handleSayHi = async () => {
+    if (!user || waving) return;
+    setWaving(true);
+    try {
+      await sayHiToStory(story.id);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      showToast('Hi sent! 👋');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Could not send that.';
+      Alert.alert('Error', message);
+    } finally {
+      setWaving(false);
+    }
+  };
 
   // Opens a fresh post draft rather than messaging the author directly — this
   // is a public offer to the community, not a DM, so it goes through the same
@@ -307,8 +328,8 @@ export default function StoryViewerScreen() {
         </TouchableOpacity>
       ) : (
         <View style={styles.actionsRow}>
-          <TouchableOpacity style={styles.actionPill} onPress={handleSayHi} disabled={messaging}>
-            <Text style={styles.actionPillText}>👋 Say Hi</Text>
+          <TouchableOpacity style={styles.actionPill} onPress={handleSayHi} disabled={waving}>
+            {waving ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.actionPillText}>👋 Say Hi</Text>}
           </TouchableOpacity>
           <TouchableOpacity style={styles.actionPill} onPress={handleICanHelp} disabled={messaging}>
             <Text style={styles.actionPillText}>🤝 I Can Help</Text>

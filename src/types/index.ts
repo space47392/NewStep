@@ -192,7 +192,8 @@ export type NotificationType =
   | 'points_earned'
   | 'achievement_earned'
   | 'message'
-  | 'follow';
+  | 'follow'
+  | 'story_wave';
 
 // See notifications_schema.sql — stores only IDs/relationships, never
 // duplicated profile or post data. actor/achievement are joined at read time

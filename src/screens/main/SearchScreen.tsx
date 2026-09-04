@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, ScrollView, RefreshControl, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, FlatList, RefreshControl, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { searchUsers, searchPosts, searchSchools } from '../../lib/search';
 import { fetchPostsBySchool } from '../../lib/posts';
+import { fetchStoriesBySchool } from '../../lib/stories';
 import { fetchProfileById } from '../../lib/profile';
 import { fetchSchoolMembersByGrade, fetchSchoolMembersByInterests } from '../../lib/schools';
 import { getRecentSearches, addRecentSearch, removeRecentSearch, clearRecentSearches } from '../../lib/recentSearches';
@@ -24,6 +25,7 @@ import {
   SchoolMember,
   Post,
   PostCategory,
+  Story,
 } from '../../types';
 
 const DEBOUNCE_MS = 300;
@@ -69,6 +71,7 @@ export default function SearchScreen() {
   const [mySchoolName, setMySchoolName] = useState<string | null>(null);
   const [suggestedPeople, setSuggestedPeople] = useState<SchoolMember[]>([]);
   const [suggestedPosts, setSuggestedPosts] = useState<Post[]>([]);
+  const [schoolStories, setSchoolStories] = useState<Story[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -85,6 +88,7 @@ export default function SearchScreen() {
       if (!myProfile.school_name) {
         setSuggestedPeople([]);
         setSuggestedPosts([]);
+        setSchoolStories([]);
         return;
       }
 
@@ -93,7 +97,7 @@ export default function SearchScreen() {
         fetchFollowingIds(user.id).catch(() => [] as string[]),
       ]);
       const followingIdSet = new Set(followingIds);
-      const [byGrade, byInterests, schoolPosts] = await Promise.all([
+      const [byGrade, byInterests, schoolPosts, stories] = await Promise.all([
         myProfile.grade
           ? fetchSchoolMembersByGrade(myProfile.school_name, myProfile.grade, user.id, 10)
           : Promise.resolve([]),
@@ -101,6 +105,7 @@ export default function SearchScreen() {
           ? fetchSchoolMembersByInterests(myProfile.school_name, myProfile.interests, user.id, 10)
           : Promise.resolve([]),
         fetchPostsBySchool(myProfile.school_name, undefined, 5),
+        fetchStoriesBySchool(myProfile.school_name, 10).catch(() => [] as Story[]),
       ]);
 
       // UX filtering only, not a security boundary — see blocks.ts. Already-
@@ -112,6 +117,7 @@ export default function SearchScreen() {
           .slice(0, 10)
       );
       setSuggestedPosts(schoolPosts.filter((p) => !blockedIds.has(p.author_id)));
+      setSchoolStories(stories.filter((s) => !blockedIds.has(s.author_id)));
     } catch {
       // Discovery is a bonus surface, not the primary flow — fail quietly.
     }
@@ -274,6 +280,30 @@ export default function SearchScreen() {
                   </TouchableOpacity>
                 </TouchableOpacity>
               ))}
+            </View>
+          )}
+
+          {schoolStories.length > 0 && mySchoolName && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>🏫 What's happening at {mySchoolName}</Text>
+              <FlatList
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                data={schoolStories}
+                keyExtractor={(s) => s.id}
+                contentContainerStyle={styles.storyRow}
+                renderItem={({ item, index }) => (
+                  <TouchableOpacity
+                    style={styles.storyItem}
+                    onPress={() => navigation.navigate('StoryViewer', { stories: schoolStories, initialIndex: index })}
+                  >
+                    <Avatar uri={item.profiles?.avatar_url} size={52} />
+                    <Text style={styles.storyItemName} numberOfLines={1}>
+                      {item.author_id === user?.id ? 'You' : item.profiles?.full_name ?? 'Unknown'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              />
             </View>
           )}
 
@@ -460,6 +490,20 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.sm,
     color: colors.primary,
+  },
+  storyRow: {
+    gap: spacing.md,
+  },
+  storyItem: {
+    alignItems: 'center',
+    width: 60,
+  },
+  storyItemName: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.xs,
+    color: colors.textDark,
+    marginTop: spacing.xs,
+    textAlign: 'center',
   },
   recentRow: {
     flexDirection: 'row',

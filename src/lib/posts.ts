@@ -30,11 +30,16 @@ export const POST_SELECT = `
   )
 `;
 
-export async function fetchPosts(): Promise<Post[]> {
+// Paginated — "For You" previously fetched every post in the table on every
+// load with no limit at all. Ordering is unchanged (pure recency); this only
+// bounds how much comes back per page, same .range() shape Following/
+// Notifications/FollowList already use.
+export async function fetchPosts(limit = 20, offset = 0): Promise<Post[]> {
   const { data, error } = await supabase
     .from('posts')
     .select(POST_SELECT)
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1);
 
   if (error) throw error;
   return (data ?? []) as unknown as Post[];
@@ -156,6 +161,35 @@ export async function fetchPostsBySchoolId(
   const { data, error } = await query;
   if (error) throw error;
   return (data ?? []) as unknown as Post[];
+}
+
+// head: true — just the count, same style as fetchSchoolStudentCount — powers
+// the Feed's school banner "N need help" teaser. Same !inner-join filter as
+// the two functions above, just without pulling any post rows.
+const HELP_COUNT_SELECT_BY_SCHOOL = 'id, profiles:author_id!inner(id)';
+
+export async function fetchOpenHelpCountBySchool(schoolName: string): Promise<number> {
+  const { count, error } = await supabase
+    .from('posts')
+    .select(HELP_COUNT_SELECT_BY_SCHOOL, { count: 'exact', head: true })
+    .eq('profiles.school_name', schoolName)
+    .eq('category', 'Need Help')
+    .eq('status', 'open');
+
+  if (error) throw error;
+  return count ?? 0;
+}
+
+export async function fetchOpenHelpCountBySchoolId(schoolId: string): Promise<number> {
+  const { count, error } = await supabase
+    .from('posts')
+    .select(HELP_COUNT_SELECT_BY_SCHOOL, { count: 'exact', head: true })
+    .eq('profiles.school_id', schoolId)
+    .eq('category', 'Need Help')
+    .eq('status', 'open');
+
+  if (error) throw error;
+  return count ?? 0;
 }
 
 export async function createPost(params: {

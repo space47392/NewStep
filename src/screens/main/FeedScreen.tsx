@@ -7,7 +7,14 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
-import { fetchPosts, deletePost, volunteerToHelp, fetchFollowingFeed } from '../../lib/posts';
+import {
+  fetchPosts,
+  deletePost,
+  volunteerToHelp,
+  fetchFollowingFeed,
+  fetchOpenHelpCountBySchool,
+  fetchOpenHelpCountBySchoolId,
+} from '../../lib/posts';
 import { fetchLikedPostIds } from '../../lib/likes';
 import { fetchSavedPostIds, savePost, unsavePost } from '../../lib/postSaves';
 import { sharePost } from '../../lib/share';
@@ -34,7 +41,8 @@ import { Post, Story, MainStackParamList, ReportTargetType } from '../../types';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
 import { CATEGORY_STYLES } from '../../constants/categoryStyles';
 
-const FOLLOWING_PAGE_SIZE = 20;
+// Shared by both feeds' pagination — same page size, same .range() shape.
+const PAGE_SIZE = 20;
 
 export default function FeedScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
@@ -54,16 +62,24 @@ export default function FeedScreen() {
   const [mySchoolName, setMySchoolName] = useState<string | null>(null);
   const [mySchoolId, setMySchoolId] = useState<string | null>(null);
   const [mySchoolStudentCount, setMySchoolStudentCount] = useState(0);
+  const [openHelpCount, setOpenHelpCount] = useState(0);
   const [isNewStudent, setIsNewStudent] = useState(false);
   const [welcomeBannerDismissed, setWelcomeBannerDismissed] = useState(false);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [reportTarget, setReportTarget] = useState<{ type: ReportTargetType; id: string } | null>(null);
   const [volunteeringPostId, setVolunteeringPostId] = useState<string | null>(null);
   const [feedMode, setFeedMode] = useState<'forYou' | 'following'>('forYou');
+  const [forYouHasMore, setForYouHasMore] = useState(true);
+  const [loadingMoreForYou, setLoadingMoreForYou] = useState(false);
   const [followingPosts, setFollowingPosts] = useState<Post[]>([]);
   const [followingLoading, setFollowingLoading] = useState(false);
   const [followingLoaded, setFollowingLoaded] = useState(false);
   const [followingHasMore, setFollowingHasMore] = useState(true);
+  // Reused by both feeds' "load more" so re-opening the next page never
+  // re-fetches the follow list / block list it already has from the initial
+  // load — those don't change between pagination clicks within one session.
+  const [blockedIdsCache, setBlockedIdsCache] = useState<Set<string>>(new Set());
+  const [followingIdsCache, setFollowingIdsCache] = useState<string[]>([]);
   const hasLoadedOnce = useRef(false);
 
   // Lets a post go straight from "open" to "accepted" right from the feed card
@@ -97,12 +113,14 @@ export default function FeedScreen() {
 
   const loadPosts = useCallback(async () => {
     try {
-      const data = await fetchPosts();
+      const data = await fetchPosts(PAGE_SIZE, 0);
       // UX filtering only, not a security boundary — posts stay publicly
       // queryable at the RLS layer either way (see blocks.ts).
       const blockedIds = user ? await fetchBlockedUserIds(user.id).catch(() => new Set<string>()) : new Set<string>();
+      setBlockedIdsCache(blockedIds);
       const visible = data.filter((p) => !blockedIds.has(p.author_id));
       setPosts(visible);
+      setForYouHasMore(data.length === PAGE_SIZE);
       setErrorMessage(null);
       if (user) {
         const [liked, saved] = await Promise.all([
@@ -117,6 +135,31 @@ export default function FeedScreen() {
     }
   }, [user]);
 
+  // "For You" pagination — reuses the blocked-ids cache from the last full
+  // load rather than re-fetching it on every tap of "Load more".
+  const handleLoadMoreForYou = async () => {
+    if (!user || loadingMoreForYou || !forYouHasMore) return;
+    setLoadingMoreForYou(true);
+    try {
+      const data = await fetchPosts(PAGE_SIZE, posts.length);
+      const visible = data.filter((p) => !blockedIdsCache.has(p.author_id));
+      setPosts((prev) => [...prev, ...visible]);
+      setForYouHasMore(data.length === PAGE_SIZE);
+      if (visible.length > 0) {
+        const [liked, saved] = await Promise.all([
+          fetchLikedPostIds(user.id, visible.map((p) => p.id)),
+          fetchSavedPostIds(user.id, visible.map((p) => p.id)),
+        ]);
+        setLikedPostIds((prev) => new Set([...prev, ...liked]));
+        setSavedPostIds((prev) => new Set([...prev, ...saved]));
+      }
+    } catch {
+      setForYouHasMore(false);
+    } finally {
+      setLoadingMoreForYou(false);
+    }
+  };
+
   // Loaded lazily — only once the Following tab is actually opened — rather
   // than always alongside the For You feed, since most sessions may never
   // switch to it. fetchFollowingIds() is itself capped (follows.ts), and this
@@ -129,11 +172,13 @@ export default function FeedScreen() {
         fetchFollowingIds(user.id),
         fetchBlockedUserIds(user.id).catch(() => new Set<string>()),
       ]);
+      setFollowingIdsCache(followingIds);
+      setBlockedIdsCache(blockedIds);
       // UX filtering only, not a security boundary — see blocks.ts.
       const eligibleIds = followingIds.filter((id) => !blockedIds.has(id));
-      const data = await fetchFollowingFeed(eligibleIds, FOLLOWING_PAGE_SIZE, 0);
+      const data = await fetchFollowingFeed(eligibleIds, PAGE_SIZE, 0);
       setFollowingPosts(data);
-      setFollowingHasMore(data.length === FOLLOWING_PAGE_SIZE);
+      setFollowingHasMore(data.length === PAGE_SIZE);
       // Bug fix: this feed's like/save state was never fetched before, so
       // LikeButton/SaveButton always rendered as "off" here regardless of the
       // real state — same batched-fetch pattern loadPosts() already uses.
@@ -157,12 +202,12 @@ export default function FeedScreen() {
     if (!user || followingLoading || !followingHasMore) return;
     setFollowingLoading(true);
     try {
-      const followingIds = await fetchFollowingIds(user.id);
-      const blockedIds = await fetchBlockedUserIds(user.id).catch(() => new Set<string>());
-      const eligibleIds = followingIds.filter((id) => !blockedIds.has(id));
-      const more = await fetchFollowingFeed(eligibleIds, FOLLOWING_PAGE_SIZE, followingPosts.length);
+      // Reuses the follow/block lists cached by the initial load — neither
+      // is expected to change between pagination clicks in the same session.
+      const eligibleIds = followingIdsCache.filter((id) => !blockedIdsCache.has(id));
+      const more = await fetchFollowingFeed(eligibleIds, PAGE_SIZE, followingPosts.length);
       setFollowingPosts((prev) => [...prev, ...more]);
-      setFollowingHasMore(more.length === FOLLOWING_PAGE_SIZE);
+      setFollowingHasMore(more.length === PAGE_SIZE);
       if (more.length > 0) {
         const [liked, saved] = await Promise.all([
           fetchLikedPostIds(user.id, more.map((p) => p.id)),
@@ -213,9 +258,19 @@ export default function FeedScreen() {
       // Prefer the stable school_id once set; school_name stays the fallback
       // for every profile that hasn't picked from the directory yet.
       if (profile.school_id) {
-        setMySchoolStudentCount(await fetchSchoolStudentCountById(profile.school_id));
+        const [count, helpCount] = await Promise.all([
+          fetchSchoolStudentCountById(profile.school_id),
+          fetchOpenHelpCountBySchoolId(profile.school_id).catch(() => 0),
+        ]);
+        setMySchoolStudentCount(count);
+        setOpenHelpCount(helpCount);
       } else if (profile.school_name) {
-        setMySchoolStudentCount(await fetchSchoolStudentCount(profile.school_name));
+        const [count, helpCount] = await Promise.all([
+          fetchSchoolStudentCount(profile.school_name),
+          fetchOpenHelpCountBySchool(profile.school_name).catch(() => 0),
+        ]);
+        setMySchoolStudentCount(count);
+        setOpenHelpCount(helpCount);
       }
     } catch {
       // leave the banner hidden
@@ -503,6 +558,7 @@ export default function FeedScreen() {
               >
                 <Text style={styles.schoolBannerText}>
                   🏫 {mySchoolName} · {mySchoolStudentCount} {mySchoolStudentCount === 1 ? 'student' : 'students'}
+                  {openHelpCount > 0 ? ` · 🤝 ${openHelpCount} need help` : ''}
                 </Text>
                 <Ionicons name="chevron-forward" size={16} color={colors.primary} />
               </TouchableOpacity>
@@ -697,6 +753,14 @@ export default function FeedScreen() {
                 <Text style={styles.loadMoreText}>Load more</Text>
               )}
             </TouchableOpacity>
+          ) : feedMode === 'forYou' && forYouHasMore && posts.length > 0 ? (
+            <TouchableOpacity style={styles.loadMoreButton} onPress={handleLoadMoreForYou} disabled={loadingMoreForYou}>
+              {loadingMoreForYou ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <Text style={styles.loadMoreText}>Load more</Text>
+              )}
+            </TouchableOpacity>
           ) : null
         }
       />
@@ -883,9 +947,11 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   schoolBannerText: {
+    flex: 1,
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.sm,
     color: colors.primary,
+    marginRight: spacing.sm,
   },
   schoolBannerPrompt: {
     borderWidth: 1,

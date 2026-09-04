@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { TouchableOpacity, GestureResponderEvent, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -19,6 +19,9 @@ export default function SaveButton({ postId, initialSaved }: Props) {
   const { user } = useAuth();
   const { showToast } = useToast();
   const [saved, setSaved] = useState(initialSaved);
+  // Guards against a fast double-tap firing two overlapping toggle calls
+  // before the first resolves.
+  const pendingRef = useRef(false);
 
   useEffect(() => {
     setSaved(initialSaved);
@@ -26,7 +29,8 @@ export default function SaveButton({ postId, initialSaved }: Props) {
 
   const handleToggle = async (e: GestureResponderEvent) => {
     e.stopPropagation();
-    if (!user) return;
+    if (!user || pendingRef.current) return;
+    pendingRef.current = true;
 
     const next = !saved;
     setSaved(next);
@@ -40,7 +44,12 @@ export default function SaveButton({ postId, initialSaved }: Props) {
         await unsavePost({ postId, userId: user.id });
       }
     } catch {
-      setSaved(!next); // revert the optimistic update on failure
+      // Revert the optimistic update on failure — and say so, rather than
+      // silently flipping back with no explanation.
+      setSaved(!next);
+      showToast(next ? "Couldn't save post" : "Couldn't unsave post");
+    } finally {
+      pendingRef.current = false;
     }
   };
 

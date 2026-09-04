@@ -701,7 +701,7 @@ export default function FeedScreen() {
                     ) : (
                       <>
                         <Ionicons name="hand-left-outline" size={16} color={colors.primary} />
-                        <Text style={styles.canHelpText}>I can help</Text>
+                        <Text style={styles.canHelpText}>I Can Help</Text>
                       </>
                     )}
                   </TouchableOpacity>

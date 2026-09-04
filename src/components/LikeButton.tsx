@@ -5,6 +5,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 import { likePost, unlikePost, subscribeToLikes } from '../lib/likes';
 import LikesListModal from './LikesListModal';
 import { colors, spacing, fontSize, fontFamily } from '../constants/theme';
@@ -19,10 +20,14 @@ type Props = {
 export default function LikeButton({ postId, initialLikeCount, initialLikedByMe }: Props) {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
   const { user } = useAuth();
+  const { showToast } = useToast();
   const [liked, setLiked] = useState(initialLikedByMe);
   const [count, setCount] = useState(initialLikeCount);
   const [listVisible, setListVisible] = useState(false);
   const scale = useRef(new Animated.Value(1)).current;
+  // Guards against a fast double-tap firing two overlapping toggle calls
+  // before the first resolves — not a ref-driven re-render, just a latch.
+  const pendingRef = useRef(false);
 
   // Re-sync to the server truth whenever the parent screen refetches (e.g. on focus) —
   // but only between taps, since a tap immediately overrides these via the optimistic update.
@@ -45,7 +50,8 @@ export default function LikeButton({ postId, initialLikeCount, initialLikedByMe 
 
   const handleToggle = async (e: GestureResponderEvent) => {
     e.stopPropagation();
-    if (!user) return;
+    if (!user || pendingRef.current) return;
+    pendingRef.current = true;
 
     const nextLiked = !liked;
     setLiked(nextLiked);
@@ -64,9 +70,13 @@ export default function LikeButton({ postId, initialLikeCount, initialLikedByMe 
         await unlikePost({ postId, userId: user.id });
       }
     } catch {
-      // Revert the optimistic update on failure.
+      // Revert the optimistic update on failure — and say so, rather than
+      // silently flipping back with no explanation.
       setLiked(!nextLiked);
       setCount((prev) => Math.max(0, prev + (nextLiked ? -1 : 1)));
+      showToast(nextLiked ? "Couldn't like post" : "Couldn't unlike post");
+    } finally {
+      pendingRef.current = false;
     }
   };
 

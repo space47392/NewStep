@@ -31,6 +31,7 @@ import Avatar from '../../components/Avatar';
 import EmptyState from '../../components/EmptyState';
 import { PostCardSkeleton } from '../../components/Skeleton';
 import FadeInView from '../../components/FadeInView';
+import PrimaryButton from '../../components/PrimaryButton';
 import ActionSheet, { ActionSheetAction } from '../../components/ActionSheet';
 import ReportSheet from '../../components/ReportSheet';
 import HelpStatusBadge from '../../components/HelpStatusBadge';
@@ -478,64 +479,29 @@ export default function FeedScreen() {
               </FadeInView>
             )}
 
-            {/* Context label only — the rail below is unchanged: same stories,
-                same order (mine first, then everyone else) as before this step. */}
-            {mySchoolName && (
-              <Text style={styles.storyRailLabel}>🏫 {mySchoolName} Stories</Text>
-            )}
-
-            <FlatList
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              data={storyRail}
-              keyExtractor={(s) => s.id}
-              contentContainerStyle={styles.storyRail}
-              ListHeaderComponent={
-                !myStory ? (
-                  <TouchableOpacity style={styles.storyItem} onPress={handleAddStory} disabled={uploadingStory}>
-                    <View style={styles.addStoryAvatarWrap}>
-                      <Avatar uri={null} size={60} />
-                      <View style={styles.addStoryBadge}>
-                        {uploadingStory ? (
-                          <ActivityIndicator size="small" color="#fff" />
-                        ) : (
-                          <Ionicons name="add" size={14} color="#fff" />
-                        )}
-                      </View>
-                    </View>
-                    <Text style={styles.storyName}>Your Story</Text>
-                  </TouchableOpacity>
-                ) : null
-              }
-              renderItem={({ item, index }) => {
-                const mine = item.author_id === user?.id;
-                const seen = seenStoryIds.has(item.id);
-                // Own story keeps its own color regardless of seen state; everyone
-                // else's ring fades to a muted gray once viewed — same "seen" cue
-                // as any commercial story rail, without touching what the ring
-                // looks like before that (still colored/unmissable for new posts).
-                const ringColor = mine ? colors.success : seen ? colors.border : colors.secondary;
-                return (
-                  <TouchableOpacity
-                    style={styles.storyItem}
-                    onPress={() => navigation.navigate('StoryViewer', { stories: storyRail, initialIndex: index })}
-                  >
-                    <View style={[styles.storyAvatarWrap, { borderColor: ringColor }]}>
-                      <Avatar uri={item.profiles?.avatar_url} size={60} />
-                    </View>
-                    <Text style={styles.storyName} numberOfLines={1}>
-                      {mine ? 'Your Story' : item.profiles?.full_name ?? 'Unknown'}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              }}
-            />
-
-            <View style={styles.headerRow}>
-              <View style={styles.headerTextCol}>
-                <Text style={styles.title}>Community Feed 👋</Text>
-                <Text style={styles.subtitle}>See what's happening at your school</Text>
-              </View>
+            {/* One identity line instead of three separate widgets (title,
+                story caption, school pill) — same data as before, just no
+                longer fragmented across the header. Doubles as the entry
+                point into School Community. */}
+            <View style={styles.identityRow}>
+              <TouchableOpacity
+                style={styles.identityTextWrap}
+                activeOpacity={mySchoolName ? 0.7 : 1}
+                disabled={!mySchoolName}
+                onPress={() =>
+                  mySchoolName &&
+                  navigation.navigate('School', { schoolId: mySchoolId ?? undefined, schoolName: mySchoolName })
+                }
+              >
+                <Text style={styles.identityText} numberOfLines={1}>
+                  {mySchoolName
+                    ? `🏫 ${mySchoolName} · ${mySchoolStudentCount} ${mySchoolStudentCount === 1 ? 'student' : 'students'}${
+                        openHelpCount > 0 ? ` · 🤝 ${openHelpCount} need help` : ''
+                      }`
+                    : 'NewStep · Add your school in Profile to see your community'}
+                </Text>
+                {mySchoolName ? <Ionicons name="chevron-forward" size={14} color={colors.primary} /> : null}
+              </TouchableOpacity>
               <TouchableOpacity
                 style={styles.bellButton}
                 onPress={() => navigation.navigate('Notifications')}
@@ -550,25 +516,58 @@ export default function FeedScreen() {
               </TouchableOpacity>
             </View>
 
-            {mySchoolName ? (
-              <TouchableOpacity
-                style={styles.schoolBanner}
-                activeOpacity={0.85}
-                onPress={() => navigation.navigate('School', { schoolId: mySchoolId ?? undefined, schoolName: mySchoolName })}
-              >
-                <Text style={styles.schoolBannerText}>
-                  🏫 {mySchoolName} · {mySchoolStudentCount} {mySchoolStudentCount === 1 ? 'student' : 'students'}
-                  {openHelpCount > 0 ? ` · 🤝 ${openHelpCount} need help` : ''}
-                </Text>
-                <Ionicons name="chevron-forward" size={16} color={colors.primary} />
-              </TouchableOpacity>
-            ) : (
-              <View style={styles.schoolBannerPrompt}>
-                <Text style={styles.schoolBannerPromptText}>
-                  Add your school in Profile to see your school community
-                </Text>
-              </View>
-            )}
+            {/* Wrapped as its own card so it reads as "the School Stories
+                section" rather than a bare row of circles — pure presentation,
+                same stories, same order, same seen/pause/expiry logic as before. */}
+            <View style={styles.storyCard}>
+              {mySchoolName && <Text style={styles.storyRailLabel}>Stories from {mySchoolName}</Text>}
+              <FlatList
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                data={storyRail}
+                keyExtractor={(s) => s.id}
+                contentContainerStyle={styles.storyRail}
+                ListHeaderComponent={
+                  !myStory ? (
+                    <TouchableOpacity style={styles.storyItem} onPress={handleAddStory} disabled={uploadingStory}>
+                      <View style={styles.addStoryAvatarWrap}>
+                        <Avatar uri={null} size={60} />
+                        <View style={styles.addStoryBadge}>
+                          {uploadingStory ? (
+                            <ActivityIndicator size="small" color="#fff" />
+                          ) : (
+                            <Ionicons name="add" size={14} color="#fff" />
+                          )}
+                        </View>
+                      </View>
+                      <Text style={styles.storyName}>Your Story</Text>
+                    </TouchableOpacity>
+                  ) : null
+                }
+                renderItem={({ item, index }) => {
+                  const mine = item.author_id === user?.id;
+                  const seen = seenStoryIds.has(item.id);
+                  // Own story keeps its own color regardless of seen state; everyone
+                  // else's ring fades to a muted gray once viewed — same "seen" cue
+                  // as any commercial story rail, without touching what the ring
+                  // looks like before that (still colored/unmissable for new posts).
+                  const ringColor = mine ? colors.success : seen ? colors.border : colors.secondary;
+                  return (
+                    <TouchableOpacity
+                      style={styles.storyItem}
+                      onPress={() => navigation.navigate('StoryViewer', { stories: storyRail, initialIndex: index })}
+                    >
+                      <View style={[styles.storyAvatarWrap, { borderColor: ringColor }]}>
+                        <Avatar uri={item.profiles?.avatar_url} size={60} />
+                      </View>
+                      <Text style={styles.storyName} numberOfLines={1}>
+                        {mine ? 'Your Story' : item.profiles?.full_name ?? 'Unknown'}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                }}
+              />
+            </View>
 
             <View style={styles.feedModeRow}>
               <TouchableOpacity
@@ -595,17 +594,63 @@ export default function FeedScreen() {
               <PostCardSkeleton />
             </>
           ) : feedMode === 'following' ? (
-            <EmptyState
-              icon="people-outline"
-              title="No posts yet"
-              subtitle="Follow classmates from Search to see their posts here."
-            />
+            <View>
+              <EmptyState
+                icon="people-outline"
+                title="No posts yet"
+                subtitle="Follow classmates to see their posts here — or check what's happening at your school in the meantime."
+              />
+              <View style={styles.emptyActions}>
+                <PrimaryButton
+                  title="Find People to Follow"
+                  icon="search-outline"
+                  onPress={() => navigation.navigate('Tabs', { screen: 'Search' })}
+                  style={styles.emptyActionButton}
+                />
+                {mySchoolName && (
+                  <PrimaryButton
+                    title="View School Community"
+                    icon="school-outline"
+                    variant="outline"
+                    onPress={() => navigation.navigate('School', { schoolId: mySchoolId ?? undefined, schoolName: mySchoolName })}
+                    style={styles.emptyActionButton}
+                  />
+                )}
+              </View>
+            </View>
           ) : (
-            <EmptyState
-              icon="newspaper-outline"
-              title="No posts yet"
-              subtitle={errorMessage ?? 'Be the first to share something with your school community!'}
-            />
+            <View>
+              <EmptyState
+                icon="newspaper-outline"
+                title="No posts yet"
+                subtitle={errorMessage ?? "Be the first to share something — or explore what's already happening nearby."}
+              />
+              <View style={styles.emptyActions}>
+                <PrimaryButton
+                  title="Create a Post"
+                  icon="add-circle-outline"
+                  onPress={() => navigation.navigate('CreatePost')}
+                  style={styles.emptyActionButton}
+                />
+                {mySchoolName ? (
+                  <PrimaryButton
+                    title="View School Community"
+                    icon="school-outline"
+                    variant="outline"
+                    onPress={() => navigation.navigate('School', { schoolId: mySchoolId ?? undefined, schoolName: mySchoolName })}
+                    style={styles.emptyActionButton}
+                  />
+                ) : (
+                  <PrimaryButton
+                    title="Find People to Follow"
+                    icon="search-outline"
+                    variant="outline"
+                    onPress={() => navigation.navigate('Tabs', { screen: 'Search' })}
+                    style={styles.emptyActionButton}
+                  />
+                )}
+              </View>
+            </View>
           )
         }
         renderItem={({ item, index }) => {
@@ -844,14 +889,22 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
     color: '#fff',
   },
+  storyCard: {
+    backgroundColor: colors.cardBg,
+    borderRadius: radius.lg,
+    paddingTop: spacing.md,
+    paddingHorizontal: spacing.md,
+    marginBottom: spacing.lg,
+    ...shadow.subtle,
+  },
   storyRailLabel: {
     fontFamily: fontFamily.semibold,
-    fontSize: fontSize.xs,
-    color: colors.textMid,
+    fontSize: fontSize.sm,
+    color: colors.textDark,
     marginBottom: spacing.sm,
   },
   storyRail: {
-    paddingBottom: spacing.lg,
+    paddingBottom: spacing.md,
     gap: spacing.md,
   },
   storyItem: {
@@ -895,14 +948,23 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
     textAlign: 'center',
   },
-  headerRow: {
+  identityRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    marginBottom: spacing.lg,
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
   },
-  headerTextCol: {
+  identityTextWrap: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  identityText: {
+    flex: 1,
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.lg,
+    color: colors.textDark,
   },
   bellButton: {
     position: 'relative',
@@ -925,46 +987,13 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 9,
   },
-  title: {
-    fontFamily: fontFamily.bold,
-    fontSize: fontSize.xxl,
-    color: colors.textDark,
+  emptyActions: {
+    gap: spacing.sm,
+    marginTop: spacing.lg,
+    paddingHorizontal: spacing.lg,
   },
-  subtitle: {
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.sm,
-    color: colors.textMid,
-    marginTop: 2,
-  },
-  schoolBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.primaryLight,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    marginTop: spacing.md,
-  },
-  schoolBannerText: {
-    flex: 1,
-    fontFamily: fontFamily.semibold,
-    fontSize: fontSize.sm,
-    color: colors.primary,
-    marginRight: spacing.sm,
-  },
-  schoolBannerPrompt: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    marginTop: spacing.md,
-  },
-  schoolBannerPromptText: {
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.xs,
-    color: colors.textMid,
+  emptyActionButton: {
+    width: '100%',
   },
   feedModeRow: {
     flexDirection: 'row',

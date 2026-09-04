@@ -40,6 +40,7 @@ const CATEGORY_FILTERS: { label: string; value: PostCategory | undefined }[] = [
   { label: 'Need Help', value: 'Need Help' },
   { label: 'School Question', value: 'School Question' },
   { label: 'Looking for Friends', value: 'Looking for Friends' },
+  { label: 'Event', value: 'Event' },
 ];
 
 // Dedupes across grade-mates and interest-mates for "People You May Know" —

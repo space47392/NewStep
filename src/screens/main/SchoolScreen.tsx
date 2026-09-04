@@ -16,7 +16,12 @@ import {
   fetchSchoolContributors,
   fetchSchoolContributorsById,
 } from '../../lib/schools';
-import { fetchPostsBySchool, fetchPostsBySchoolId } from '../../lib/posts';
+import {
+  fetchPostsBySchool,
+  fetchPostsBySchoolId,
+  fetchUpcomingEventsBySchool,
+  fetchUpcomingEventsBySchoolId,
+} from '../../lib/posts';
 import { fetchStoriesBySchool, fetchStoriesBySchoolId } from '../../lib/stories';
 import { getSeenStoryIds } from '../../lib/storyPrefs';
 import { fetchProfileById } from '../../lib/profile';
@@ -97,6 +102,7 @@ export default function SchoolScreen() {
   const [schoolStories, setSchoolStories] = useState<Story[]>([]);
   const [seenSchoolStoryIds, setSeenSchoolStoryIds] = useState<Set<string>>(new Set());
   const [recentPosts, setRecentPosts] = useState<Post[]>([]);
+  const [upcomingEvents, setUpcomingEvents] = useState<Post[]>([]);
   const [openHelpPosts, setOpenHelpPosts] = useState<Post[]>([]);
   const [questionPosts, setQuestionPosts] = useState<Post[]>([]);
   const [friendPosts, setFriendPosts] = useState<Post[]>([]);
@@ -111,7 +117,7 @@ export default function SchoolScreen() {
       // free-text name to pass (see MainStackParamList's School route). One
       // Promise.all — every section loads together, not as a waterfall of
       // independent spinners.
-      const [count, contributorList, memberList, recent, openHelp, questions, friends, stories, directoryRow, myProfile, blockedIds] =
+      const [count, contributorList, memberList, recent, events, openHelp, questions, friends, stories, directoryRow, myProfile, blockedIds] =
         await Promise.all([
           schoolId ? fetchSchoolStudentCountById(schoolId) : fetchSchoolStudentCount(schoolName),
           (schoolId
@@ -122,6 +128,10 @@ export default function SchoolScreen() {
           schoolId
             ? fetchPostsBySchoolId(schoolId, undefined, SECTION_LIMIT)
             : fetchPostsBySchool(schoolName, undefined, SECTION_LIMIT),
+          (schoolId
+            ? fetchUpcomingEventsBySchoolId(schoolId, SECTION_LIMIT)
+            : fetchUpcomingEventsBySchool(schoolName, SECTION_LIMIT)
+          ).catch(() => [] as Post[]),
           // "Need Help" only ever shows actionable, still-open requests — not
           // ones already accepted or completed.
           schoolId
@@ -147,6 +157,7 @@ export default function SchoolScreen() {
       setDirectorySchool(directoryRow);
       setMembers(memberList.filter((m) => !blockedIds.has(m.id)));
       setRecentPosts(recent.filter((p) => !blockedIds.has(p.author_id)));
+      setUpcomingEvents(events.filter((p) => !blockedIds.has(p.author_id)));
       setOpenHelpPosts(openHelp.filter((p) => !blockedIds.has(p.author_id)));
       setQuestionPosts(questions.filter((p) => !blockedIds.has(p.author_id)));
       setFriendPosts(friends.filter((p) => !blockedIds.has(p.author_id)));
@@ -312,6 +323,20 @@ export default function SchoolScreen() {
         </FadeInView>
       )}
 
+      {upcomingEvents.length > 0 && (
+        <FadeInView style={styles.section} delay={25}>
+          <SectionHeader title="🎉 School Events" onSeeAll={goToSearch} />
+          {upcomingEvents.map((post) => (
+            <PostPreviewCard
+              key={post.id}
+              post={post}
+              showCategory={false}
+              onPress={() => navigation.navigate('PostDetail', { post })}
+            />
+          ))}
+        </FadeInView>
+      )}
+
       {openHelpPosts.length > 0 && (
         <FadeInView style={styles.section} delay={30}>
           <SectionHeader title="🤝 Need Help" onSeeAll={goToSearch} />
@@ -356,6 +381,7 @@ export default function SchoolScreen() {
 
       {schoolStories.length === 0 &&
         recentPosts.length === 0 &&
+        upcomingEvents.length === 0 &&
         openHelpPosts.length === 0 &&
         questionPosts.length === 0 &&
         friendPosts.length === 0 && (

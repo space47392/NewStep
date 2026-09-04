@@ -4,6 +4,7 @@ import Avatar from './Avatar';
 import { formatRelativeTime } from '../lib/time';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../constants/theme';
 import { CATEGORY_STYLES } from '../constants/categoryStyles';
+import EventDetails from './EventDetails';
 import { Post } from '../types';
 
 type Props = {
@@ -39,6 +40,7 @@ export default function PostPreviewCard({ post, onPress, showCategory = true }: 
       <Text style={styles.content} numberOfLines={2}>
         {post.content}
       </Text>
+      <EventDetails post={post} />
     </TouchableOpacity>
   );
 }

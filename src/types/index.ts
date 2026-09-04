@@ -164,7 +164,7 @@ export type AchievementProgress = Achievement & {
   earnedAt: string | null;
 };
 
-export type PostCategory = 'Need Help' | 'School Question' | 'Looking for Friends';
+export type PostCategory = 'Need Help' | 'School Question' | 'Looking for Friends' | 'Event';
 
 export type PostStatus = 'open' | 'accepted' | 'completed';
 
@@ -182,6 +182,12 @@ export type Post = {
   // exposes story content/author, just whether one exists; ON DELETE SET
   // NULL means a later-deleted story silently clears this, nothing breaks.
   source_story_id: string | null;
+  // Structured date/time/location for category === 'Event' posts only — see
+  // school_events_schema.sql. Null for every other category; a "Community
+  // Event," never school-verified. event_end_time/event_location are optional.
+  event_date: string | null;
+  event_end_time: string | null;
+  event_location: string | null;
   // PostgREST embedded aggregate — see POST_SELECT in lib/posts.ts. Absent on any
   // select that doesn't ask for it, so always optional-chain when reading it.
   comments?: { count: number }[];

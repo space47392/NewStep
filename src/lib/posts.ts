@@ -15,6 +15,9 @@ export const POST_SELECT = `
   photo_urls,
   created_at,
   source_story_id,
+  event_date,
+  event_end_time,
+  event_location,
   comments:comments(count),
   profiles:author_id (
     id,
@@ -207,6 +210,12 @@ export async function createPost(params: {
   // here: the author already fully controls every other field on their own
   // new post, so this is just another column, not a new access path.
   sourceStoryId?: string;
+  // Set only for category === 'Event' — see school_events_schema.sql. Same
+  // reasoning as sourceStoryId: just more columns on a post the author
+  // already fully controls, no new access path or RLS surface.
+  eventDate?: string;
+  eventEndTime?: string;
+  eventLocation?: string;
 }): Promise<void> {
   const { error } = await supabase.from('posts').insert({
     id: params.postId,
@@ -215,6 +224,9 @@ export async function createPost(params: {
     category: params.category,
     photo_urls: params.photoUrls,
     source_story_id: params.sourceStoryId ?? null,
+    event_date: params.eventDate ?? null,
+    event_end_time: params.eventEndTime ?? null,
+    event_location: params.eventLocation ?? null,
   });
 
   if (error) throw error;
@@ -249,12 +261,18 @@ export async function editPost(params: {
   category: PostCategory;
   photoUrls: string[];
   removedPhotoUrls: string[];
+  eventDate?: string;
+  eventEndTime?: string;
+  eventLocation?: string;
 }): Promise<void> {
   const { error } = await supabase.rpc('edit_post', {
     p_post_id: params.postId,
     p_content: params.content,
     p_category: params.category,
     p_photo_urls: params.photoUrls,
+    p_event_date: params.eventDate ?? null,
+    p_event_end_time: params.eventEndTime ?? null,
+    p_event_location: params.eventLocation ?? null,
   });
 
   if (error) throw error;
@@ -262,6 +280,39 @@ export async function editPost(params: {
   if (params.removedPhotoUrls.length > 0) {
     await removePostPhotos(params.removedPhotoUrls);
   }
+}
+
+// Powers SchoolScreen's "🏫 School Events" section — upcoming (not-yet-past)
+// Event posts, soonest-first. A distinct function rather than reusing
+// fetchPostsBySchool*() because those hardcode order-by-recency; events need
+// order-by-event_date instead. Same !inner-join select as every other
+// school-scoped query.
+export async function fetchUpcomingEventsBySchool(schoolName: string, limit = 5): Promise<Post[]> {
+  const { data, error } = await supabase
+    .from('posts')
+    .select(POST_SELECT_BY_SCHOOL)
+    .eq('profiles.school_name', schoolName)
+    .eq('category', 'Event')
+    .gte('event_date', new Date().toISOString())
+    .order('event_date', { ascending: true })
+    .limit(limit);
+
+  if (error) throw error;
+  return (data ?? []) as unknown as Post[];
+}
+
+export async function fetchUpcomingEventsBySchoolId(schoolId: string, limit = 5): Promise<Post[]> {
+  const { data, error } = await supabase
+    .from('posts')
+    .select(POST_SELECT_BY_SCHOOL)
+    .eq('profiles.school_id', schoolId)
+    .eq('category', 'Event')
+    .gte('event_date', new Date().toISOString())
+    .order('event_date', { ascending: true })
+    .limit(limit);
+
+  if (error) throw error;
+  return (data ?? []) as unknown as Post[];
 }
 
 export async function deletePost(postId: string, photoUrls: string[] = []): Promise<void> {

@@ -36,6 +36,7 @@ import ActionSheet, { ActionSheetAction } from '../../components/ActionSheet';
 import ReportSheet from '../../components/ReportSheet';
 import HelpStatusBadge from '../../components/HelpStatusBadge';
 import StoryOriginBadge from '../../components/StoryOriginBadge';
+import EventDetails from '../../components/EventDetails';
 import LikeButton from '../../components/LikeButton';
 import SaveButton from '../../components/SaveButton';
 import PhotoCarousel from '../../components/PhotoCarousel';
@@ -406,6 +407,7 @@ export default function PostDetailScreen() {
             </View>
 
             <Text style={styles.postContent}>{post.content}</Text>
+            <EventDetails post={post} />
 
             {post.photo_urls.length > 0 && (
               <View style={styles.photoWrap}>

@@ -35,6 +35,7 @@ import PrimaryButton from '../../components/PrimaryButton';
 import ActionSheet, { ActionSheetAction } from '../../components/ActionSheet';
 import ReportSheet from '../../components/ReportSheet';
 import HelpStatusBadge from '../../components/HelpStatusBadge';
+import EventDetails from '../../components/EventDetails';
 import LikeButton from '../../components/LikeButton';
 import SaveButton from '../../components/SaveButton';
 import PhotoCarousel from '../../components/PhotoCarousel';
@@ -707,6 +708,7 @@ export default function FeedScreen() {
                 </View>
 
                 <Text style={styles.content}>{item.content}</Text>
+                <EventDetails post={item} />
 
                 {item.photo_urls.length > 0 && (
                   <View style={styles.photoWrap}>

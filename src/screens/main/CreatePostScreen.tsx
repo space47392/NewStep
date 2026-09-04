@@ -17,6 +17,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as Crypto from 'expo-crypto';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { createPost, editPost } from '../../lib/posts';
@@ -27,7 +28,23 @@ import { colors, spacing, radius, fontSize, fontFamily } from '../../constants/t
 import { CATEGORY_STYLES } from '../../constants/categoryStyles';
 import { MainStackParamList, PostCategory } from '../../types';
 
-const CATEGORIES: PostCategory[] = ['Need Help', 'School Question', 'Looking for Friends'];
+const CATEGORIES: PostCategory[] = ['Need Help', 'School Question', 'Looking for Friends', 'Event'];
+
+// Friendly display only — never shown to the user as a raw ISO timestamp.
+function formatFriendlyDate(d: Date): string {
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+function formatFriendlyTime(d: Date): string {
+  return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+}
+// Merges a chosen date (day/month/year) with a chosen time (hour/minute) into
+// one Date — the native pickers hand back separate Date objects for each,
+// so this is how the two get combined into the single timestamp posts.ts stores.
+function combineDateAndTime(date: Date, time: Date): Date {
+  const combined = new Date(date);
+  combined.setHours(time.getHours(), time.getMinutes(), 0, 0);
+  return combined;
+}
 const MAX_LENGTH = 500;
 const MAX_PHOTOS = 5;
 
@@ -51,6 +68,24 @@ export default function CreatePostScreen() {
   const [existingPhotoUrls, setExistingPhotoUrls] = useState<string[]>(editingPost?.photo_urls ?? []);
   const [newPhotos, setNewPhotos] = useState<ImagePicker.ImagePickerAsset[]>([]);
   const [posting, setPosting] = useState(false);
+
+  // Event-only fields — real Date values from the native picker, never typed
+  // text. eventDate holds the day/month/year; eventStartTime/eventEndTime
+  // hold the hour/minute; combineDateAndTime() merges them at submit time.
+  const [eventDate, setEventDate] = useState<Date | null>(
+    editingPost?.event_date ? new Date(editingPost.event_date) : null
+  );
+  const [eventStartTime, setEventStartTime] = useState<Date | null>(
+    editingPost?.event_date ? new Date(editingPost.event_date) : null
+  );
+  const [eventEndTime, setEventEndTime] = useState<Date | null>(
+    editingPost?.event_end_time ? new Date(editingPost.event_end_time) : null
+  );
+  // End time stays collapsed behind "Add end time" unless this post already had one.
+  const [showEndTimeField, setShowEndTimeField] = useState(!!editingPost?.event_end_time);
+  const [eventLocation, setEventLocation] = useState(editingPost?.event_location ?? '');
+  // Which native picker (if any) is currently open — only one at a time.
+  const [activePicker, setActivePicker] = useState<'date' | 'start' | 'end' | null>(null);
 
   const totalPhotos = existingPhotoUrls.length + newPhotos.length;
   const remainingSlots = MAX_PHOTOS - totalPhotos;
@@ -83,12 +118,46 @@ export default function CreatePostScreen() {
     setNewPhotos((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const handleQuickDate = (offsetDays: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + offsetDays);
+    setEventDate(d);
+  };
+
+  // Shared onChange for all three pickers (date/start/end) — Android's native
+  // dialog closes itself after a pick or a cancel, so it's dismissed here;
+  // iOS's spinner stays open (no native dismiss event) until the user taps Done.
+  const handlePickerChange = (onSelect: (d: Date) => void) => (event: DateTimePickerEvent, selected?: Date) => {
+    if (Platform.OS !== 'ios') setActivePicker(null);
+    if (event.type === 'dismissed' || !selected) return;
+    onSelect(selected);
+  };
+
   const handleSubmit = async () => {
     if (!content.trim()) {
       Alert.alert('Empty post', 'Write something before posting.');
       return;
     }
     if (!user) return;
+
+    let eventDateIso: string | undefined;
+    let eventEndTimeIso: string | undefined;
+    if (category === 'Event') {
+      if (!eventDate || !eventStartTime) {
+        Alert.alert('Missing event details', 'Choose a date and a start time for this event.');
+        return;
+      }
+      const startDateTime = combineDateAndTime(eventDate, eventStartTime);
+      if (showEndTimeField && eventEndTime) {
+        const endDateTime = combineDateAndTime(eventDate, eventEndTime);
+        if (endDateTime.getTime() <= startDateTime.getTime()) {
+          Alert.alert('Invalid event time', 'End time must be after the start time.');
+          return;
+        }
+        eventEndTimeIso = endDateTime.toISOString();
+      }
+      eventDateIso = startDateTime.toISOString();
+    }
 
     setPosting(true);
     try {
@@ -111,6 +180,9 @@ export default function CreatePostScreen() {
           category,
           photoUrls: [...existingPhotoUrls, ...uploadedUrls],
           removedPhotoUrls,
+          eventDate: eventDateIso,
+          eventEndTime: eventEndTimeIso,
+          eventLocation: category === 'Event' ? eventLocation.trim() || undefined : undefined,
         });
         showToast('Post updated');
       } else {
@@ -128,6 +200,9 @@ export default function CreatePostScreen() {
           category,
           photoUrls: uploadedUrls,
           sourceStoryId,
+          eventDate: eventDateIso,
+          eventEndTime: eventEndTimeIso,
+          eventLocation: category === 'Event' ? eventLocation.trim() || undefined : undefined,
         });
       }
       navigation.goBack();
@@ -149,6 +224,12 @@ export default function CreatePostScreen() {
         <View style={styles.closeSpacer} />
       </View>
 
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
       <FadeInView>
         {sourceStoryId && (
           <View style={styles.storyContextBanner}>
@@ -179,6 +260,126 @@ export default function CreatePostScreen() {
             );
           })}
         </View>
+
+        {category === 'Event' && (
+          <View style={styles.eventFields}>
+            <Text style={styles.eventDisclaimer}>
+              Community events are posted by students — not officially organized or verified by the school.
+            </Text>
+
+            <Text style={styles.label}>Date</Text>
+            <View style={styles.quickDateRow}>
+              <TouchableOpacity style={styles.quickDateChip} onPress={() => handleQuickDate(0)}>
+                <Text style={styles.quickDateChipText}>Today</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.quickDateChip} onPress={() => handleQuickDate(1)}>
+                <Text style={styles.quickDateChipText}>Tomorrow</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.quickDateChip} onPress={() => setActivePicker('date')}>
+                <Text style={styles.quickDateChipText}>Pick a date</Text>
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity style={styles.pickerField} onPress={() => setActivePicker('date')}>
+              <Text style={eventDate ? styles.pickerFieldValue : styles.pickerFieldPlaceholder}>
+                {eventDate ? `📅 ${formatFriendlyDate(eventDate)}` : 'Select a date'}
+              </Text>
+            </TouchableOpacity>
+            {activePicker === 'date' && (
+              <View style={styles.pickerWrap}>
+                <DateTimePicker
+                  value={eventDate ?? new Date()}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={handlePickerChange(setEventDate)}
+                />
+                {Platform.OS === 'ios' && (
+                  <TouchableOpacity style={styles.pickerDoneButton} onPress={() => setActivePicker(null)}>
+                    <Text style={styles.pickerDoneText}>Done</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+
+            <Text style={styles.label}>Start Time</Text>
+            <TouchableOpacity style={styles.pickerField} onPress={() => setActivePicker('start')}>
+              <Text style={eventStartTime ? styles.pickerFieldValue : styles.pickerFieldPlaceholder}>
+                {eventStartTime ? `🕐 ${formatFriendlyTime(eventStartTime)}` : 'Select a start time'}
+              </Text>
+            </TouchableOpacity>
+            {activePicker === 'start' && (
+              <View style={styles.pickerWrap}>
+                <DateTimePicker
+                  value={eventStartTime ?? new Date()}
+                  mode="time"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={handlePickerChange(setEventStartTime)}
+                />
+                {Platform.OS === 'ios' && (
+                  <TouchableOpacity style={styles.pickerDoneButton} onPress={() => setActivePicker(null)}>
+                    <Text style={styles.pickerDoneText}>Done</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+
+            {showEndTimeField ? (
+              <>
+                <View style={styles.endTimeHeaderRow}>
+                  <Text style={styles.label}>End Time (optional)</Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setShowEndTimeField(false);
+                      setEventEndTime(null);
+                      if (activePicker === 'end') setActivePicker(null);
+                    }}
+                  >
+                    <Text style={styles.removeEndTimeText}>Remove</Text>
+                  </TouchableOpacity>
+                </View>
+                <TouchableOpacity style={styles.pickerField} onPress={() => setActivePicker('end')}>
+                  <Text style={eventEndTime ? styles.pickerFieldValue : styles.pickerFieldPlaceholder}>
+                    {eventEndTime ? `🕐 ${formatFriendlyTime(eventEndTime)}` : 'Select an end time'}
+                  </Text>
+                </TouchableOpacity>
+                {activePicker === 'end' && (
+                  <View style={styles.pickerWrap}>
+                    <DateTimePicker
+                      value={eventEndTime ?? eventStartTime ?? new Date()}
+                      mode="time"
+                      display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                      onChange={handlePickerChange(setEventEndTime)}
+                    />
+                    {Platform.OS === 'ios' && (
+                      <TouchableOpacity style={styles.pickerDoneButton} onPress={() => setActivePicker(null)}>
+                        <Text style={styles.pickerDoneText}>Done</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                )}
+              </>
+            ) : (
+              <TouchableOpacity
+                style={styles.addEndTimeButton}
+                onPress={() => {
+                  setShowEndTimeField(true);
+                  setActivePicker('end');
+                }}
+              >
+                <Ionicons name="add-circle-outline" size={16} color={colors.primary} />
+                <Text style={styles.addEndTimeText}>Add end time</Text>
+              </TouchableOpacity>
+            )}
+
+            <Text style={styles.label}>Location (optional)</Text>
+            <TextInput
+              style={styles.textInput}
+              placeholder="e.g. Gym, Room 204"
+              placeholderTextColor={colors.textLight}
+              value={eventLocation}
+              onChangeText={setEventLocation}
+            />
+          </View>
+        )}
 
         <Text style={styles.label}>What's on your mind?</Text>
         <TextInput
@@ -231,6 +432,7 @@ export default function CreatePostScreen() {
           style={styles.submitButton}
         />
       </FadeInView>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
@@ -239,7 +441,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
-    padding: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: spacing.xl,
   },
   header: {
     flexDirection: 'row',
@@ -366,5 +575,107 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     marginTop: spacing.sm,
+  },
+  eventFields: {
+    marginBottom: spacing.lg,
+  },
+  eventDisclaimer: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
+    color: colors.textLight,
+    marginBottom: spacing.md,
+  },
+  textInput: {
+    backgroundColor: colors.cardBg,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.md,
+    color: colors.textDark,
+    marginBottom: spacing.md,
+  },
+  quickDateRow: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  quickDateChip: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    borderRadius: radius.full,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.cardBg,
+  },
+  quickDateChipText: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.xs,
+    color: colors.primary,
+  },
+  pickerField: {
+    backgroundColor: colors.cardBg,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  pickerFieldValue: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.md,
+    color: colors.textDark,
+  },
+  pickerFieldPlaceholder: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.md,
+    color: colors.textLight,
+  },
+  pickerWrap: {
+    backgroundColor: colors.cardBg,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    marginTop: -spacing.xs,
+    marginBottom: spacing.md,
+    alignItems: 'center',
+  },
+  pickerDoneButton: {
+    alignSelf: 'stretch',
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingVertical: spacing.sm,
+    alignItems: 'center',
+  },
+  pickerDoneText: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.sm,
+    color: colors.primary,
+  },
+  endTimeHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  removeEndTimeText: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.xs,
+    color: colors.error,
+    marginBottom: spacing.xs,
+  },
+  addEndTimeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    alignSelf: 'flex-start',
+    marginBottom: spacing.md,
+  },
+  addEndTimeText: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
+    color: colors.primary,
   },
 });

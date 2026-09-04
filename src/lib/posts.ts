@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 import { removePostPhotos } from './postPhotos';
-import { Post, PostCategory } from '../types';
+import { Post, PostCategory, PostStatus } from '../types';
 
 // Exported so other features that browse posts a different way (e.g. schools.ts's
 // per-school sections) get the exact same shape as the feed, instead of a
@@ -105,7 +105,11 @@ const POST_SELECT_BY_SCHOOL = POST_SELECT.replace('profiles:author_id (', 'profi
 export async function fetchPostsBySchool(
   schoolName: string,
   category?: PostCategory,
-  limit = 5
+  limit = 5,
+  // Community Hub's "Need Help" section wants only actionable (open) requests,
+  // not ones already accepted/completed — same optional-filter shape as
+  // category above, not a separate query.
+  status?: PostStatus
 ): Promise<Post[]> {
   let query = supabase
     .from('posts')
@@ -117,6 +121,9 @@ export async function fetchPostsBySchool(
   if (category) {
     query = query.eq('category', category);
   }
+  if (status) {
+    query = query.eq('status', status);
+  }
 
   const { data, error } = await query;
   if (error) throw error;
@@ -126,7 +133,12 @@ export async function fetchPostsBySchool(
 // school_id-based twin of fetchPostsBySchool (Step 15's school directory) —
 // reuses the exact same !inner-join select, just filtered on the stable
 // school_id instead of the free-text school_name.
-export async function fetchPostsBySchoolId(schoolId: string, category?: PostCategory, limit = 5): Promise<Post[]> {
+export async function fetchPostsBySchoolId(
+  schoolId: string,
+  category?: PostCategory,
+  limit = 5,
+  status?: PostStatus
+): Promise<Post[]> {
   let query = supabase
     .from('posts')
     .select(POST_SELECT_BY_SCHOOL)
@@ -136,6 +148,9 @@ export async function fetchPostsBySchoolId(schoolId: string, category?: PostCate
 
   if (category) {
     query = query.eq('category', category);
+  }
+  if (status) {
+    query = query.eq('status', status);
   }
 
   const { data, error } = await query;

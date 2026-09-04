@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { View, Text, ScrollView, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, FlatList, TouchableOpacity, RefreshControl, StyleSheet } from 'react-native';
 import { useFocusEffect, useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -24,11 +24,11 @@ import { fetchBlockedUserIds } from '../../lib/blocks';
 import { useAuth } from '../../contexts/AuthContext';
 import Avatar from '../../components/Avatar';
 import EmptyState from '../../components/EmptyState';
-import LoadingScreen from '../../components/LoadingScreen';
+import { Skeleton, PostCardSkeleton } from '../../components/Skeleton';
 import FadeInView from '../../components/FadeInView';
 import PostPreviewCard from '../../components/PostPreviewCard';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
-import { MainStackParamList, SchoolMember, Post, PostCategory, Story, School, SchoolContributor } from '../../types';
+import { MainStackParamList, SchoolMember, Post, Story, School, SchoolContributor } from '../../types';
 
 // Each section pulls a small, capped slice rather than everything — this page
 // is a discovery surface, not a full feed. Tapping any post still goes to the
@@ -37,8 +37,6 @@ const SECTION_LIMIT = 5;
 const MEMBER_LIMIT = 30;
 const DISCOVERY_LIMIT = 10;
 const CONTRIBUTOR_LIMIT = 5;
-
-type Section = { key: string; title: string; category?: PostCategory; posts: Post[] };
 
 // Shared by the Members row and both "Find your community" rows — same card
 // shape (avatar + name, tap through to the real profile). Callers own their
@@ -67,6 +65,22 @@ function renderMemberList(data: SchoolMember[], navigation: NativeStackNavigatio
   );
 }
 
+// One consistent "Title ... See All" header for every Hub section that has a
+// fuller place to send someone — keeps that pattern from being copy-pasted
+// (and drifting) across Stories/Need Help/Questions.
+function SectionHeader({ title, onSeeAll }: { title: string; onSeeAll?: () => void }) {
+  return (
+    <View style={styles.sectionHeaderRow}>
+      <Text style={styles.sectionTitle}>{title}</Text>
+      {onSeeAll && (
+        <TouchableOpacity onPress={onSeeAll} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <Text style={styles.seeAllText}>See All</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+}
+
 export default function SchoolScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
   const route = useRoute<RouteProp<MainStackParamList, 'School'>>();
@@ -74,6 +88,8 @@ export default function SchoolScreen() {
   const { user } = useAuth();
 
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const [directorySchool, setDirectorySchool] = useState<School | null>(null);
   const [studentCount, setStudentCount] = useState(0);
   const [contributors, setContributors] = useState<SchoolContributor[]>([]);
@@ -81,124 +97,157 @@ export default function SchoolScreen() {
   const [schoolStories, setSchoolStories] = useState<Story[]>([]);
   const [seenSchoolStoryIds, setSeenSchoolStoryIds] = useState<Set<string>>(new Set());
   const [recentPosts, setRecentPosts] = useState<Post[]>([]);
-  const [helpPosts, setHelpPosts] = useState<Post[]>([]);
+  const [openHelpPosts, setOpenHelpPosts] = useState<Post[]>([]);
   const [questionPosts, setQuestionPosts] = useState<Post[]>([]);
   const [friendPosts, setFriendPosts] = useState<Post[]>([]);
   const [myGrade, setMyGrade] = useState<string | null>(null);
   const [gradeMates, setGradeMates] = useState<SchoolMember[]>([]);
   const [interestMates, setInterestMates] = useState<SchoolMember[]>([]);
 
+  const loadSchoolData = useCallback(async () => {
+    try {
+      // Prefer the stable school_id once this page was reached with one;
+      // school_name stays the fallback for every link that only ever had a
+      // free-text name to pass (see MainStackParamList's School route). One
+      // Promise.all — every section loads together, not as a waterfall of
+      // independent spinners.
+      const [count, contributorList, memberList, recent, openHelp, questions, friends, stories, directoryRow, myProfile, blockedIds] =
+        await Promise.all([
+          schoolId ? fetchSchoolStudentCountById(schoolId) : fetchSchoolStudentCount(schoolName),
+          (schoolId
+            ? fetchSchoolContributorsById(schoolId, CONTRIBUTOR_LIMIT)
+            : fetchSchoolContributors(schoolName, CONTRIBUTOR_LIMIT)
+          ).catch(() => [] as SchoolContributor[]),
+          schoolId ? fetchSchoolMembersById(schoolId, MEMBER_LIMIT) : fetchSchoolMembers(schoolName, MEMBER_LIMIT),
+          schoolId
+            ? fetchPostsBySchoolId(schoolId, undefined, SECTION_LIMIT)
+            : fetchPostsBySchool(schoolName, undefined, SECTION_LIMIT),
+          // "Need Help" only ever shows actionable, still-open requests — not
+          // ones already accepted or completed.
+          schoolId
+            ? fetchPostsBySchoolId(schoolId, 'Need Help', SECTION_LIMIT, 'open')
+            : fetchPostsBySchool(schoolName, 'Need Help', SECTION_LIMIT, 'open'),
+          schoolId
+            ? fetchPostsBySchoolId(schoolId, 'School Question', SECTION_LIMIT)
+            : fetchPostsBySchool(schoolName, 'School Question', SECTION_LIMIT),
+          schoolId
+            ? fetchPostsBySchoolId(schoolId, 'Looking for Friends', SECTION_LIMIT)
+            : fetchPostsBySchool(schoolName, 'Looking for Friends', SECTION_LIMIT),
+          (schoolId
+            ? fetchStoriesBySchoolId(schoolId, MEMBER_LIMIT)
+            : fetchStoriesBySchool(schoolName, MEMBER_LIMIT)
+          ).catch(() => [] as Story[]),
+          schoolId ? fetchSchoolById(schoolId).catch(() => null) : Promise.resolve(null),
+          user ? fetchProfileById(user.id) : Promise.resolve(null),
+          user ? fetchBlockedUserIds(user.id).catch(() => new Set<string>()) : Promise.resolve(new Set<string>()),
+        ]);
+      // UX filtering only, not a security boundary — see blocks.ts.
+      setStudentCount(count);
+      setContributors(contributorList.filter((c) => !blockedIds.has(c.id)));
+      setDirectorySchool(directoryRow);
+      setMembers(memberList.filter((m) => !blockedIds.has(m.id)));
+      setRecentPosts(recent.filter((p) => !blockedIds.has(p.author_id)));
+      setOpenHelpPosts(openHelp.filter((p) => !blockedIds.has(p.author_id)));
+      setQuestionPosts(questions.filter((p) => !blockedIds.has(p.author_id)));
+      setFriendPosts(friends.filter((p) => !blockedIds.has(p.author_id)));
+
+      const visibleStories = stories.filter((s) => !blockedIds.has(s.author_id));
+      setSchoolStories(visibleStories);
+      // Read-only here — same local seen/unseen state Feed's story rail
+      // already reads, just consulted again, never pruned from this screen:
+      // pruning against only THIS school's ids would wrongly forget that
+      // other-school stories (visible in Feed's own rail) were seen.
+      if (user) {
+        setSeenSchoolStoryIds(await getSeenStoryIds(user.id));
+      }
+
+      // "Find your community" only shows on your OWN school's page, and only
+      // if you opted into New Student mode — never on a school you're just
+      // browsing, and never forced on anyone who didn't ask for it.
+      const isOwnSchool =
+        !!myProfile && (schoolId ? myProfile.school_id === schoolId : myProfile.school_name === schoolName);
+      const wantsDiscovery = isOwnSchool && myProfile!.is_new_student === true;
+
+      if (wantsDiscovery && user) {
+        setMyGrade(myProfile!.grade);
+        const [byGrade, byInterests] = schoolId
+          ? await Promise.all([
+              myProfile!.grade
+                ? fetchSchoolMembersByGradeById(schoolId, myProfile!.grade, user.id, DISCOVERY_LIMIT)
+                : Promise.resolve([]),
+              myProfile!.interests.length > 0
+                ? fetchSchoolMembersByInterestsById(schoolId, myProfile!.interests, user.id, DISCOVERY_LIMIT)
+                : Promise.resolve([]),
+            ])
+          : await Promise.all([
+              myProfile!.grade
+                ? fetchSchoolMembersByGrade(schoolName, myProfile!.grade, user.id, DISCOVERY_LIMIT)
+                : Promise.resolve([]),
+              myProfile!.interests.length > 0
+                ? fetchSchoolMembersByInterests(schoolName, myProfile!.interests, user.id, DISCOVERY_LIMIT)
+                : Promise.resolve([]),
+            ]);
+        setGradeMates(byGrade.filter((m) => !blockedIds.has(m.id)));
+        setInterestMates(byInterests.filter((m) => !blockedIds.has(m.id)));
+      } else {
+        setMyGrade(null);
+        setGradeMates([]);
+        setInterestMates([]);
+      }
+    } catch {
+      // leave everything at its default (empty) — sections below handle that gracefully
+    }
+  }, [schoolId, schoolName, user]);
+
+  // Refetch every time this page gains focus, but only show the full skeleton
+  // the very first time — same "quiet refresh after that" pattern FeedScreen
+  // already uses, so returning from a post/story doesn't cause a jarring reload.
   useFocusEffect(
     useCallback(() => {
       (async () => {
-        try {
-          // Prefer the stable school_id once this page was reached with one;
-          // school_name stays the fallback for every link that only ever had
-          // a free-text name to pass (see MainStackParamList's School route).
-          const [count, contributorList, memberList, recent, help, questions, friends, stories, directoryRow, myProfile, blockedIds] =
-            await Promise.all([
-              schoolId ? fetchSchoolStudentCountById(schoolId) : fetchSchoolStudentCount(schoolName),
-              (schoolId
-                ? fetchSchoolContributorsById(schoolId, CONTRIBUTOR_LIMIT)
-                : fetchSchoolContributors(schoolName, CONTRIBUTOR_LIMIT)
-              ).catch(() => [] as SchoolContributor[]),
-              schoolId ? fetchSchoolMembersById(schoolId, MEMBER_LIMIT) : fetchSchoolMembers(schoolName, MEMBER_LIMIT),
-              schoolId
-                ? fetchPostsBySchoolId(schoolId, undefined, SECTION_LIMIT)
-                : fetchPostsBySchool(schoolName, undefined, SECTION_LIMIT),
-              schoolId
-                ? fetchPostsBySchoolId(schoolId, 'Need Help', SECTION_LIMIT)
-                : fetchPostsBySchool(schoolName, 'Need Help', SECTION_LIMIT),
-              schoolId
-                ? fetchPostsBySchoolId(schoolId, 'School Question', SECTION_LIMIT)
-                : fetchPostsBySchool(schoolName, 'School Question', SECTION_LIMIT),
-              schoolId
-                ? fetchPostsBySchoolId(schoolId, 'Looking for Friends', SECTION_LIMIT)
-                : fetchPostsBySchool(schoolName, 'Looking for Friends', SECTION_LIMIT),
-              (schoolId
-                ? fetchStoriesBySchoolId(schoolId, MEMBER_LIMIT)
-                : fetchStoriesBySchool(schoolName, MEMBER_LIMIT)
-              ).catch(() => [] as Story[]),
-              schoolId ? fetchSchoolById(schoolId).catch(() => null) : Promise.resolve(null),
-              user ? fetchProfileById(user.id) : Promise.resolve(null),
-              user ? fetchBlockedUserIds(user.id).catch(() => new Set<string>()) : Promise.resolve(new Set<string>()),
-            ]);
-          // UX filtering only, not a security boundary — see blocks.ts.
-          setStudentCount(count);
-          setContributors(contributorList.filter((c) => !blockedIds.has(c.id)));
-          setDirectorySchool(directoryRow);
-          setMembers(memberList.filter((m) => !blockedIds.has(m.id)));
-          setRecentPosts(recent.filter((p) => !blockedIds.has(p.author_id)));
-          setHelpPosts(help.filter((p) => !blockedIds.has(p.author_id)));
-          setQuestionPosts(questions.filter((p) => !blockedIds.has(p.author_id)));
-          setFriendPosts(friends.filter((p) => !blockedIds.has(p.author_id)));
-
-          const visibleStories = stories.filter((s) => !blockedIds.has(s.author_id));
-          setSchoolStories(visibleStories);
-          // Read-only here — same local seen/unseen state Feed's story rail
-          // already reads, just consulted again, never pruned from this screen:
-          // pruning against only THIS school's ids would wrongly forget that
-          // other-school stories (visible in Feed's own rail) were seen.
-          if (user) {
-            setSeenSchoolStoryIds(await getSeenStoryIds(user.id));
-          }
-
-          // "Find your community" only shows on your OWN school's page, and only
-          // if you opted into New Student mode — never on a school you're just
-          // browsing, and never forced on anyone who didn't ask for it.
-          const isOwnSchool =
-            !!myProfile && (schoolId ? myProfile.school_id === schoolId : myProfile.school_name === schoolName);
-          const wantsDiscovery = isOwnSchool && myProfile!.is_new_student === true;
-
-          if (wantsDiscovery && user) {
-            setMyGrade(myProfile!.grade);
-            const [byGrade, byInterests] = schoolId
-              ? await Promise.all([
-                  myProfile!.grade
-                    ? fetchSchoolMembersByGradeById(schoolId, myProfile!.grade, user.id, DISCOVERY_LIMIT)
-                    : Promise.resolve([]),
-                  myProfile!.interests.length > 0
-                    ? fetchSchoolMembersByInterestsById(schoolId, myProfile!.interests, user.id, DISCOVERY_LIMIT)
-                    : Promise.resolve([]),
-                ])
-              : await Promise.all([
-                  myProfile!.grade
-                    ? fetchSchoolMembersByGrade(schoolName, myProfile!.grade, user.id, DISCOVERY_LIMIT)
-                    : Promise.resolve([]),
-                  myProfile!.interests.length > 0
-                    ? fetchSchoolMembersByInterests(schoolName, myProfile!.interests, user.id, DISCOVERY_LIMIT)
-                    : Promise.resolve([]),
-                ]);
-            setGradeMates(byGrade.filter((m) => !blockedIds.has(m.id)));
-            setInterestMates(byInterests.filter((m) => !blockedIds.has(m.id)));
-          } else {
-            setMyGrade(null);
-            setGradeMates([]);
-            setInterestMates([]);
-          }
-        } catch {
-          // leave everything at its default (empty) — sections below handle that gracefully
-        } finally {
-          setLoading(false);
-        }
+        if (!hasLoadedOnce) setLoading(true);
+        await loadSchoolData();
+        setLoading(false);
+        setHasLoadedOnce(true);
       })();
-    }, [schoolId, schoolName, user])
+    }, [loadSchoolData, hasLoadedOnce])
   );
 
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadSchoolData();
+    setRefreshing(false);
+  };
+
+  const goToSearch = () => navigation.navigate('Tabs', { screen: 'Search' });
+
   if (loading) {
-    return <LoadingScreen />;
+    return (
+      <View style={styles.container}>
+        <View style={styles.content}>
+          <View style={styles.header}>
+            <Skeleton width="70%" height={22} />
+            <Skeleton width="40%" height={13} style={{ marginTop: spacing.sm }} />
+          </View>
+          <Skeleton width="50%" height={16} style={{ marginTop: spacing.lg, marginBottom: spacing.sm }} />
+          <View style={{ flexDirection: 'row', gap: spacing.md }}>
+            <Skeleton width={56} height={56} radius={radius.full} />
+            <Skeleton width={56} height={56} radius={radius.full} />
+            <Skeleton width={56} height={56} radius={radius.full} />
+          </View>
+          <PostCardSkeleton />
+          <PostCardSkeleton />
+        </View>
+      </View>
+    );
   }
 
-  const allSections: Section[] = [
-    { key: 'recent', title: 'Recent Posts', posts: recentPosts },
-    { key: 'help', title: 'Recent Help', category: 'Need Help', posts: helpPosts },
-    { key: 'questions', title: 'School Questions', category: 'School Question', posts: questionPosts },
-    { key: 'friends', title: 'Looking for Friends', category: 'Looking for Friends', posts: friendPosts },
-  ];
-  const sections = allSections.filter((s) => s.posts.length > 0);
-
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />}
+    >
       <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
         <Ionicons name="arrow-back" size={20} color={colors.primary} />
         <Text style={styles.backText}>Back</Text>
@@ -215,39 +264,15 @@ export default function SchoolScreen() {
         <Text style={styles.studentCount}>
           {studentCount} {studentCount === 1 ? 'Student' : 'Students'}
         </Text>
+        <Text style={styles.disclaimer}>Community-built from student profiles — not officially verified.</Text>
       </FadeInView>
 
-      {contributors.length > 0 && (
-        <FadeInView style={styles.membersSection} delay={10}>
-          <Text style={styles.sectionTitle}>🌟 Community Contributors</Text>
-          <Text style={styles.contributorsSubtitle}>Students who've helped others in this community</Text>
-          <FlatList
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            data={contributors}
-            keyExtractor={(c) => c.id}
-            contentContainerStyle={styles.membersRow}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={styles.memberItem}
-                onPress={() => navigation.navigate('UserProfile', { userId: item.id })}
-              >
-                <Avatar uri={item.avatar_url} size={56} />
-                <Text style={styles.memberName} numberOfLines={1}>
-                  {item.full_name ?? 'Unknown'}
-                </Text>
-                <Text style={styles.contributorMeta}>
-                  💙 {item.thanks_received_count}
-                </Text>
-              </TouchableOpacity>
-            )}
-          />
-        </FadeInView>
-      )}
-
       {schoolStories.length > 0 && (
-        <FadeInView style={styles.membersSection} delay={20}>
-          <Text style={styles.sectionTitle}>School Stories</Text>
+        <FadeInView style={styles.section} delay={10}>
+          <SectionHeader
+            title="🏫 School Stories"
+            onSeeAll={() => navigation.navigate('StoryViewer', { stories: schoolStories, initialIndex: 0 })}
+          />
           <FlatList
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -278,8 +303,97 @@ export default function SchoolScreen() {
         </FadeInView>
       )}
 
+      {recentPosts.length > 0 && (
+        <FadeInView style={styles.section} delay={20}>
+          <SectionHeader title="📰 What's Happening" />
+          {recentPosts.map((post) => (
+            <PostPreviewCard key={post.id} post={post} onPress={() => navigation.navigate('PostDetail', { post })} />
+          ))}
+        </FadeInView>
+      )}
+
+      {openHelpPosts.length > 0 && (
+        <FadeInView style={styles.section} delay={30}>
+          <SectionHeader title="🤝 Need Help" onSeeAll={goToSearch} />
+          {openHelpPosts.map((post) => (
+            <PostPreviewCard
+              key={post.id}
+              post={post}
+              showCategory={false}
+              onPress={() => navigation.navigate('PostDetail', { post })}
+            />
+          ))}
+        </FadeInView>
+      )}
+
+      {questionPosts.length > 0 && (
+        <FadeInView style={styles.section} delay={40}>
+          <SectionHeader title="❓ Questions" onSeeAll={goToSearch} />
+          {questionPosts.map((post) => (
+            <PostPreviewCard
+              key={post.id}
+              post={post}
+              showCategory={false}
+              onPress={() => navigation.navigate('PostDetail', { post })}
+            />
+          ))}
+        </FadeInView>
+      )}
+
+      {friendPosts.length > 0 && (
+        <FadeInView style={styles.section} delay={50}>
+          <SectionHeader title="👋 Looking for Friends" />
+          {friendPosts.map((post) => (
+            <PostPreviewCard
+              key={post.id}
+              post={post}
+              showCategory={false}
+              onPress={() => navigation.navigate('PostDetail', { post })}
+            />
+          ))}
+        </FadeInView>
+      )}
+
+      {schoolStories.length === 0 &&
+        recentPosts.length === 0 &&
+        openHelpPosts.length === 0 &&
+        questionPosts.length === 0 &&
+        friendPosts.length === 0 && (
+          <EmptyState
+            icon="school-outline"
+            title="Nothing here yet"
+            subtitle={`Be the first to post something for ${directorySchool?.name ?? schoolName}!`}
+          />
+        )}
+
+      {contributors.length > 0 && (
+        <FadeInView style={styles.section} delay={60}>
+          <Text style={styles.sectionTitle}>🌟 Community Contributors</Text>
+          <Text style={styles.contributorsSubtitle}>Students who've helped others in this community</Text>
+          <FlatList
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            data={contributors}
+            keyExtractor={(c) => c.id}
+            contentContainerStyle={styles.membersRow}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={styles.memberItem}
+                onPress={() => navigation.navigate('UserProfile', { userId: item.id })}
+              >
+                <Avatar uri={item.avatar_url} size={56} />
+                <Text style={styles.memberName} numberOfLines={1}>
+                  {item.full_name ?? 'Unknown'}
+                </Text>
+                <Text style={styles.contributorMeta}>💙 {item.thanks_received_count}</Text>
+              </TouchableOpacity>
+            )}
+          />
+        </FadeInView>
+      )}
+
       {(gradeMates.length > 0 || interestMates.length > 0) && (
-        <FadeInView style={styles.membersSection} delay={40}>
+        <FadeInView style={styles.section} delay={70}>
           <Text style={styles.sectionTitle}>Find your community</Text>
           {gradeMates.length > 0 && (
             <View style={styles.memberRowWrap}>
@@ -297,32 +411,10 @@ export default function SchoolScreen() {
       )}
 
       {members.length > 0 && (
-        <FadeInView style={styles.membersSection} delay={60}>
+        <FadeInView style={styles.section} delay={80}>
           <Text style={styles.sectionTitle}>Members</Text>
           {renderMemberList(members, navigation)}
         </FadeInView>
-      )}
-
-      {sections.length === 0 ? (
-        <EmptyState
-          icon="school-outline"
-          title="No posts yet"
-          subtitle={`Be the first to post something for ${schoolName}!`}
-        />
-      ) : (
-        sections.map((section, sectionIndex) => (
-          <FadeInView key={section.key} style={styles.section} delay={100 + sectionIndex * 40}>
-            <Text style={styles.sectionTitle}>{section.title}</Text>
-            {section.posts.map((post) => (
-              <PostPreviewCard
-                key={post.id}
-                post={post}
-                showCategory={!section.category}
-                onPress={() => navigation.navigate('PostDetail', { post })}
-              />
-            ))}
-          </FadeInView>
-        ))
       )}
     </ScrollView>
   );
@@ -372,8 +464,22 @@ const styles = StyleSheet.create({
     color: colors.textMid,
     marginTop: spacing.xs,
   },
-  membersSection: {
-    marginBottom: spacing.lg,
+  disclaimer: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
+    color: colors.textLight,
+    marginTop: spacing.sm,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.sm,
+  },
+  seeAllText: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
+    color: colors.primary,
   },
   contributorsSubtitle: {
     fontFamily: fontFamily.regular,

@@ -4,10 +4,15 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { searchUsers, searchPosts, searchSchools } from '../../lib/search';
-import { fetchPostsBySchool } from '../../lib/posts';
-import { fetchStoriesBySchool } from '../../lib/stories';
+import { fetchPostsBySchool, fetchPostsBySchoolId } from '../../lib/posts';
+import { fetchStoriesBySchool, fetchStoriesBySchoolId } from '../../lib/stories';
 import { fetchProfileById } from '../../lib/profile';
-import { fetchSchoolMembersByGrade, fetchSchoolMembersByInterests } from '../../lib/schools';
+import {
+  fetchSchoolMembersByGrade,
+  fetchSchoolMembersByInterests,
+  fetchSchoolMembersByGradeById,
+  fetchSchoolMembersByInterestsById,
+} from '../../lib/schools';
 import { getRecentSearches, addRecentSearch, removeRecentSearch, clearRecentSearches } from '../../lib/recentSearches';
 import { fetchBlockedUserIds } from '../../lib/blocks';
 import { fetchFollowingIds } from '../../lib/follows';
@@ -85,7 +90,8 @@ export default function SearchScreen() {
     try {
       const myProfile = await fetchProfileById(user.id);
       setMySchoolName(myProfile.school_name);
-      if (!myProfile.school_name) {
+      const schoolId = myProfile.school_id;
+      if (!schoolId && !myProfile.school_name) {
         setSuggestedPeople([]);
         setSuggestedPosts([]);
         setSchoolStories([]);
@@ -97,16 +103,29 @@ export default function SearchScreen() {
         fetchFollowingIds(user.id).catch(() => [] as string[]),
       ]);
       const followingIdSet = new Set(followingIds);
-      const [byGrade, byInterests, schoolPosts, stories] = await Promise.all([
-        myProfile.grade
-          ? fetchSchoolMembersByGrade(myProfile.school_name, myProfile.grade, user.id, 10)
-          : Promise.resolve([]),
-        myProfile.interests.length > 0
-          ? fetchSchoolMembersByInterests(myProfile.school_name, myProfile.interests, user.id, 10)
-          : Promise.resolve([]),
-        fetchPostsBySchool(myProfile.school_name, undefined, 5),
-        fetchStoriesBySchool(myProfile.school_name, 10).catch(() => [] as Story[]),
-      ]);
+      // Prefer the stable school_id once set; school_name stays the fallback
+      // for every profile that hasn't picked from the directory yet.
+      const [byGrade, byInterests, schoolPosts, stories] = schoolId
+        ? await Promise.all([
+            myProfile.grade
+              ? fetchSchoolMembersByGradeById(schoolId, myProfile.grade, user.id, 10)
+              : Promise.resolve([]),
+            myProfile.interests.length > 0
+              ? fetchSchoolMembersByInterestsById(schoolId, myProfile.interests, user.id, 10)
+              : Promise.resolve([]),
+            fetchPostsBySchoolId(schoolId, undefined, 5),
+            fetchStoriesBySchoolId(schoolId, 10).catch(() => [] as Story[]),
+          ])
+        : await Promise.all([
+            myProfile.grade
+              ? fetchSchoolMembersByGrade(myProfile.school_name!, myProfile.grade, user.id, 10)
+              : Promise.resolve([]),
+            myProfile.interests.length > 0
+              ? fetchSchoolMembersByInterests(myProfile.school_name!, myProfile.interests, user.id, 10)
+              : Promise.resolve([]),
+            fetchPostsBySchool(myProfile.school_name!, undefined, 5),
+            fetchStoriesBySchool(myProfile.school_name!, 10).catch(() => [] as Story[]),
+          ]);
 
       // UX filtering only, not a security boundary — see blocks.ts. Already-
       // followed people are also skipped here — no strong reason to keep

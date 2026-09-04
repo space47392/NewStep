@@ -14,7 +14,7 @@ import { sharePost } from '../../lib/share';
 import { fetchActiveStories, uploadStory } from '../../lib/stories';
 import { getSeenStoryIds, pruneSeenStoryIds } from '../../lib/storyPrefs';
 import { fetchProfileById } from '../../lib/profile';
-import { fetchSchoolStudentCount } from '../../lib/schools';
+import { fetchSchoolStudentCount, fetchSchoolStudentCountById } from '../../lib/schools';
 import { fetchFollowingIds } from '../../lib/follows';
 import { isWelcomeBannerDismissed, dismissWelcomeBanner } from '../../lib/newStudentPrefs';
 import { fetchUnreadNotificationCount } from '../../lib/notifications';
@@ -52,6 +52,7 @@ export default function FeedScreen() {
   const [seenStoryIds, setSeenStoryIds] = useState<Set<string>>(new Set());
   const [uploadingStory, setUploadingStory] = useState(false);
   const [mySchoolName, setMySchoolName] = useState<string | null>(null);
+  const [mySchoolId, setMySchoolId] = useState<string | null>(null);
   const [mySchoolStudentCount, setMySchoolStudentCount] = useState(0);
   const [isNewStudent, setIsNewStudent] = useState(false);
   const [welcomeBannerDismissed, setWelcomeBannerDismissed] = useState(false);
@@ -206,11 +207,15 @@ export default function FeedScreen() {
         isWelcomeBannerDismissed(user.id),
       ]);
       setMySchoolName(profile.school_name);
+      setMySchoolId(profile.school_id);
       setIsNewStudent(profile.is_new_student === true);
       setWelcomeBannerDismissed(dismissed);
-      if (profile.school_name) {
-        const count = await fetchSchoolStudentCount(profile.school_name);
-        setMySchoolStudentCount(count);
+      // Prefer the stable school_id once set; school_name stays the fallback
+      // for every profile that hasn't picked from the directory yet.
+      if (profile.school_id) {
+        setMySchoolStudentCount(await fetchSchoolStudentCountById(profile.school_id));
+      } else if (profile.school_name) {
+        setMySchoolStudentCount(await fetchSchoolStudentCount(profile.school_name));
       }
     } catch {
       // leave the banner hidden
@@ -402,7 +407,7 @@ export default function FeedScreen() {
                 <View style={styles.welcomeActions}>
                   <TouchableOpacity
                     style={styles.welcomeButton}
-                    onPress={() => navigation.navigate('School', { schoolName: mySchoolName })}
+                    onPress={() => navigation.navigate('School', { schoolId: mySchoolId ?? undefined, schoolName: mySchoolName })}
                   >
                     <Text style={styles.welcomeButtonText}>Discover your community</Text>
                     <Ionicons name="arrow-forward" size={14} color={colors.primary} />
@@ -494,7 +499,7 @@ export default function FeedScreen() {
               <TouchableOpacity
                 style={styles.schoolBanner}
                 activeOpacity={0.85}
-                onPress={() => navigation.navigate('School', { schoolName: mySchoolName })}
+                onPress={() => navigation.navigate('School', { schoolId: mySchoolId ?? undefined, schoolName: mySchoolName })}
               >
                 <Text style={styles.schoolBannerText}>
                   🏫 {mySchoolName} · {mySchoolStudentCount} {mySchoolStudentCount === 1 ? 'student' : 'students'}

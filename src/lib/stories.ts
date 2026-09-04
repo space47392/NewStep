@@ -51,6 +51,21 @@ export async function fetchStoriesBySchool(schoolName: string, limit = 20): Prom
   return (data ?? []) as unknown as Story[];
 }
 
+// school_id-based twin of fetchStoriesBySchool (Step 15's school directory) —
+// same select and active-only filter, just against the stable school_id.
+export async function fetchStoriesBySchoolId(schoolId: string, limit = 20): Promise<Story[]> {
+  const { data, error } = await supabase
+    .from('stories')
+    .select(STORY_SELECT_BY_SCHOOL)
+    .eq('profiles.school_id', schoolId)
+    .gt('expires_at', new Date().toISOString())
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error) throw error;
+  return (data ?? []) as unknown as Story[];
+}
+
 export async function uploadStory(params: {
   userId: string;
   localUri: string;

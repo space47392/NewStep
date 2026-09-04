@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, Image, ScrollView, StyleSheet, ActivityIndicator, Alert } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -10,6 +10,7 @@ import { supabase } from '../../lib/supabase';
 import { fetchHelpStats, fetchPointsHistory, formatPointReason } from '../../lib/points';
 import { fetchAchievementProgress } from '../../lib/achievements';
 import { fetchFollowCounts } from '../../lib/follows';
+import { fetchSchoolById } from '../../lib/schools';
 import { deleteMyAccount } from '../../lib/account';
 import { formatRelativeTime } from '../../lib/time';
 import IconInput from '../../components/IconInput';
@@ -17,7 +18,7 @@ import PrimaryButton from '../../components/PrimaryButton';
 import LoadingScreen from '../../components/LoadingScreen';
 import FadeInView from '../../components/FadeInView';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
-import { MainStackParamList, Profile, PointsHistoryEntry, AchievementProgress } from '../../types';
+import { MainStackParamList, Profile, PointsHistoryEntry, AchievementProgress, School } from '../../types';
 
 const GRADES = ['6th', '7th', '8th', '9th', '10th', '11th', '12th'];
 
@@ -32,7 +33,6 @@ export default function ProfileScreen() {
   const [deletingAccount, setDeletingAccount] = useState(false);
 
   const [fullName, setFullName] = useState('');
-  const [schoolName, setSchoolName] = useState('');
   const [grade, setGrade] = useState('');
   const [interests, setInterests] = useState<string[]>([]);
   const [interestInput, setInterestInput] = useState('');
@@ -44,6 +44,8 @@ export default function ProfileScreen() {
   const [pointHistory, setPointHistory] = useState<PointsHistoryEntry[]>([]);
   const [achievements, setAchievements] = useState<AchievementProgress[]>([]);
   const [followCounts, setFollowCounts] = useState({ followers: 0, following: 0 });
+  const [schoolId, setSchoolId] = useState<string | null>(null);
+  const [selectedSchool, setSelectedSchool] = useState<School | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -59,13 +61,13 @@ export default function ProfileScreen() {
         Alert.alert('Could not load profile', error.message);
       } else if (data) {
         setFullName(data.full_name ?? '');
-        setSchoolName(data.school_name ?? '');
         setGrade(data.grade ?? '');
         setInterests(data.interests ?? []);
         setAvatarUrl(data.avatar_url ?? null);
         setIsNewStudent(data.is_new_student);
         setPoints(data.points);
         setUsername(data.username);
+        setSchoolId(data.school_id);
       }
 
       // Best-effort — a hiccup here shouldn't block the rest of the profile
@@ -88,6 +90,32 @@ export default function ProfileScreen() {
       setLoadingProfile(false);
     })();
   }, [user]);
+
+  // Re-checked on every focus (not just once) so returning from
+  // ChooseSchoolScreen immediately reflects the newly picked school — the
+  // rest of the form above is loaded once and left alone so this doesn't
+  // clobber an in-progress edit just from navigating away and back.
+  useFocusEffect(
+    useCallback(() => {
+      if (!user) return;
+      (async () => {
+        try {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('school_id')
+            .eq('id', user.id)
+            .maybeSingle();
+          if (error) throw error;
+
+          const newSchoolId = data?.school_id ?? null;
+          setSchoolId(newSchoolId);
+          setSelectedSchool(newSchoolId ? await fetchSchoolById(newSchoolId) : null);
+        } catch {
+          // leave whatever was last shown
+        }
+      })();
+    }, [user])
+  );
 
   const handlePickAvatar = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -154,7 +182,6 @@ export default function ProfileScreen() {
     const { error } = await supabase.from('profiles').upsert({
       id: user.id,
       full_name: fullName,
-      school_name: schoolName,
       grade,
       interests,
       avatar_url: avatarUrl,
@@ -369,8 +396,37 @@ export default function ProfileScreen() {
         <Text style={styles.label}>Full Name</Text>
         <IconInput icon="person-outline" placeholder="Alex Johnson" value={fullName} onChangeText={setFullName} autoComplete="name" />
 
-        <Text style={styles.label}>School Name</Text>
-        <IconInput icon="school-outline" placeholder="Lincoln High School" value={schoolName} onChangeText={setSchoolName} />
+        <Text style={styles.label}>School</Text>
+        <View style={styles.schoolCard}>
+          <View style={styles.schoolCardRow}>
+            <Text style={styles.schoolCardIcon}>🏫</Text>
+            <View style={styles.schoolCardText}>
+              {selectedSchool ? (
+                <>
+                  <Text style={styles.schoolCardName}>{selectedSchool.name}</Text>
+                  {selectedSchool.city ? (
+                    <Text style={styles.schoolCardMeta}>
+                      {selectedSchool.city}
+                      {selectedSchool.state ? `, ${selectedSchool.state}` : ''}
+                    </Text>
+                  ) : null}
+                </>
+              ) : (
+                <Text style={styles.schoolCardPlaceholder}>Choose your school</Text>
+              )}
+            </View>
+          </View>
+          <PrimaryButton
+            title={schoolId ? 'Change School' : 'Choose School'}
+            icon="school-outline"
+            variant="outline"
+            onPress={() => navigation.navigate('ChooseSchool')}
+            style={styles.schoolCardButton}
+          />
+          <Text style={styles.schoolCardNote}>
+            Selecting a school links you to its community — it doesn't verify that you attend it.
+          </Text>
+        </View>
 
         <Text style={styles.label}>Are you new to this school?</Text>
         <View style={styles.chipRow}>
@@ -685,6 +741,49 @@ const styles = StyleSheet.create({
     color: colors.textDark,
     marginTop: spacing.md,
     marginBottom: spacing.xs,
+  },
+  schoolCard: {
+    backgroundColor: colors.cardBg,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.md,
+  },
+  schoolCardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  schoolCardIcon: {
+    fontSize: 22,
+  },
+  schoolCardText: {
+    flex: 1,
+  },
+  schoolCardName: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.md,
+    color: colors.textDark,
+  },
+  schoolCardMeta: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
+    color: colors.textMid,
+    marginTop: 2,
+  },
+  schoolCardPlaceholder: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.md,
+    color: colors.textLight,
+  },
+  schoolCardButton: {
+    marginBottom: spacing.sm,
+  },
+  schoolCardNote: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
+    color: colors.textLight,
   },
   chipRow: {
     flexDirection: 'row',

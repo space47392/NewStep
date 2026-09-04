@@ -122,6 +122,26 @@ export async function fetchPostsBySchool(
   return (data ?? []) as unknown as Post[];
 }
 
+// school_id-based twin of fetchPostsBySchool (Step 15's school directory) —
+// reuses the exact same !inner-join select, just filtered on the stable
+// school_id instead of the free-text school_name.
+export async function fetchPostsBySchoolId(schoolId: string, category?: PostCategory, limit = 5): Promise<Post[]> {
+  let query = supabase
+    .from('posts')
+    .select(POST_SELECT_BY_SCHOOL)
+    .eq('profiles.school_id', schoolId)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (category) {
+    query = query.eq('category', category);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data ?? []) as unknown as Post[];
+}
+
 export async function createPost(params: {
   postId: string;
   authorId: string;

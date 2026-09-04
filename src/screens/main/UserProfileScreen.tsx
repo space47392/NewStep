@@ -276,7 +276,9 @@ export default function UserProfileScreen() {
           {profile.school_name ? (
             <TouchableOpacity
               style={styles.metaRow}
-              onPress={() => navigation.navigate('School', { schoolName: profile.school_name! })}
+              onPress={() =>
+                navigation.navigate('School', { schoolId: profile.school_id ?? undefined, schoolName: profile.school_name! })
+              }
             >
               <Ionicons name="school-outline" size={14} color={colors.textMid} />
               <Text style={styles.metaText}>

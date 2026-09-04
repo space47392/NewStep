@@ -36,10 +36,15 @@ export type MainStackParamList = {
   // draft already typed — never sent automatically, the user still has to hit Send.
   Conversation: { conversationId: string; otherUser: ChatProfile; prefillText?: string };
   UserProfile: { userId: string };
-  School: { schoolName: string };
+  // schoolId is optional — every existing caller only had a free-text name to
+  // pass, and still does; this screen falls back to schoolName wherever
+  // schoolId isn't available. schoolName is still required so the header
+  // always has something to show even before/without a directory match.
+  School: { schoolId?: string; schoolName: string };
   Notifications: undefined;
   FollowList: { userId: string; mode: 'followers' | 'following' };
   SavedPosts: undefined;
+  ChooseSchool: undefined;
   StoryViewer: { stories: Story[]; initialIndex: number };
   PhotoViewer: { photoUrls: string[]; initialIndex: number };
 };
@@ -49,6 +54,11 @@ export type Profile = {
   username: string | null;
   full_name: string | null;
   school_name: string | null;
+  // Nullable — set only once a user picks from the school directory (see
+  // ChooseSchoolScreen). NULL is a normal, fully-functional state: every
+  // school-scoped feature falls back to school_name until this is set.
+  // Never treated as proof of enrollment.
+  school_id: string | null;
   grade: string | null;
   interests: string[];
   avatar_url: string | null;
@@ -87,6 +97,18 @@ export type PersonSearchResult = Pick<
 export type SchoolSearchResult = {
   schoolName: string;
   studentCount: number;
+};
+
+// One row from the schools directory table (Step 15 — schools_directory_schema.sql).
+// Selecting one is a self-reported community label, never proof of
+// enrollment or a "verified" mark — see ChooseSchoolScreen.
+export type School = {
+  id: string;
+  name: string;
+  city: string | null;
+  state: string | null;
+  country: string;
+  district: string | null;
 };
 
 // One row of a user's private points_history ledger (see points_history_schema.sql).

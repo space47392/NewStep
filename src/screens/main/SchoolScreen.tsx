@@ -3,9 +3,19 @@ import { View, Text, ScrollView, FlatList, TouchableOpacity, StyleSheet } from '
 import { useFocusEffect, useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
-import { fetchSchoolStudentCount, fetchSchoolMembers, fetchSchoolMembersByGrade, fetchSchoolMembersByInterests } from '../../lib/schools';
-import { fetchPostsBySchool } from '../../lib/posts';
-import { fetchStoriesBySchool } from '../../lib/stories';
+import {
+  fetchSchoolStudentCount,
+  fetchSchoolMembers,
+  fetchSchoolMembersByGrade,
+  fetchSchoolMembersByInterests,
+  fetchSchoolStudentCountById,
+  fetchSchoolMembersById,
+  fetchSchoolMembersByGradeById,
+  fetchSchoolMembersByInterestsById,
+  fetchSchoolById,
+} from '../../lib/schools';
+import { fetchPostsBySchool, fetchPostsBySchoolId } from '../../lib/posts';
+import { fetchStoriesBySchool, fetchStoriesBySchoolId } from '../../lib/stories';
 import { getSeenStoryIds } from '../../lib/storyPrefs';
 import { fetchProfileById } from '../../lib/profile';
 import { fetchBlockedUserIds } from '../../lib/blocks';
@@ -16,7 +26,7 @@ import LoadingScreen from '../../components/LoadingScreen';
 import FadeInView from '../../components/FadeInView';
 import PostPreviewCard from '../../components/PostPreviewCard';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
-import { MainStackParamList, SchoolMember, Post, PostCategory, Story } from '../../types';
+import { MainStackParamList, SchoolMember, Post, PostCategory, Story, School } from '../../types';
 
 // Each section pulls a small, capped slice rather than everything — this page
 // is a discovery surface, not a full feed. Tapping any post still goes to the
@@ -57,10 +67,11 @@ function renderMemberList(data: SchoolMember[], navigation: NativeStackNavigatio
 export default function SchoolScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
   const route = useRoute<RouteProp<MainStackParamList, 'School'>>();
-  const { schoolName } = route.params;
+  const { schoolId, schoolName } = route.params;
   const { user } = useAuth();
 
   const [loading, setLoading] = useState(true);
+  const [directorySchool, setDirectorySchool] = useState<School | null>(null);
   const [studentCount, setStudentCount] = useState(0);
   const [members, setMembers] = useState<SchoolMember[]>([]);
   const [schoolStories, setSchoolStories] = useState<Story[]>([]);
@@ -77,19 +88,36 @@ export default function SchoolScreen() {
     useCallback(() => {
       (async () => {
         try {
-          const [count, memberList, recent, help, questions, friends, stories, myProfile, blockedIds] = await Promise.all([
-            fetchSchoolStudentCount(schoolName),
-            fetchSchoolMembers(schoolName, MEMBER_LIMIT),
-            fetchPostsBySchool(schoolName, undefined, SECTION_LIMIT),
-            fetchPostsBySchool(schoolName, 'Need Help', SECTION_LIMIT),
-            fetchPostsBySchool(schoolName, 'School Question', SECTION_LIMIT),
-            fetchPostsBySchool(schoolName, 'Looking for Friends', SECTION_LIMIT),
-            fetchStoriesBySchool(schoolName, MEMBER_LIMIT).catch(() => [] as Story[]),
-            user ? fetchProfileById(user.id) : Promise.resolve(null),
-            user ? fetchBlockedUserIds(user.id).catch(() => new Set<string>()) : Promise.resolve(new Set<string>()),
-          ]);
+          // Prefer the stable school_id once this page was reached with one;
+          // school_name stays the fallback for every link that only ever had
+          // a free-text name to pass (see MainStackParamList's School route).
+          const [count, memberList, recent, help, questions, friends, stories, directoryRow, myProfile, blockedIds] =
+            await Promise.all([
+              schoolId ? fetchSchoolStudentCountById(schoolId) : fetchSchoolStudentCount(schoolName),
+              schoolId ? fetchSchoolMembersById(schoolId, MEMBER_LIMIT) : fetchSchoolMembers(schoolName, MEMBER_LIMIT),
+              schoolId
+                ? fetchPostsBySchoolId(schoolId, undefined, SECTION_LIMIT)
+                : fetchPostsBySchool(schoolName, undefined, SECTION_LIMIT),
+              schoolId
+                ? fetchPostsBySchoolId(schoolId, 'Need Help', SECTION_LIMIT)
+                : fetchPostsBySchool(schoolName, 'Need Help', SECTION_LIMIT),
+              schoolId
+                ? fetchPostsBySchoolId(schoolId, 'School Question', SECTION_LIMIT)
+                : fetchPostsBySchool(schoolName, 'School Question', SECTION_LIMIT),
+              schoolId
+                ? fetchPostsBySchoolId(schoolId, 'Looking for Friends', SECTION_LIMIT)
+                : fetchPostsBySchool(schoolName, 'Looking for Friends', SECTION_LIMIT),
+              (schoolId
+                ? fetchStoriesBySchoolId(schoolId, MEMBER_LIMIT)
+                : fetchStoriesBySchool(schoolName, MEMBER_LIMIT)
+              ).catch(() => [] as Story[]),
+              schoolId ? fetchSchoolById(schoolId).catch(() => null) : Promise.resolve(null),
+              user ? fetchProfileById(user.id) : Promise.resolve(null),
+              user ? fetchBlockedUserIds(user.id).catch(() => new Set<string>()) : Promise.resolve(new Set<string>()),
+            ]);
           // UX filtering only, not a security boundary — see blocks.ts.
           setStudentCount(count);
+          setDirectorySchool(directoryRow);
           setMembers(memberList.filter((m) => !blockedIds.has(m.id)));
           setRecentPosts(recent.filter((p) => !blockedIds.has(p.author_id)));
           setHelpPosts(help.filter((p) => !blockedIds.has(p.author_id)));
@@ -109,19 +137,29 @@ export default function SchoolScreen() {
           // "Find your community" only shows on your OWN school's page, and only
           // if you opted into New Student mode — never on a school you're just
           // browsing, and never forced on anyone who didn't ask for it.
-          const isOwnSchool = !!myProfile && myProfile.school_name === schoolName;
+          const isOwnSchool =
+            !!myProfile && (schoolId ? myProfile.school_id === schoolId : myProfile.school_name === schoolName);
           const wantsDiscovery = isOwnSchool && myProfile!.is_new_student === true;
 
           if (wantsDiscovery && user) {
             setMyGrade(myProfile!.grade);
-            const [byGrade, byInterests] = await Promise.all([
-              myProfile!.grade
-                ? fetchSchoolMembersByGrade(schoolName, myProfile!.grade, user.id, DISCOVERY_LIMIT)
-                : Promise.resolve([]),
-              myProfile!.interests.length > 0
-                ? fetchSchoolMembersByInterests(schoolName, myProfile!.interests, user.id, DISCOVERY_LIMIT)
-                : Promise.resolve([]),
-            ]);
+            const [byGrade, byInterests] = schoolId
+              ? await Promise.all([
+                  myProfile!.grade
+                    ? fetchSchoolMembersByGradeById(schoolId, myProfile!.grade, user.id, DISCOVERY_LIMIT)
+                    : Promise.resolve([]),
+                  myProfile!.interests.length > 0
+                    ? fetchSchoolMembersByInterestsById(schoolId, myProfile!.interests, user.id, DISCOVERY_LIMIT)
+                    : Promise.resolve([]),
+                ])
+              : await Promise.all([
+                  myProfile!.grade
+                    ? fetchSchoolMembersByGrade(schoolName, myProfile!.grade, user.id, DISCOVERY_LIMIT)
+                    : Promise.resolve([]),
+                  myProfile!.interests.length > 0
+                    ? fetchSchoolMembersByInterests(schoolName, myProfile!.interests, user.id, DISCOVERY_LIMIT)
+                    : Promise.resolve([]),
+                ]);
             setGradeMates(byGrade.filter((m) => !blockedIds.has(m.id)));
             setInterestMates(byInterests.filter((m) => !blockedIds.has(m.id)));
           } else {
@@ -135,7 +173,7 @@ export default function SchoolScreen() {
           setLoading(false);
         }
       })();
-    }, [schoolName, user])
+    }, [schoolId, schoolName, user])
   );
 
   if (loading) {
@@ -158,7 +196,13 @@ export default function SchoolScreen() {
       </TouchableOpacity>
 
       <FadeInView style={styles.header}>
-        <Text style={styles.schoolName}>🏫 {schoolName}</Text>
+        <Text style={styles.schoolName}>🏫 {directorySchool?.name ?? schoolName}</Text>
+        {directorySchool?.city ? (
+          <Text style={styles.schoolLocation}>
+            {directorySchool.city}
+            {directorySchool.state ? `, ${directorySchool.state}` : ''}
+          </Text>
+        ) : null}
         <Text style={styles.studentCount}>
           {studentCount} {studentCount === 1 ? 'Student' : 'Students'}
         </Text>
@@ -278,6 +322,12 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.bold,
     fontSize: fontSize.xxl,
     color: colors.textDark,
+  },
+  schoolLocation: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
+    color: colors.textLight,
+    marginTop: 2,
   },
   studentCount: {
     fontFamily: fontFamily.regular,

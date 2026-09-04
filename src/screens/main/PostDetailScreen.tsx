@@ -35,6 +35,7 @@ import FadeInView from '../../components/FadeInView';
 import ActionSheet, { ActionSheetAction } from '../../components/ActionSheet';
 import ReportSheet from '../../components/ReportSheet';
 import HelpStatusBadge from '../../components/HelpStatusBadge';
+import StoryOriginBadge from '../../components/StoryOriginBadge';
 import LikeButton from '../../components/LikeButton';
 import SaveButton from '../../components/SaveButton';
 import PhotoCarousel from '../../components/PhotoCarousel';
@@ -380,6 +381,7 @@ export default function PostDetailScreen() {
                 <Text style={[styles.categoryText, { color: category.text }]}>{post.category}</Text>
               </View>
               {post.category === 'Need Help' && <HelpStatusBadge status={post.status} />}
+              {post.source_story_id && <StoryOriginBadge />}
             </View>
 
             <Text style={styles.postContent}>{post.content}</Text>

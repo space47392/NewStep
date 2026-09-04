@@ -214,14 +214,21 @@ export default function StoryViewerScreen() {
     }
   };
 
-  // Opens a fresh post draft rather than messaging the author directly — this
-  // is a public offer to the community, not a DM, so it goes through the same
-  // CreatePost flow any other post does (the user still reviews/edits/taps
-  // Post themselves).
+  // Opens a fresh Need Help post draft rather than messaging the author
+  // directly — this turns what the viewer noticed in the story into a real,
+  // trackable Help request the whole school community can volunteer on
+  // (existing volunteer_to_help() flow), not a DM and not the viewer
+  // personally committing to help right here. Stories carry no caption/text
+  // (image-only), so this can't quote the story like a post's content — the
+  // stub below is deliberately incomplete, forcing an actual edit rather than
+  // a blind tap-to-post. Only story.id is persisted (posts.source_story_id);
+  // the author's name here is compose-screen-only context, never stored.
   const handleICanHelp = () => {
-    const firstName = story.profiles?.full_name?.split(' ')[0];
     navigation.navigate('CreatePost', {
-      prefillContent: `Reaching out to see if ${firstName ?? 'anyone'} — or anyone else — needs a hand today! 🤝`,
+      prefillCategory: 'Need Help',
+      prefillContent: 'About this School Story: ',
+      sourceStoryId: story.id,
+      sourceStoryAuthorName: story.profiles?.full_name ?? null,
     });
   };
 

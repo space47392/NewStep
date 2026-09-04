@@ -14,6 +14,7 @@ export const POST_SELECT = `
   like_count,
   photo_urls,
   created_at,
+  source_story_id,
   comments:comments(count),
   profiles:author_id (
     id,
@@ -148,6 +149,11 @@ export async function createPost(params: {
   content: string;
   category: PostCategory;
   photoUrls: string[];
+  // Set only when this post was created via a School Story's "I Can Help"
+  // action — see posts_story_origin.sql. No special privilege check needed
+  // here: the author already fully controls every other field on their own
+  // new post, so this is just another column, not a new access path.
+  sourceStoryId?: string;
 }): Promise<void> {
   const { error } = await supabase.from('posts').insert({
     id: params.postId,
@@ -155,6 +161,7 @@ export async function createPost(params: {
     content: params.content,
     category: params.category,
     photo_urls: params.photoUrls,
+    source_story_id: params.sourceStoryId ?? null,
   });
 
   if (error) throw error;

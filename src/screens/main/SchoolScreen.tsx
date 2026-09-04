@@ -210,7 +210,7 @@ export default function SchoolScreen() {
 
       {schoolStories.length > 0 && (
         <FadeInView style={styles.membersSection} delay={20}>
-          <Text style={styles.sectionTitle}>Stories</Text>
+          <Text style={styles.sectionTitle}>School Stories</Text>
           <FlatList
             horizontal
             showsHorizontalScrollIndicator={false}

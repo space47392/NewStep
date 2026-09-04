@@ -32,7 +32,19 @@ export type MainStackParamList = {
   // prefillContent: lets a caller (e.g. StoryViewer's "I Can Help") start a
   // new post with a draft already in the box — the user still has to review
   // and tap Post themselves, same as editing an existing draft would.
-  CreatePost: { post?: Post; prefillContent?: string } | undefined;
+  // prefillCategory: same idea, for the category chips.
+  // sourceStoryId/sourceStoryAuthorName: School Story context for "I Can
+  // Help" — sourceStoryId is persisted onto the created post (posts.source_story_id);
+  // sourceStoryAuthorName is shown only in this screen's compose banner, never stored.
+  CreatePost:
+    | {
+        post?: Post;
+        prefillContent?: string;
+        prefillCategory?: PostCategory;
+        sourceStoryId?: string;
+        sourceStoryAuthorName?: string | null;
+      }
+    | undefined;
   // focusComment: true lets a caller (e.g. FeedScreen's "X Comments" link)
   // ask the screen to focus the comment input as soon as it opens.
   PostDetail: { post: Post; focusComment?: boolean };
@@ -156,6 +168,11 @@ export type Post = {
   like_count: number;
   photo_urls: string[];
   created_at: string;
+  // Set only when this post was created via a School Story's "I Can Help"
+  // action (see posts_story_origin.sql) — null for every other post. Never
+  // exposes story content/author, just whether one exists; ON DELETE SET
+  // NULL means a later-deleted story silently clears this, nothing breaks.
+  source_story_id: string | null;
   // PostgREST embedded aggregate — see POST_SELECT in lib/posts.ts. Absent on any
   // select that doesn't ask for it, so always optional-chain when reading it.
   comments?: { count: number }[];

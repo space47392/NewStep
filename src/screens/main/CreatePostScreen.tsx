@@ -41,7 +41,13 @@ export default function CreatePostScreen() {
   // Never auto-posted — just starts the draft already typed (e.g. StoryViewer's
   // "I Can Help"); the user still has to review, edit, and tap Post themselves.
   const [content, setContent] = useState(editingPost?.content ?? route.params?.prefillContent ?? '');
-  const [category, setCategory] = useState<PostCategory>(editingPost?.category ?? 'Looking for Friends');
+  const [category, setCategory] = useState<PostCategory>(
+    editingPost?.category ?? route.params?.prefillCategory ?? 'Looking for Friends'
+  );
+  // School Story context (StoryViewer's "I Can Help") — only ever set when
+  // actually creating a new post, never carried into an edit.
+  const sourceStoryId = editingPost ? undefined : route.params?.sourceStoryId;
+  const sourceStoryAuthorName = route.params?.sourceStoryAuthorName;
   const [existingPhotoUrls, setExistingPhotoUrls] = useState<string[]>(editingPost?.photo_urls ?? []);
   const [newPhotos, setNewPhotos] = useState<ImagePicker.ImagePickerAsset[]>([]);
   const [posting, setPosting] = useState(false);
@@ -115,7 +121,14 @@ export default function CreatePostScreen() {
           )
         );
 
-        await createPost({ postId, authorId: user.id, content: content.trim(), category, photoUrls: uploadedUrls });
+        await createPost({
+          postId,
+          authorId: user.id,
+          content: content.trim(),
+          category,
+          photoUrls: uploadedUrls,
+          sourceStoryId,
+        });
       }
       navigation.goBack();
     } catch (err) {
@@ -137,6 +150,15 @@ export default function CreatePostScreen() {
       </View>
 
       <FadeInView>
+        {sourceStoryId && (
+          <View style={styles.storyContextBanner}>
+            <Ionicons name="albums-outline" size={16} color={colors.primary} />
+            <Text style={styles.storyContextText}>
+              You're responding to {sourceStoryAuthorName ? `${sourceStoryAuthorName}'s` : 'a'} School Story
+            </Text>
+          </View>
+        )}
+
         <Text style={styles.label}>Category</Text>
         <View style={styles.chipRow}>
           {CATEGORIES.map((c) => {
@@ -240,6 +262,22 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.bold,
     fontSize: fontSize.lg,
     color: colors.textDark,
+  },
+  storyContextBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    backgroundColor: colors.primaryLight,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    marginBottom: spacing.lg,
+  },
+  storyContextText: {
+    flex: 1,
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
+    color: colors.primary,
   },
   label: {
     fontFamily: fontFamily.semibold,

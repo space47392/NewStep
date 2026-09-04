@@ -1,6 +1,11 @@
 export type RootStackParamList = {
   Auth: undefined;
   ChooseUsername: undefined;
+  // Shown once, right after ChooseUsername, only for a brand-new signup in
+  // this same app session — see AppNavigator. Distinct from MainStackParamList's
+  // own "ChooseSchool" (the always-available Profile entry point); same
+  // screen component, two different navigators, no relation between the two.
+  ChooseSchool: undefined;
   Main: undefined;
 };
 

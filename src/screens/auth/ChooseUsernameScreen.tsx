@@ -12,7 +12,14 @@ const DEBOUNCE_MS = 400;
 
 type Status = 'idle' | 'checking' | 'available' | 'taken' | 'invalid';
 
-export default function ChooseUsernameScreen() {
+type Props = {
+  // Called right after a successful save, in addition to refreshUsername() —
+  // lets AppNavigator know a brand-new signup just finished this step, so it
+  // can offer the school-onboarding screen next (see AppNavigator.tsx).
+  onComplete?: () => void;
+};
+
+export default function ChooseUsernameScreen({ onComplete }: Props) {
   const { user, refreshUsername } = useAuth();
   const [input, setInput] = useState('');
   const [status, setStatus] = useState<Status>('idle');
@@ -62,6 +69,7 @@ export default function ChooseUsernameScreen() {
       const normalized = normalizeUsername(input);
       await setMyUsername(user.id, normalized);
       await refreshUsername();
+      onComplete?.();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Could not save username.';
       Alert.alert('Error', message);

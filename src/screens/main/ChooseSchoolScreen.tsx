@@ -14,14 +14,32 @@ import { MainStackParamList, School } from '../../types';
 type Step = 'state' | 'city' | 'search';
 const DEBOUNCE_MS = 250;
 
+const DEFAULT_TITLE = 'Choose your school';
+const DEFAULT_SUBTITLE = "Selecting a school links you to its community — it doesn't verify that you attend it.";
+
+type Props = {
+  // Set only by the onboarding flow (AppNavigator) — there, this screen is
+  // rendered directly on the root stack with nothing to go back to, so
+  // "close"/"skip"/"selected a school" all need somewhere else to go instead
+  // of navigation.goBack(). Left undefined for the normal Profile-invoked
+  // case, which keeps its exact original goBack() behavior.
+  onDone?: () => void;
+  // Adds an explicit "Skip for now" action — only makes sense alongside onDone.
+  showSkip?: boolean;
+  title?: string;
+  subtitle?: string;
+};
+
 // State -> Area/City -> Search -> Select, per the approved UX. One screen
 // with an internal step rather than three stack screens — there's no reason
 // to add three navigator entries and lose-your-place-on-back-swipe risk for
-// what is really one linear picker.
-export default function ChooseSchoolScreen() {
+// what is really one linear picker. Reused as-is (not rebuilt) for onboarding —
+// see the onDone/showSkip props above.
+export default function ChooseSchoolScreen({ onDone, showSkip, title, subtitle }: Props) {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
   const { user } = useAuth();
   const { showToast } = useToast();
+  const finish = onDone ?? (() => navigation.goBack());
 
   const [step, setStep] = useState<Step>('state');
 
@@ -95,7 +113,7 @@ export default function ChooseSchoolScreen() {
     try {
       await setMySchool(user.id, school.id);
       showToast(`School set to ${school.name}`);
-      navigation.goBack();
+      finish();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Could not save your school.';
       Alert.alert('Error', message);
@@ -111,7 +129,7 @@ export default function ChooseSchoolScreen() {
       setStep('state');
       setSelectedState(null);
     } else {
-      navigation.goBack();
+      finish();
     }
   };
 
@@ -122,16 +140,19 @@ export default function ChooseSchoolScreen() {
           <Ionicons name="arrow-back" size={20} color={colors.primary} />
           <Text style={styles.backText}>{step === 'state' ? 'Back' : 'Change'}</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <TouchableOpacity onPress={finish} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Ionicons name="close" size={22} color={colors.textMid} />
         </TouchableOpacity>
       </View>
 
       <View style={styles.header}>
-        <Text style={styles.title}>Choose your school</Text>
-        <Text style={styles.subtitle}>
-          Selecting a school links you to its community — it doesn't verify that you attend it.
-        </Text>
+        <Text style={styles.title}>{title ?? DEFAULT_TITLE}</Text>
+        <Text style={styles.subtitle}>{subtitle ?? DEFAULT_SUBTITLE}</Text>
+        {showSkip && (
+          <TouchableOpacity onPress={finish} style={styles.skipButton}>
+            <Text style={styles.skipText}>Skip for now</Text>
+          </TouchableOpacity>
+        )}
         {(selectedState || selectedCity) && (
           <View style={styles.breadcrumbRow}>
             {selectedState && <Text style={styles.breadcrumb}>{selectedState}</Text>}
@@ -291,6 +312,16 @@ const styles = StyleSheet.create({
     color: colors.textMid,
     marginTop: spacing.xs,
     lineHeight: 19,
+  },
+  skipButton: {
+    alignSelf: 'flex-start',
+    marginTop: spacing.sm,
+  },
+  skipText: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
+    color: colors.primary,
+    textDecorationLine: 'underline',
   },
   breadcrumbRow: {
     flexDirection: 'row',

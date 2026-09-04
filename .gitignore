@@ -40,3 +40,7 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# large downloaded source data for one-off import scripts — not app code,
+# shouldn't bloat the repo (see scripts/import_ca_schools.js)
+/scripts/data/

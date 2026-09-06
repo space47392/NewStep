@@ -22,7 +22,7 @@ import { sharePost } from '../../lib/share';
 import { fetchActiveStories, uploadStory } from '../../lib/stories';
 import { getSeenStoryIds, pruneSeenStoryIds } from '../../lib/storyPrefs';
 import { fetchProfileById } from '../../lib/profile';
-import { fetchSchoolStudentCount, fetchSchoolStudentCountById } from '../../lib/schools';
+import { fetchSchoolStudentCount, fetchSchoolStudentCountById, fetchSchoolById } from '../../lib/schools';
 import { fetchFollowingIds } from '../../lib/follows';
 import { isWelcomeBannerDismissed, dismissWelcomeBanner } from '../../lib/newStudentPrefs';
 import { fetchUnreadNotificationCount } from '../../lib/notifications';
@@ -266,26 +266,35 @@ export default function FeedScreen() {
         fetchProfileById(user.id),
         isWelcomeBannerDismissed(user.id),
       ]);
-      setMySchoolName(profile.school_name);
       setMySchoolId(profile.school_id);
       setIsNewStudent(profile.is_new_student === true);
       setWelcomeBannerDismissed(dismissed);
       // Prefer the stable school_id once set; school_name stays the fallback
-      // for every profile that hasn't picked from the directory yet.
+      // for every profile that hasn't picked from the directory yet. Picking
+      // a school via ChooseSchoolScreen's directory only ever writes
+      // school_id (see setMySchool()), never school_name — so a directory-
+      // picked profile needs its real name resolved from the schools table
+      // here, the same way SchoolScreen already does, or this would
+      // incorrectly keep showing the "no school" state forever (Step 31.5).
       if (profile.school_id) {
-        const [count, helpCount] = await Promise.all([
+        const [directorySchool, count, helpCount] = await Promise.all([
+          fetchSchoolById(profile.school_id).catch(() => null),
           fetchSchoolStudentCountById(profile.school_id),
           fetchOpenHelpCountBySchoolId(profile.school_id).catch(() => 0),
         ]);
+        setMySchoolName(directorySchool?.name ?? profile.school_name);
         setMySchoolStudentCount(count);
         setOpenHelpCount(helpCount);
       } else if (profile.school_name) {
+        setMySchoolName(profile.school_name);
         const [count, helpCount] = await Promise.all([
           fetchSchoolStudentCount(profile.school_name),
           fetchOpenHelpCountBySchool(profile.school_name).catch(() => 0),
         ]);
         setMySchoolStudentCount(count);
         setOpenHelpCount(helpCount);
+      } else {
+        setMySchoolName(null);
       }
     } catch {
       // leave the banner hidden
@@ -493,29 +502,40 @@ export default function FeedScreen() {
               </FadeInView>
             )}
 
+            {/* Static app title, separate from the identity/activity line below —
+                previously concatenated into one truncating string ("NewStep ·
+                Add your school in Pr...") when there was no school set. Now
+                "NewStep" is always shown in full; school/activity context
+                (unchanged) lives entirely in identityText below. */}
+            <Text style={styles.pageTitle}>NewStep</Text>
+
             {/* One identity line instead of three separate widgets (title,
                 story caption, school pill) — same data as before, just no
                 longer fragmented across the header. Doubles as the entry
                 point into School Community. */}
             <View style={styles.identityRow}>
-              <TouchableOpacity
-                style={styles.identityTextWrap}
-                activeOpacity={mySchoolName ? 0.7 : 1}
-                disabled={!mySchoolName}
-                onPress={() =>
-                  mySchoolName &&
-                  navigation.navigate('School', { schoolId: mySchoolId ?? undefined, schoolName: mySchoolName })
-                }
-              >
-                <Text style={styles.identityText} numberOfLines={1}>
-                  {mySchoolName
-                    ? `🏫 ${mySchoolName} · ${mySchoolStudentCount} ${mySchoolStudentCount === 1 ? 'student' : 'students'}${
-                        openHelpCount > 0 ? ` · 🤝 ${openHelpCount} need help` : ''
-                      }`
-                    : 'NewStep · Add your school in Profile to see your community'}
-                </Text>
-                {mySchoolName ? <Ionicons name="chevron-forward" size={14} color={colors.primary} /> : null}
-              </TouchableOpacity>
+              {mySchoolName ? (
+                <TouchableOpacity
+                  style={styles.identityTextWrap}
+                  activeOpacity={0.7}
+                  onPress={() =>
+                    navigation.navigate('School', { schoolId: mySchoolId ?? undefined, schoolName: mySchoolName })
+                  }
+                >
+                  <Text style={styles.identityText} numberOfLines={1}>
+                    {`🏫 ${mySchoolName} · ${mySchoolStudentCount} ${mySchoolStudentCount === 1 ? 'student' : 'students'}${
+                      openHelpCount > 0 ? ` · 🤝 ${openHelpCount} need help` : ''
+                    }`}
+                  </Text>
+                  <Ionicons name="chevron-forward" size={14} color={colors.primary} />
+                </TouchableOpacity>
+              ) : (
+                // Keeps the bell pinned to the right edge, same as the
+                // populated case — the actual "no school" call-to-action is
+                // its own banner below, not a truncating inline string
+                // (Step 31.5).
+                <View style={styles.identityTextWrap} />
+              )}
               <TouchableOpacity
                 style={styles.bellButton}
                 onPress={() => navigation.navigate('Notifications')}
@@ -529,6 +549,19 @@ export default function FeedScreen() {
                 )}
               </TouchableOpacity>
             </View>
+
+            {!mySchoolName && (
+              <View style={styles.chooseSchoolCard}>
+                <Text style={styles.chooseSchoolTitle}>🏫 Choose your school</Text>
+                <Text style={styles.chooseSchoolSubtitle}>See your school community, stories, and events.</Text>
+                <PrimaryButton
+                  title="Choose School"
+                  icon="school-outline"
+                  onPress={() => navigation.navigate('ChooseSchool')}
+                  style={styles.chooseSchoolButton}
+                />
+              </View>
+            )}
 
             {/* Wrapped as its own card so it reads as "the School Stories
                 section" rather than a bare row of circles — pure presentation,
@@ -545,7 +578,7 @@ export default function FeedScreen() {
                   !myStory ? (
                     <TouchableOpacity style={styles.storyItem} onPress={handleAddStory} disabled={uploadingStory}>
                       <View style={styles.addStoryAvatarWrap}>
-                        <Avatar uri={null} size={60} />
+                        <Avatar uri={null} size={48} />
                         <View style={styles.addStoryBadge}>
                           {uploadingStory ? (
                             <ActivityIndicator size="small" color="#fff" />
@@ -572,7 +605,7 @@ export default function FeedScreen() {
                       onPress={() => navigation.navigate('StoryViewer', { stories: storyRail, initialIndex: index })}
                     >
                       <View style={[styles.storyAvatarWrap, { borderColor: ringColor }]}>
-                        <Avatar uri={item.profiles?.avatar_url} size={60} />
+                        <Avatar uri={item.profiles?.avatar_url} size={48} />
                       </View>
                       <Text style={styles.storyName} numberOfLines={1}>
                         {mine ? 'Your Story' : item.profiles?.full_name ?? 'Unknown'}
@@ -848,6 +881,10 @@ const styles = StyleSheet.create({
   },
   list: {
     padding: spacing.lg,
+    // Clears the floating create-post button (58px, offset spacing.lg from
+    // the screen bottom) plus breathing room, so the last post's content and
+    // interaction row are never covered by it (Step 31).
+    paddingBottom: spacing.lg + 58 + spacing.lg,
   },
   welcomeCard: {
     position: 'relative',
@@ -913,36 +950,40 @@ const styles = StyleSheet.create({
   storyCard: {
     backgroundColor: colors.cardBg,
     borderRadius: radius.lg,
-    paddingTop: spacing.md,
+    paddingTop: spacing.xs,
     paddingHorizontal: spacing.md,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.sm,
     ...shadow.subtle,
   },
   storyRailLabel: {
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.sm,
     color: colors.textDark,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
   },
   storyRail: {
-    paddingBottom: spacing.md,
-    gap: spacing.md,
+    paddingBottom: spacing.xs,
+    gap: spacing.sm,
   },
   storyItem: {
     alignItems: 'center',
-    width: 72,
+    width: 60,
   },
+  // Further tightened from Step 31's 60/56 — a real screenshot still showed
+  // the rail taking up too much vertical space with only a few stories
+  // (Step 31.5). Deliberately smaller than SchoolScreen's own story rail now
+  // (out of scope for this Home-only pass) rather than left unfixed here.
   storyAvatarWrap: {
-    width: 64,
-    height: 64,
+    width: 52,
+    height: 52,
     borderRadius: radius.full,
     borderWidth: 2,
     justifyContent: 'center',
     alignItems: 'center',
   },
   addStoryAvatarWrap: {
-    width: 64,
-    height: 64,
+    width: 52,
+    height: 52,
     borderRadius: radius.full,
     borderWidth: 2,
     borderColor: colors.border,
@@ -969,11 +1010,43 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
     textAlign: 'center',
   },
+  pageTitle: {
+    fontFamily: fontFamily.extrabold,
+    fontSize: fontSize.xl,
+    color: colors.primary,
+    marginBottom: spacing.xs,
+  },
   identityRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
     marginBottom: spacing.md,
+  },
+  // Replaces the old inline "Add your school in Profile..." fallback text,
+  // which truncated awkwardly at one line — a short, fixed-text card instead
+  // of a dynamic string that never has room to grow (Step 31.5). Only shown
+  // when there's no school at all; disappears for good once one is set, same
+  // as the fallback it replaces — no separate dismiss/persisted state needed.
+  chooseSchoolCard: {
+    backgroundColor: colors.primaryLight,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
+  },
+  chooseSchoolTitle: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.lg,
+    color: colors.textDark,
+  },
+  chooseSchoolSubtitle: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    color: colors.textMid,
+    marginTop: spacing.xs,
+    lineHeight: 19,
+  },
+  chooseSchoolButton: {
+    marginTop: spacing.md,
   },
   identityTextWrap: {
     flex: 1,
@@ -1142,15 +1215,21 @@ const styles = StyleSheet.create({
   photoWrap: {
     marginTop: spacing.sm,
   },
+  // Tightened from spacing.sm on both — with Event posts already showing
+  // EventDetails (date/time/location + interested count) above this, the
+  // extra gap read as crowded rather than organized (Step 31.5). Title
+  // (content) -> date/time/location (EventDetails) -> Interested -> social
+  // actions is already the DOM order; this just brings them visually closer
+  // as one related group instead of hiding anything.
   interestRow: {
     alignItems: 'flex-start',
-    marginTop: spacing.sm,
+    marginTop: spacing.xs,
   },
   cardFooter: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: spacing.sm,
+    marginTop: spacing.xs,
   },
   footerRight: {
     flexDirection: 'row',

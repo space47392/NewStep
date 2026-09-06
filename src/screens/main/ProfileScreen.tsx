@@ -198,26 +198,6 @@ export default function ProfileScreen() {
         <Text style={styles.name}>{fullName ?? 'Unknown'}</Text>
         {username ? <Text style={styles.username}>@{username}</Text> : null}
 
-        <View style={styles.statsRow}>
-          <Text style={styles.statText}>
-            <Text style={styles.statNumber}>{posts.length}</Text> Posts
-          </Text>
-          {user && (
-            <>
-              <TouchableOpacity onPress={() => navigation.navigate('FollowList', { userId: user.id, mode: 'followers' })}>
-                <Text style={styles.statText}>
-                  <Text style={styles.statNumber}>{followCounts.followers}</Text> Followers
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => navigation.navigate('FollowList', { userId: user.id, mode: 'following' })}>
-                <Text style={styles.statText}>
-                  <Text style={styles.statNumber}>{followCounts.following}</Text> Following
-                </Text>
-              </TouchableOpacity>
-            </>
-          )}
-        </View>
-
         {selectedSchool ? (
           <TouchableOpacity
             style={styles.metaRow}
@@ -243,6 +223,29 @@ export default function ProfileScreen() {
             ))}
           </View>
         )}
+
+        {/* Identity -> School/Grade -> Social stats -> Community contribution
+            (below) -> Achievements — previously this row sat above School/Grade,
+            ahead of identity's own school context (Step 31). */}
+        <View style={styles.statsRow}>
+          <Text style={styles.statText}>
+            <Text style={styles.statNumber}>{posts.length}</Text> Posts
+          </Text>
+          {user && (
+            <>
+              <TouchableOpacity onPress={() => navigation.navigate('FollowList', { userId: user.id, mode: 'followers' })}>
+                <Text style={styles.statText}>
+                  <Text style={styles.statNumber}>{followCounts.followers}</Text> Followers
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => navigation.navigate('FollowList', { userId: user.id, mode: 'following' })}>
+                <Text style={styles.statText}>
+                  <Text style={styles.statNumber}>{followCounts.following}</Text> Following
+                </Text>
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
 
         <TouchableOpacity
           style={styles.editButton}

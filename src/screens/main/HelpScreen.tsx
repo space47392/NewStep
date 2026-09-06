@@ -8,6 +8,7 @@ import { fetchPostsBySchool, fetchPostsBySchoolId } from '../../lib/posts';
 import { fetchBlockedUserIds } from '../../lib/blocks';
 import PostPreviewCard from '../../components/PostPreviewCard';
 import EmptyState from '../../components/EmptyState';
+import PrimaryButton from '../../components/PrimaryButton';
 import { PostCardSkeleton } from '../../components/Skeleton';
 import FadeInView from '../../components/FadeInView';
 import { colors, spacing, fontSize, fontFamily } from '../../constants/theme';
@@ -104,15 +105,26 @@ export default function HelpScreen() {
           </View>
         }
         ListEmptyComponent={
-          <EmptyState
-            icon="hand-left-outline"
-            title={hasSchool ? 'No open help requests right now' : 'Add your school to see help requests'}
-            subtitle={
-              hasSchool
-                ? 'When someone at your school posts with the Need Help category, it shows up here.'
-                : 'Set your school from your profile to see requests from your community.'
-            }
-          />
+          <View>
+            <EmptyState
+              icon="hand-left-outline"
+              title={hasSchool ? '🤝 No open requests right now' : 'Add your school to see help requests'}
+              subtitle={
+                hasSchool
+                  ? "Your school community doesn't have any active help requests."
+                  : 'Set your school from your profile to see requests from your community.'
+              }
+            />
+            {hasSchool && (
+              <PrimaryButton
+                title="Post a Need Help Request"
+                icon="add-circle-outline"
+                variant="outline"
+                onPress={() => navigation.navigate('CreatePost', { prefillCategory: 'Need Help' })}
+                style={styles.emptyActionButton}
+              />
+            )}
+          </View>
         }
         renderItem={({ item, index }) => (
           <FadeInView delay={Math.min(index, 6) * 30}>
@@ -135,8 +147,8 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    marginBottom: spacing.md,
+    paddingTop: spacing.xl,
+    marginBottom: spacing.lg,
   },
   title: {
     fontFamily: fontFamily.bold,
@@ -152,5 +164,9 @@ const styles = StyleSheet.create({
   list: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xl,
+  },
+  emptyActionButton: {
+    marginTop: spacing.lg,
+    marginHorizontal: spacing.xl,
   },
 });

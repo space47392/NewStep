@@ -294,6 +294,12 @@ export default function SearchScreen() {
     setRecentSearches([]);
   };
 
+  // Real, non-redundant full-list destinations that now exist (Step 30's
+  // Community/Help tabs) — not every Discovery section gets a "See All",
+  // only the ones with somewhere fuller to actually send someone.
+  const goToCommunity = () => navigation.navigate('Tabs', { screen: 'Volunteer' });
+  const goToHelp = () => navigation.navigate('Tabs', { screen: 'Help' });
+
   const showRecent = query.trim().length === 0;
   const hasAnyResults = people.length > 0 || posts.length > 0 || schools.length > 0;
 
@@ -435,7 +441,7 @@ export default function SearchScreen() {
 
           {contributors.length > 0 && (
             <View style={styles.section}>
-              <SectionHeader title="🤝 Community Helpers" />
+              <SectionHeader title="🤝 Community Helpers" onSeeAll={goToCommunity} />
               <FlatList
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -469,7 +475,7 @@ export default function SearchScreen() {
 
           {needHelpPosts.length > 0 && (
             <View style={styles.section}>
-              <SectionHeader title="🤝 Need Help" />
+              <SectionHeader title="🤝 Need Help" onSeeAll={goToHelp} />
               {needHelpPosts.map((post) => (
                 <PostPreviewCard key={post.id} post={post} onPress={() => navigation.navigate('PostDetail', { post })} />
               ))}
@@ -626,8 +632,10 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
     paddingBottom: spacing.lg,
   },
+  // Tightened from spacing.lg — with only a few results per section, the old
+  // gap read as empty dead space rather than clear separation (Step 31).
   section: {
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
   },
   recentHeader: {
     flexDirection: 'row',

@@ -36,9 +36,17 @@ export default function TabNavigator() {
           paddingBottom: 10,
           ...shadow.floating,
         },
+        // Slightly smaller/tighter than before — 6 tabs (Home/Search/Help/
+        // Chat/Community/Profile) share the row, and "Community" was the
+        // longest label, at risk of wrapping or clipping at the old size
+        // (Step 31).
         tabBarLabelStyle: {
           fontFamily: fontFamily.semibold,
-          fontSize: 11,
+          fontSize: 10,
+          letterSpacing: -0.2,
+        },
+        tabBarItemStyle: {
+          paddingHorizontal: 2,
         },
         tabBarIcon: ({ focused, color, size }) => {
           const icons = TAB_ICONS[route.name];

@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -6,9 +6,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import {
   fetchNotifications,
-  markNotificationRead,
-  formatNotificationMessage,
+  markNotificationsRead,
+  formatGroupedNotificationMessage,
   getNotificationIcon,
+  getNotificationCategoryColor,
+  resolveNotificationTarget,
+  groupNotifications,
+  NotificationGroup,
 } from '../../lib/notifications';
 import { fetchPostById } from '../../lib/posts';
 import { formatRelativeTime } from '../../lib/time';
@@ -21,11 +25,6 @@ import { AppNotification, MainStackParamList } from '../../types';
 
 const PAGE_SIZE = 20;
 
-// Post-related types all resolve to the same destination — fetching the full
-// Post is unavoidable since PostDetailScreen's route needs the whole object,
-// not just an id, matching how every other screen already navigates there.
-const POST_TYPES = new Set(['like', 'comment', 'volunteer', 'help_completed', 'thanks_received']);
-
 export default function NotificationsScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
   const { user } = useAuth();
@@ -35,6 +34,11 @@ export default function NotificationsScreen() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [openingId, setOpeningId] = useState<string | null>(null);
+
+  // Purely a display transform — groupNotifications() never mutates or drops
+  // the underlying rows, so pagination/mark-as-read below still operate on
+  // real notification ids.
+  const grouped = useMemo(() => groupNotifications(notifications), [notifications]);
 
   const loadFirstPage = useCallback(async () => {
     if (!user) return;
@@ -72,29 +76,32 @@ export default function NotificationsScreen() {
     }
   };
 
-  const handlePress = async (notification: AppNotification) => {
-    if (!notification.read_at) {
-      markNotificationRead(notification.id).catch(() => {});
+  const handlePress = async (group: NotificationGroup) => {
+    if (!group.read_at) {
+      markNotificationsRead(group.memberIds).catch(() => {});
       setNotifications((prev) =>
-        prev.map((n) => (n.id === notification.id ? { ...n, read_at: new Date().toISOString() } : n))
+        prev.map((n) => (group.memberIds.includes(n.id) ? { ...n, read_at: new Date().toISOString() } : n))
       );
     }
 
-    setOpeningId(notification.id);
+    const target = resolveNotificationTarget({
+      type: group.type,
+      post_id: group.post_id,
+      conversation_id: group.conversation_id,
+      actor_id: group.actor?.id ?? null,
+    });
+    if (!target) return;
+
+    setOpeningId(group.id);
     try {
-      if (POST_TYPES.has(notification.type)) {
-        if (!notification.post_id) return;
-        const post = await fetchPostById(notification.post_id);
+      if (target.screen === 'PostDetail') {
+        const post = await fetchPostById(target.postId);
         navigation.navigate('PostDetail', { post });
-      } else if (notification.type === 'message') {
-        if (!notification.conversation_id || !notification.actor) return;
-        navigation.navigate('Conversation', {
-          conversationId: notification.conversation_id,
-          otherUser: notification.actor,
-        });
-      } else if (notification.type === 'follow' || notification.type === 'story_wave') {
-        if (!notification.actor) return;
-        navigation.navigate('UserProfile', { userId: notification.actor.id });
+      } else if (target.screen === 'Conversation') {
+        if (!group.actor) return;
+        navigation.navigate('Conversation', { conversationId: target.conversationId, otherUser: group.actor });
+      } else if (target.screen === 'UserProfile') {
+        navigation.navigate('UserProfile', { userId: target.userId });
       } else {
         // points_earned / achievement_earned
         navigation.navigate('Tabs', { screen: 'Profile' });
@@ -118,7 +125,7 @@ export default function NotificationsScreen() {
       </TouchableOpacity>
 
       <FlatList
-        data={notifications}
+        data={grouped}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         ListHeaderComponent={<Text style={styles.title}>Notifications</Text>}
@@ -134,7 +141,11 @@ export default function NotificationsScreen() {
           return (
             <FadeInView delay={Math.min(index, 6) * 30}>
               <TouchableOpacity
-                style={[styles.row, unread && styles.rowUnread]}
+                style={[
+                  styles.row,
+                  unread && styles.rowUnread,
+                  { borderLeftColor: getNotificationCategoryColor(item.type) },
+                ]}
                 activeOpacity={0.85}
                 disabled={openingId === item.id}
                 onPress={() => handlePress(item)}
@@ -149,7 +160,7 @@ export default function NotificationsScreen() {
                 )}
                 <View style={styles.rowText}>
                   <Text style={[styles.message, unread && styles.messageUnread]}>
-                    {getNotificationIcon(item.type)} {formatNotificationMessage(item)}
+                    {getNotificationIcon(item.type)} {formatGroupedNotificationMessage(item)}
                   </Text>
                   <Text style={styles.timestamp}>{formatRelativeTime(item.created_at)}</Text>
                 </View>
@@ -207,6 +218,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     backgroundColor: colors.cardBg,
     borderRadius: radius.lg,
+    borderLeftWidth: 4,
     padding: spacing.md,
     marginBottom: spacing.sm,
     ...shadow.card,

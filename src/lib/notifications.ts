@@ -2,7 +2,8 @@ import { Platform } from 'react-native';
 import { isRunningInExpoGo } from 'expo';
 import Constants from 'expo-constants';
 import { supabase } from './supabase';
-import { AppNotification, NotificationType } from '../types';
+import { colors } from '../constants/theme';
+import { AppNotification, ChatProfile, NotificationType } from '../types';
 
 // expo-notifications runs native event-emitter setup as soon as it's imported —
 // NotificationsEmitter.js and TokenEmitter.js both do this unconditionally at
@@ -64,16 +65,28 @@ export async function registerForPushNotifications(userId: string): Promise<void
   await supabase.from('profiles').update({ expo_push_token: token }).eq('id', userId);
 }
 
-// Call once near app startup. Routes a tapped notification to the relevant tab
-// (not the exact post/conversation — that would need an extra fetch before navigating).
-export function addNotificationResponseListener(onTap: (type: string | undefined) => void) {
+// Shape of a push notification's data payload — see create_notification() in
+// notifications_push_payload_fix.sql. Same fields resolveNotificationTarget()
+// below reads off an in-app AppNotification row, so a push tap and an in-app
+// tap on the same notification always resolve to the same destination.
+export type PushNotificationData = {
+  type?: string;
+  post_id?: string | null;
+  conversation_id?: string | null;
+  achievement_id?: string | null;
+  actor_id?: string | null;
+};
+
+// Call once near app startup. Hands the raw data payload to the caller —
+// App.tsx resolves it to an actual destination via resolveNotificationTarget().
+export function addNotificationResponseListener(onTap: (data: PushNotificationData) => void) {
   if (!Notifications) {
     return () => {};
   }
 
   const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
-    const data = response.notification.request.content.data as { type?: string } | undefined;
-    onTap(data?.type);
+    const data = (response.notification.request.content.data ?? {}) as PushNotificationData;
+    onTap(data);
   });
 
   return () => subscription.remove();
@@ -132,11 +145,171 @@ export async function markNotificationRead(notificationId: string): Promise<void
   if (error) throw error;
 }
 
+// Same as above but for every member of a grouped notification (see
+// groupNotifications()) in one round trip — one bulk update instead of N
+// individual ones. Same RLS/guard-trigger protection applies per row.
+export async function markNotificationsRead(notificationIds: string[]): Promise<void> {
+  if (notificationIds.length === 0) return;
+  const { error } = await supabase
+    .from('notifications')
+    .update({ read_at: new Date().toISOString() })
+    .in('id', notificationIds)
+    .is('read_at', null);
+
+  if (error) throw error;
+}
+
+// ---------------------------------------------------------------------------
+// Destination routing — ONE table shared by NotificationsScreen (in-app tap,
+// which already has the full row) and App.tsx (push tap, which only has this
+// same set of ids from the enriched push payload). Neither should hand-roll
+// its own copy of this logic.
+// ---------------------------------------------------------------------------
+
+// Post-related types all resolve to the same destination — fetching the full
+// Post is unavoidable since PostDetailScreen's route needs the whole object,
+// not just an id, matching how every other screen already navigates there.
+const POST_TYPES = new Set(['like', 'comment', 'volunteer', 'help_completed', 'thanks_received']);
+
+export type NotificationTarget =
+  | { screen: 'PostDetail'; postId: string }
+  | { screen: 'Conversation'; conversationId: string; actorId: string }
+  | { screen: 'UserProfile'; userId: string }
+  | { screen: 'ProfileTab' };
+
+export function resolveNotificationTarget(fields: {
+  type: string;
+  post_id?: string | null;
+  conversation_id?: string | null;
+  actor_id?: string | null;
+}): NotificationTarget | null {
+  const { type, post_id, conversation_id, actor_id } = fields;
+
+  if (POST_TYPES.has(type)) {
+    return post_id ? { screen: 'PostDetail', postId: post_id } : null;
+  }
+  if (type === 'message') {
+    return conversation_id && actor_id
+      ? { screen: 'Conversation', conversationId: conversation_id, actorId: actor_id }
+      : null;
+  }
+  if (type === 'follow' || type === 'story_wave') {
+    return actor_id ? { screen: 'UserProfile', userId: actor_id } : null;
+  }
+  if (type === 'points_earned' || type === 'achievement_earned') {
+    return { screen: 'ProfileTab' };
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Lightweight client-side grouping — folds consecutive like/comment/follow
+// notifications into one display row ("Alex and 3 others liked your post").
+// Purely a display transform: every underlying notification row is untouched
+// and still individually present in memberIds for bulk mark-as-read. Other
+// types (volunteer, help_completed, thanks_received, message, achievements)
+// are never merged — each represents a distinct actionable event the user
+// should be able to identify on its own.
+// ---------------------------------------------------------------------------
+
+const GROUPABLE_TYPES = new Set<NotificationType>(['like', 'comment', 'follow']);
+
+export type NotificationGroup = {
+  id: string;
+  type: NotificationType;
+  post_id: string | null;
+  conversation_id: string | null;
+  created_at: string;
+  read_at: string | null;
+  actor: ChatProfile | null;
+  achievement: AppNotification['achievement'];
+  memberIds: string[];
+  // How many OTHER distinct actors are folded into this group, beyond `actor`.
+  extraActorCount: number;
+};
+
+export function groupNotifications(notifications: AppNotification[]): NotificationGroup[] {
+  const groups: NotificationGroup[] = [];
+  const actorIdSets: Set<string>[] = [];
+
+  for (const n of notifications) {
+    const lastIndex = groups.length - 1;
+    const last = lastIndex >= 0 ? groups[lastIndex] : undefined;
+    const canMerge = !!last && GROUPABLE_TYPES.has(n.type) && last.type === n.type && last.post_id === n.post_id;
+
+    if (canMerge && last) {
+      last.memberIds.push(n.id);
+      if (!n.read_at) last.read_at = null;
+      if (n.actor) {
+        actorIdSets[lastIndex].add(n.actor.id);
+        last.extraActorCount = actorIdSets[lastIndex].size - 1;
+      }
+    } else {
+      groups.push({
+        id: n.id,
+        type: n.type,
+        post_id: n.post_id,
+        conversation_id: n.conversation_id,
+        created_at: n.created_at,
+        read_at: n.read_at,
+        actor: n.actor,
+        achievement: n.achievement,
+        memberIds: [n.id],
+        extraActorCount: 0,
+      });
+      actorIdSets.push(new Set(n.actor ? [n.actor.id] : []));
+    }
+  }
+
+  return groups;
+}
+
+// ---------------------------------------------------------------------------
+// Category-based visual priority (goal: distinguish help/social/achievement/
+// message activity without redesigning the row). Reuses existing theme
+// tokens only — no new colors.
+// ---------------------------------------------------------------------------
+
+export type NotificationCategory = 'help' | 'social' | 'achievement' | 'message';
+
+const CATEGORY_BY_TYPE: Record<NotificationType, NotificationCategory> = {
+  like: 'social',
+  comment: 'social',
+  follow: 'social',
+  story_wave: 'social',
+  volunteer: 'help',
+  help_completed: 'help',
+  thanks_received: 'help',
+  points_earned: 'achievement',
+  achievement_earned: 'achievement',
+  message: 'message',
+};
+
+export function getNotificationCategoryColor(type: NotificationType): string {
+  switch (CATEGORY_BY_TYPE[type] ?? 'social') {
+    case 'help':
+      return colors.secondary;
+    case 'achievement':
+      return colors.warning;
+    case 'message':
+      return colors.accent;
+    default:
+      return colors.primary;
+  }
+}
+
 // Deliberately reconstructs a generic message rather than reading stored
 // content — e.g. "message" never shows the actual text, since that was never
 // persisted onto the notification row in the first place (see
 // notify_new_message() in notifications_schema.sql).
-export function formatNotificationMessage(notification: AppNotification): string {
+//
+// Takes just the fields it actually reads (not the full AppNotification) so
+// a NotificationGroup — which carries the same type/actor/achievement shape —
+// can be passed in directly by formatGroupedNotificationMessage() below,
+// without a cast.
+export function formatNotificationMessage(
+  notification: Pick<AppNotification, 'type' | 'actor' | 'achievement'>
+): string {
   const actorName = notification.actor?.full_name ?? 'Someone';
   switch (notification.type) {
     case 'like':
@@ -161,6 +334,26 @@ export function formatNotificationMessage(notification: AppNotification): string
       return `${actorName} thanked you for your help`;
     default:
       return 'New notification';
+  }
+}
+
+// Wording for a (possibly merged) group — falls back to the exact singular
+// wording above whenever nothing was actually merged, so a non-grouped
+// notification reads identically to before.
+export function formatGroupedNotificationMessage(group: NotificationGroup): string {
+  if (group.extraActorCount === 0) return formatNotificationMessage(group);
+
+  const actorName = group.actor?.full_name ?? 'Someone';
+  const suffix = group.extraActorCount === 1 ? '1 other' : `${group.extraActorCount} others`;
+  switch (group.type) {
+    case 'like':
+      return `${actorName} and ${suffix} liked your post`;
+    case 'comment':
+      return `${actorName} and ${suffix} commented on your post`;
+    case 'follow':
+      return `${actorName} and ${suffix} started following you`;
+    default:
+      return formatNotificationMessage(group);
   }
 }
 

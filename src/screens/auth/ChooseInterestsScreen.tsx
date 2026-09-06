@@ -1,48 +1,76 @@
-import { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { useEffect, useState } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
-import { setMyInterests } from '../../lib/profile';
+import { fetchProfileById, setMyInterests } from '../../lib/profile';
 import IconInput from '../../components/IconInput';
 import PrimaryButton from '../../components/PrimaryButton';
+import LoadingScreen from '../../components/LoadingScreen';
 import FadeInView from '../../components/FadeInView';
 import { colors, spacing, radius, fontSize, fontFamily } from '../../constants/theme';
 
 const MAX_INTERESTS = 5;
 
+// A curated starting set, not a second taxonomy — these are just ordinary
+// strings written into the same profiles.interests text[] column free-text
+// entry always used. Grouped purely for browsability.
+const INTEREST_GROUPS: { title: string; items: string[] }[] = [
+  {
+    title: 'Hobbies',
+    items: [
+      'Basketball', 'Soccer', 'Gaming', 'Music', 'Guitar', 'Art', 'Reading',
+      'Photography', 'Movies', 'Cooking', 'Fitness', 'Swimming', 'Travel',
+    ],
+  },
+  {
+    title: 'Academic & Tech',
+    items: ['Coding', 'Computer Science', 'Technology', 'Science', 'Biology', 'Chemistry', 'Physics', 'Math', 'Writing'],
+  },
+];
+
 type Props = {
   // Same onDone-driven pattern as ChooseSchoolScreen's onboarding mode —
-  // AppNavigator swaps this screen out once called, whether the user added
+  // AppNavigator swaps this screen out once called, whether the user picked
   // interests or skipped straight through.
   onDone: () => void;
 };
 
-// Onboarding-only slice of EditProfileScreen's interests editor — same
-// free-text chip pattern and the same profiles.interests column (no second
-// taxonomy, no new schema), just capped smaller and always skippable. Exists
-// so School Community's "students with similar interests" discovery has
-// something to match on from day one, instead of waiting for someone to
-// separately visit Edit Profile later — which most new users never do.
+// Onboarding interest picker (Step 25.1) — a curated, tappable grid replaces
+// the original free-text entry, but the underlying data is untouched:
+// profiles.interests stays a plain text[], so any legacy custom value a
+// profile already has (free-typed via the old onboarding screen or
+// EditProfileScreen, which is unaffected by this change) loads in here,
+// shows in the Selected list below, and is preserved on save even though it
+// has no matching grid chip. Nothing here can silently drop it — it's only
+// ever removed by the user explicitly tapping it in Selected.
 export default function ChooseInterestsScreen({ onDone }: Props) {
   const { user } = useAuth();
   const [interests, setInterests] = useState<string[]>([]);
-  const [input, setInput] = useState('');
+  const [loadingProfile, setLoadingProfile] = useState(true);
+  const [search, setSearch] = useState('');
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!user) {
+      setLoadingProfile(false);
+      return;
+    }
+    fetchProfileById(user.id)
+      .then((profile) => setInterests(profile.interests ?? []))
+      .catch(() => {
+        // Non-critical — the picker still works fine starting from empty.
+      })
+      .finally(() => setLoadingProfile(false));
+  }, [user]);
 
   const atLimit = interests.length >= MAX_INTERESTS;
 
-  const handleAdd = () => {
-    const trimmed = input.trim();
-    if (!trimmed || atLimit || interests.includes(trimmed)) {
-      setInput('');
-      return;
-    }
-    setInterests((prev) => [...prev, trimmed]);
-    setInput('');
-  };
-
-  const handleRemove = (interest: string) => {
-    setInterests((prev) => prev.filter((i) => i !== interest));
+  const toggleInterest = (item: string) => {
+    setInterests((prev) => {
+      if (prev.includes(item)) return prev.filter((i) => i !== item);
+      if (prev.length >= MAX_INTERESTS) return prev;
+      return [...prev, item];
+    });
   };
 
   const handleContinue = async () => {
@@ -62,55 +90,83 @@ export default function ChooseInterestsScreen({ onDone }: Props) {
     }
   };
 
+  if (loadingProfile) {
+    return <LoadingScreen />;
+  }
+
+  const query = search.trim().toLowerCase();
+
   return (
     <View style={styles.container}>
-      <FadeInView style={styles.content}>
-        <View style={styles.iconCircle}>
-          <Ionicons name="sparkles" size={32} color={colors.primary} />
-        </View>
-        <Text style={styles.title}>What are you into?</Text>
-        <Text style={styles.subtitle}>
-          Add up to {MAX_INTERESTS} interests to help other students at your school find you. Optional — you can
-          change these anytime from your profile.
-        </Text>
-
-        <View style={styles.inputRow}>
-          <IconInput
-            icon="add-circle-outline"
-            style={styles.input}
-            placeholder={atLimit ? `Up to ${MAX_INTERESTS} added` : 'e.g. Basketball'}
-            value={input}
-            onChangeText={setInput}
-            onSubmitEditing={handleAdd}
-            returnKeyType="done"
-            editable={!atLimit}
-          />
-          <TouchableOpacity
-            style={[styles.addButton, atLimit && styles.addButtonDisabled]}
-            onPress={handleAdd}
-            disabled={atLimit}
-          >
-            <Ionicons name="add" size={22} color="#fff" />
-          </TouchableOpacity>
-        </View>
-
-        {interests.length > 0 && (
-          <View style={styles.chipRow}>
-            {interests.map((interest) => (
-              <TouchableOpacity key={interest} style={styles.chip} onPress={() => handleRemove(interest)}>
-                <Text style={styles.chipText}>{interest} ✕</Text>
-              </TouchableOpacity>
-            ))}
+      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        <FadeInView style={styles.content}>
+          <View style={styles.iconCircle}>
+            <Ionicons name="sparkles" size={32} color={colors.primary} />
           </View>
-        )}
+          <Text style={styles.title}>Choose your interests</Text>
+          <Text style={styles.subtitle}>Pick up to {MAX_INTERESTS}. Optional — you can change these anytime.</Text>
 
-        <PrimaryButton
-          title={interests.length > 0 ? 'Continue' : 'Skip for now'}
-          onPress={handleContinue}
-          loading={saving}
-          style={styles.button}
-        />
-      </FadeInView>
+          <IconInput
+            icon="search-outline"
+            style={styles.searchInput}
+            placeholder="Search interests..."
+            value={search}
+            onChangeText={setSearch}
+            autoCapitalize="none"
+          />
+
+          {INTEREST_GROUPS.map((group) => {
+            const filtered = query ? group.items.filter((item) => item.toLowerCase().includes(query)) : group.items;
+            if (filtered.length === 0) return null;
+            return (
+              <View key={group.title} style={styles.group}>
+                <Text style={styles.groupTitle}>{group.title}</Text>
+                <View style={styles.chipRow}>
+                  {filtered.map((item) => {
+                    const selected = interests.includes(item);
+                    const disabled = !selected && atLimit;
+                    return (
+                      <TouchableOpacity
+                        key={item}
+                        style={[styles.optionChip, selected && styles.optionChipSelected, disabled && styles.optionChipDisabled]}
+                        onPress={() => toggleInterest(item)}
+                        disabled={disabled}
+                      >
+                        {selected && <Ionicons name="checkmark" size={14} color="#fff" />}
+                        <Text style={[styles.optionChipText, selected && styles.optionChipTextSelected]}>{item}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            );
+          })}
+
+          {interests.length > 0 && (
+            <View style={styles.group}>
+              <Text style={styles.groupTitle}>
+                Selected ({interests.length}/{MAX_INTERESTS})
+              </Text>
+              <View style={styles.chipRow}>
+                {interests.map((interest) => (
+                  <TouchableOpacity key={interest} style={styles.selectedChip} onPress={() => toggleInterest(interest)}>
+                    <Ionicons name="checkmark" size={13} color="#fff" />
+                    <Text style={styles.selectedChipText}>{interest}</Text>
+                    <Ionicons name="close" size={13} color="#fff" />
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          )}
+
+          <PrimaryButton
+            title={interests.length > 0 ? 'Continue' : 'Skip for now'}
+            onPress={handleContinue}
+            loading={saving}
+            style={styles.button}
+          />
+        </FadeInView>
+      </ScrollView>
     </View>
   );
 }
@@ -118,9 +174,13 @@ export default function ChooseInterestsScreen({ onDone }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
     backgroundColor: colors.background,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
     paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.xxl,
   },
   content: {
     alignItems: 'center',
@@ -146,46 +206,70 @@ const styles = StyleSheet.create({
     color: colors.textMid,
     textAlign: 'center',
     lineHeight: 19,
-    marginBottom: spacing.xl,
+    marginBottom: spacing.lg,
   },
-  inputRow: {
+  searchInput: {
+    marginBottom: spacing.lg,
+  },
+  group: {
     width: '100%',
-    flexDirection: 'row',
-    gap: spacing.xs,
+    marginBottom: spacing.lg,
   },
-  input: {
-    flex: 1,
-  },
-  addButton: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.md,
-    width: 48,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  addButtonDisabled: {
-    opacity: 0.5,
+  groupTitle: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
+    color: colors.textDark,
+    marginBottom: spacing.sm,
   },
   chipRow: {
     width: '100%',
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.xs,
-    marginTop: spacing.md,
   },
-  chip: {
-    backgroundColor: colors.primary,
+  optionChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.cardBg,
     borderRadius: radius.full,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
+    paddingVertical: spacing.sm,
   },
-  chipText: {
+  optionChipSelected: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  optionChipDisabled: {
+    opacity: 0.4,
+  },
+  optionChipText: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
+    color: colors.textDark,
+  },
+  optionChipTextSelected: {
+    color: '#fff',
+    fontFamily: fontFamily.semibold,
+  },
+  selectedChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.success,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  selectedChipText: {
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.sm,
     color: '#fff',
   },
   button: {
     width: '100%',
-    marginTop: spacing.xl,
+    marginTop: spacing.sm,
   },
 });

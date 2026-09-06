@@ -6,6 +6,13 @@ export type RootStackParamList = {
   // own "ChooseSchool" (the always-available Profile entry point); same
   // screen component, two different navigators, no relation between the two.
   ChooseSchool: undefined;
+  // Shown once, right after ChooseSchool, only for the same brand-new-signup
+  // session as above (Step 25). Onboarding-only — no "main app" equivalent,
+  // unlike ChooseSchool.
+  ChooseInterests: undefined;
+  // Shown once, right after ChooseInterests, only for the same session.
+  // Terminal onboarding step — completing or skipping it always leads to Main.
+  Welcome: undefined;
   Main: undefined;
 };
 

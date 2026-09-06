@@ -10,6 +10,8 @@ import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
 import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
 import ChooseUsernameScreen from '../screens/auth/ChooseUsernameScreen';
+import ChooseInterestsScreen from '../screens/auth/ChooseInterestsScreen';
+import WelcomeScreen from '../screens/auth/WelcomeScreen';
 import ChooseSchoolScreen from '../screens/main/ChooseSchoolScreen';
 import MainNavigator from './MainNavigator';
 import { navigationRef } from './navigationRef';
@@ -30,15 +32,19 @@ function AuthNavigator() {
 export default function AppNavigator() {
   const { session, loading, username, usernameLoading } = useAuth();
 
-  // Both local/session-only, never persisted — see the school-onboarding
-  // branch below for why. Reset on every actual login/logout/account switch
-  // (not on every render) so a second signup in the same app session doesn't
-  // inherit the previous account's "already offered" state.
+  // All local/session-only, never persisted — see the onboarding branches
+  // below for why. Reset on every actual login/logout/account switch (not on
+  // every render) so a second signup in the same app session doesn't inherit
+  // the previous account's "already offered" state.
   const [justSignedUp, setJustSignedUp] = useState(false);
   const [schoolOnboardingDone, setSchoolOnboardingDone] = useState(false);
+  const [interestsOnboardingDone, setInterestsOnboardingDone] = useState(false);
+  const [welcomeOnboardingDone, setWelcomeOnboardingDone] = useState(false);
   useEffect(() => {
     setJustSignedUp(false);
     setSchoolOnboardingDone(false);
+    setInterestsOnboardingDone(false);
+    setWelcomeOnboardingDone(false);
   }, [session?.user?.id]);
 
   // Show a spinner while Supabase checks for a stored session, and — once
@@ -55,6 +61,19 @@ export default function AppNavigator() {
   // just until the next launch — the existing Profile entry point is the
   // permanent way back in for anyone who skips or closes the app mid-flow.
   const showSchoolOnboarding = !!session && !!username && justSignedUp && !schoolOnboardingDone;
+  // Step 25: two more one-time steps chained after School, same gating shape
+  // — each only reachable once the previous one is done, each permanently
+  // skippable (Interests) or a single "Enter NewStep" tap (Welcome), never
+  // re-shown after this session ends.
+  const showInterestsOnboarding =
+    !!session && !!username && justSignedUp && schoolOnboardingDone && !interestsOnboardingDone;
+  const showWelcomeOnboarding =
+    !!session &&
+    !!username &&
+    justSignedUp &&
+    schoolOnboardingDone &&
+    interestsOnboardingDone &&
+    !welcomeOnboardingDone;
 
   return (
     <NavigationContainer ref={navigationRef}>
@@ -80,6 +99,14 @@ export default function AppNavigator() {
                 onDone={() => setSchoolOnboardingDone(true)}
               />
             )}
+          </RootStack.Screen>
+        ) : showInterestsOnboarding ? (
+          <RootStack.Screen name="ChooseInterests">
+            {() => <ChooseInterestsScreen onDone={() => setInterestsOnboardingDone(true)} />}
+          </RootStack.Screen>
+        ) : showWelcomeOnboarding ? (
+          <RootStack.Screen name="Welcome">
+            {() => <WelcomeScreen onDone={() => setWelcomeOnboardingDone(true)} />}
           </RootStack.Screen>
         ) : (
           // Logged in with a username → show main app (bottom tabs + screens

@@ -68,7 +68,9 @@ export default function RegisterScreen({ navigation }: Props) {
             <Ionicons name="footsteps" size={32} color={colors.primary} />
           </View>
           <Text style={styles.logo}>NewStep</Text>
-          <Text style={styles.tagline}>Join your school community</Text>
+          <Text style={styles.tagline}>
+            Connect with your school. Discover people, what's happening, and ways to help.
+          </Text>
         </FadeInView>
 
         <FadeInView style={styles.form} delay={100}>
@@ -149,6 +151,7 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     fontSize: fontSize.md,
     color: colors.textMid,
+    textAlign: 'center',
     marginTop: spacing.xs,
   },
   form: {

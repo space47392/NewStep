@@ -194,8 +194,9 @@ export default function PostDetailScreen() {
       setPost(updated);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err) {
+      // Transient/retryable, not destructive — a toast is enough (Step 30).
       const message = err instanceof Error ? err.message : 'Could not volunteer to help.';
-      Alert.alert('Error', message);
+      showToast(message);
     } finally {
       setVolunteering(false);
     }
@@ -208,8 +209,9 @@ export default function PostDetailScreen() {
       setPost(updated);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err) {
+      // Transient/retryable, not destructive — a toast is enough (Step 30).
       const message = err instanceof Error ? err.message : 'Could not mark as completed.';
-      Alert.alert('Error', message);
+      showToast(message);
     } finally {
       setCompleting(false);
     }
@@ -234,8 +236,10 @@ export default function PostDetailScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       showToast('Thanks sent!');
     } catch (err) {
+      // Success already used a toast above — failure should match instead of
+      // jumping to a heavier blocking dialog for the same action (Step 30).
       const message = err instanceof Error ? err.message : 'Could not send thanks.';
-      Alert.alert('Error', message);
+      showToast(message);
     } finally {
       setThanking(false);
     }

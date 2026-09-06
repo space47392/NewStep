@@ -207,8 +207,9 @@ export default function StoryViewerScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       showToast('Hi sent! 👋');
     } catch (err) {
+      // Transient/retryable, not destructive — a toast is enough (Step 30).
       const message = err instanceof Error ? err.message : 'Could not send that.';
-      Alert.alert('Error', message);
+      showToast(message);
     } finally {
       setWaving(false);
     }

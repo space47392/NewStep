@@ -99,8 +99,10 @@ export default function FeedScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       showToast('You volunteered to help!');
     } catch (err) {
+      // Transient/retryable, not destructive — a toast is enough, no need to
+      // interrupt with a blocking dialog (Step 30).
       const message = err instanceof Error ? err.message : 'Could not volunteer to help.';
-      Alert.alert('Error', message);
+      showToast(message);
     } finally {
       setVolunteeringPostId(null);
     }

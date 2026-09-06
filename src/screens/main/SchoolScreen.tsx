@@ -32,6 +32,7 @@ import EmptyState from '../../components/EmptyState';
 import { Skeleton, PostCardSkeleton } from '../../components/Skeleton';
 import FadeInView from '../../components/FadeInView';
 import PostPreviewCard from '../../components/PostPreviewCard';
+import SectionHeader from '../../components/SectionHeader';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
 import { MainStackParamList, SchoolMember, Post, Story, School, SchoolContributor } from '../../types';
 
@@ -67,22 +68,6 @@ function renderMemberList(data: SchoolMember[], navigation: NativeStackNavigatio
         </TouchableOpacity>
       )}
     />
-  );
-}
-
-// One consistent "Title ... See All" header for every Hub section that has a
-// fuller place to send someone — keeps that pattern from being copy-pasted
-// (and drifting) across Stories/Need Help/Questions.
-function SectionHeader({ title, onSeeAll }: { title: string; onSeeAll?: () => void }) {
-  return (
-    <View style={styles.sectionHeaderRow}>
-      <Text style={styles.sectionTitle}>{title}</Text>
-      {onSeeAll && (
-        <TouchableOpacity onPress={onSeeAll} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={styles.seeAllText}>See All</Text>
-        </TouchableOpacity>
-      )}
-    </View>
   );
 }
 
@@ -394,7 +379,7 @@ export default function SchoolScreen() {
 
       {contributors.length > 0 && (
         <FadeInView style={styles.section} delay={60}>
-          <Text style={styles.sectionTitle}>🌟 Community Contributors</Text>
+          <SectionHeader title="🌟 Community Contributors" />
           <Text style={styles.contributorsSubtitle}>Students who've helped others in this community</Text>
           <FlatList
             horizontal
@@ -420,7 +405,7 @@ export default function SchoolScreen() {
 
       {(gradeMates.length > 0 || interestMates.length > 0) && (
         <FadeInView style={styles.section} delay={70}>
-          <Text style={styles.sectionTitle}>Find your community</Text>
+          <SectionHeader title="Find your community" />
           {gradeMates.length > 0 && (
             <View style={styles.memberRowWrap}>
               <Text style={styles.memberRowTitle}>Students in Grade {myGrade}</Text>
@@ -438,7 +423,7 @@ export default function SchoolScreen() {
 
       {members.length > 0 && (
         <FadeInView style={styles.section} delay={80}>
-          <Text style={styles.sectionTitle}>Members</Text>
+          <SectionHeader title="Members" />
           {renderMemberList(members, navigation)}
         </FadeInView>
       )}
@@ -496,17 +481,6 @@ const styles = StyleSheet.create({
     color: colors.textLight,
     marginTop: spacing.sm,
   },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.sm,
-  },
-  seeAllText: {
-    fontFamily: fontFamily.semibold,
-    fontSize: fontSize.sm,
-    color: colors.primary,
-  },
   contributorsSubtitle: {
     fontFamily: fontFamily.regular,
     fontSize: fontSize.xs,
@@ -550,12 +524,6 @@ const styles = StyleSheet.create({
     color: colors.textDark,
     marginTop: spacing.xs,
     textAlign: 'center',
-  },
-  sectionTitle: {
-    fontFamily: fontFamily.bold,
-    fontSize: fontSize.lg,
-    color: colors.textDark,
-    marginBottom: spacing.sm,
   },
   section: {
     marginBottom: spacing.lg,

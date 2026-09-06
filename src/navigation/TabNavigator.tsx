@@ -17,7 +17,7 @@ const TAB_ICONS: Record<string, { focused: string; unfocused: string }> = {
   Search:    { focused: 'search',         unfocused: 'search-outline' },
   Help:      { focused: 'help-circle',    unfocused: 'help-circle-outline' },
   Chat:      { focused: 'chatbubbles',    unfocused: 'chatbubbles-outline' },
-  Volunteer: { focused: 'trophy',         unfocused: 'trophy-outline' },
+  Volunteer: { focused: 'people',         unfocused: 'people-outline' },
   Profile:   { focused: 'person',         unfocused: 'person-outline' },
 };
 
@@ -51,7 +51,7 @@ export default function TabNavigator() {
       <Tab.Screen name="Search"    component={SearchScreen}    options={{ title: 'Search' }} />
       <Tab.Screen name="Help"      component={HelpScreen}      options={{ title: 'Help' }} />
       <Tab.Screen name="Chat"      component={ChatScreen}      options={{ title: 'Chat' }} />
-      <Tab.Screen name="Volunteer" component={VolunteerScreen} options={{ title: 'Leaders' }} />
+      <Tab.Screen name="Volunteer" component={VolunteerScreen} options={{ title: 'Community' }} />
       <Tab.Screen name="Profile"   component={ProfileScreen}   options={{ title: 'Profile' }} />
     </Tab.Navigator>
   );

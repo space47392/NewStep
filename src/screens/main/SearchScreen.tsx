@@ -26,6 +26,7 @@ import EmptyState from '../../components/EmptyState';
 import FadeInView from '../../components/FadeInView';
 import PostPreviewCard from '../../components/PostPreviewCard';
 import PrimaryButton from '../../components/PrimaryButton';
+import SectionHeader from '../../components/SectionHeader';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
 import { getInterestIcon } from '../../constants/interests';
 import {
@@ -365,7 +366,7 @@ export default function SearchScreen() {
 
           {schoolStories.length > 0 && mySchoolName && (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>🏫 What's happening at {mySchoolName}</Text>
+              <SectionHeader title={`🏫 What's happening at ${mySchoolName}`} />
               <FlatList
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -389,7 +390,7 @@ export default function SearchScreen() {
 
           {suggestedPeople.length > 0 && (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>👋 People You May Know</Text>
+              <SectionHeader title="👋 People You May Know" />
               {suggestedPeople.map((person) => {
                 const shared = sharedInterests(myInterests, person.interests);
                 const pending = pendingFollowIds.has(person.id);
@@ -404,6 +405,14 @@ export default function SearchScreen() {
                         <Text style={styles.resultName}>{person.full_name ?? 'Unknown'}</Text>
                         {person.username ? <Text style={styles.resultMeta}>@{person.username}</Text> : null}
                         {person.grade ? <Text style={styles.resultMeta}>🎓 {person.grade} Grade</Text> : null}
+                        {/* Plain-language reason, backed only by data this query actually
+                            guarantees: every suggestion here is already same-school, and
+                            the shared count comes straight from sharedInterests() above —
+                            never an inferred or invented signal (Step 30). */}
+                        <Text style={styles.personReason}>
+                          Same school
+                          {shared.length > 0 ? ` · ${shared.length} shared interest${shared.length === 1 ? '' : 's'}` : ''}
+                        </Text>
                         {shared.length > 0 && (
                           <Text style={styles.personInterests} numberOfLines={1}>
                             {shared.slice(0, 3).map((i) => `${getInterestIcon(i)} ${i}`).join(' · ')}
@@ -426,7 +435,7 @@ export default function SearchScreen() {
 
           {contributors.length > 0 && (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>🤝 Community Helpers</Text>
+              <SectionHeader title="🤝 Community Helpers" />
               <FlatList
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -451,7 +460,7 @@ export default function SearchScreen() {
 
           {recentQuestions.length > 0 && (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>❓ Recent Questions</Text>
+              <SectionHeader title="❓ Recent Questions" />
               {recentQuestions.map((post) => (
                 <PostPreviewCard key={post.id} post={post} onPress={() => navigation.navigate('PostDetail', { post })} />
               ))}
@@ -460,7 +469,7 @@ export default function SearchScreen() {
 
           {needHelpPosts.length > 0 && (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>🤝 Need Help</Text>
+              <SectionHeader title="🤝 Need Help" />
               {needHelpPosts.map((post) => (
                 <PostPreviewCard key={post.id} post={post} onPress={() => navigation.navigate('PostDetail', { post })} />
               ))}
@@ -469,7 +478,7 @@ export default function SearchScreen() {
 
           {upcomingEvents.length > 0 && (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>🎉 Upcoming Events</Text>
+              <SectionHeader title="🎉 Upcoming Events" />
               {upcomingEvents.map((post) => (
                 <PostPreviewCard key={post.id} post={post} onPress={() => navigation.navigate('PostDetail', { post })} />
               ))}
@@ -505,7 +514,7 @@ export default function SearchScreen() {
             <>
               {people.length > 0 && (
                 <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>People</Text>
+                  <SectionHeader title="People" />
                   {people.slice(0, RESULT_DISPLAY_LIMIT).map((person, index) => (
                     <FadeInView key={person.id} delay={Math.min(index, 6) * 30}>
                       <TouchableOpacity style={styles.resultRow} onPress={() => handleSelectPerson(person)}>
@@ -523,7 +532,7 @@ export default function SearchScreen() {
 
               {posts.length > 0 && (
                 <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>Posts</Text>
+                  <SectionHeader title="Posts" />
                   {posts.slice(0, RESULT_DISPLAY_LIMIT).map((post) => (
                     <PostPreviewCard key={post.id} post={post} onPress={() => handleSelectPost(post)} />
                   ))}
@@ -532,7 +541,7 @@ export default function SearchScreen() {
 
               {schools.length > 0 && (
                 <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>Schools</Text>
+                  <SectionHeader title="Schools" />
                   {schools.slice(0, RESULT_DISPLAY_LIMIT).map((school) => (
                     <TouchableOpacity
                       key={school.schoolName}
@@ -626,10 +635,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: spacing.sm,
   },
+  // Only still used directly by "Recent Searches" (paired with its own
+  // "Clear All" action, a different affordance than SectionHeader's
+  // "See All") — everywhere else now renders via the shared SectionHeader.
   sectionTitle: {
-    fontFamily: fontFamily.semibold,
-    fontSize: fontSize.sm,
-    color: colors.textMid,
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.lg,
+    color: colors.textDark,
     marginBottom: spacing.sm,
   },
   clearText: {
@@ -693,6 +705,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+  },
+  personReason: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
+    color: colors.textLight,
+    marginTop: 2,
   },
   personInterests: {
     fontFamily: fontFamily.medium,

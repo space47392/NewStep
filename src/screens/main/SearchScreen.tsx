@@ -4,7 +4,7 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { searchUsers, searchPosts, searchSchools } from '../../lib/search';
-import { fetchPostsBySchool, fetchPostsBySchoolId } from '../../lib/posts';
+import { fetchPostsBySchool, fetchPostsBySchoolId, fetchUpcomingEventsBySchool, fetchUpcomingEventsBySchoolId } from '../../lib/posts';
 import { fetchStoriesBySchool, fetchStoriesBySchoolId } from '../../lib/stories';
 import { fetchProfileById } from '../../lib/profile';
 import {
@@ -12,22 +12,27 @@ import {
   fetchSchoolMembersByInterests,
   fetchSchoolMembersByGradeById,
   fetchSchoolMembersByInterestsById,
+  fetchSchoolContributors,
+  fetchSchoolContributorsById,
 } from '../../lib/schools';
 import { getRecentSearches, addRecentSearch, removeRecentSearch, clearRecentSearches } from '../../lib/recentSearches';
 import { fetchBlockedUserIds } from '../../lib/blocks';
-import { fetchFollowingIds } from '../../lib/follows';
+import { fetchFollowingIds, followUser } from '../../lib/follows';
 import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/ToastContext';
 import IconInput from '../../components/IconInput';
 import Avatar from '../../components/Avatar';
 import EmptyState from '../../components/EmptyState';
 import FadeInView from '../../components/FadeInView';
 import PostPreviewCard from '../../components/PostPreviewCard';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
+import { getInterestIcon } from '../../constants/interests';
 import {
   MainStackParamList,
   PersonSearchResult,
   SchoolSearchResult,
   SchoolMember,
+  SchoolContributor,
   Post,
   PostCategory,
   Story,
@@ -60,9 +65,20 @@ function dedupeMembers(...lists: SchoolMember[][]): SchoolMember[] {
   return result;
 }
 
+// Deterministic, explainable overlap — not a score. Powers the interest
+// chips on a "People You May Know" card; case-insensitive since the curated
+// picker and old free-typed values may differ only in casing.
+function sharedInterests(mine: string[], theirs: string[]): string[] {
+  const mineSet = new Set(mine.map((i) => i.toLowerCase()));
+  return theirs.filter((i) => mineSet.has(i.toLowerCase()));
+}
+
+const SUGGESTED_PEOPLE_LIMIT = 5;
+
 export default function SearchScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
   const { user } = useAuth();
+  const { showToast } = useToast();
 
   const [query, setQuery] = useState('');
   const [postCategory, setPostCategory] = useState<PostCategory | undefined>(undefined);
@@ -75,8 +91,13 @@ export default function SearchScreen() {
   const [schools, setSchools] = useState<SchoolSearchResult[]>([]);
 
   const [mySchoolName, setMySchoolName] = useState<string | null>(null);
+  const [myInterests, setMyInterests] = useState<string[]>([]);
   const [suggestedPeople, setSuggestedPeople] = useState<SchoolMember[]>([]);
-  const [suggestedPosts, setSuggestedPosts] = useState<Post[]>([]);
+  const [pendingFollowIds, setPendingFollowIds] = useState<Set<string>>(new Set());
+  const [contributors, setContributors] = useState<SchoolContributor[]>([]);
+  const [recentQuestions, setRecentQuestions] = useState<Post[]>([]);
+  const [needHelpPosts, setNeedHelpPosts] = useState<Post[]>([]);
+  const [upcomingEvents, setUpcomingEvents] = useState<Post[]>([]);
   const [schoolStories, setSchoolStories] = useState<Story[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -91,10 +112,14 @@ export default function SearchScreen() {
     try {
       const myProfile = await fetchProfileById(user.id);
       setMySchoolName(myProfile.school_name);
+      setMyInterests(myProfile.interests ?? []);
       const schoolId = myProfile.school_id;
       if (!schoolId && !myProfile.school_name) {
         setSuggestedPeople([]);
-        setSuggestedPosts([]);
+        setContributors([]);
+        setRecentQuestions([]);
+        setNeedHelpPosts([]);
+        setUpcomingEvents([]);
         setSchoolStories([]);
         return;
       }
@@ -105,8 +130,11 @@ export default function SearchScreen() {
       ]);
       const followingIdSet = new Set(followingIds);
       // Prefer the stable school_id once set; school_name stays the fallback
-      // for every profile that hasn't picked from the directory yet.
-      const [byGrade, byInterests, schoolPosts, stories] = schoolId
+      // for every profile that hasn't picked from the directory yet. Recent
+      // Activity is split into three named categories (Questions/Need Help/
+      // Events) instead of one undifferentiated pull, and Community Helpers
+      // reuses the exact same contributor query SchoolScreen already has.
+      const [byGrade, byInterests, contributorList, questions, needHelp, events, stories] = schoolId
         ? await Promise.all([
             myProfile.grade
               ? fetchSchoolMembersByGradeById(schoolId, myProfile.grade, user.id, 10)
@@ -114,7 +142,10 @@ export default function SearchScreen() {
             myProfile.interests.length > 0
               ? fetchSchoolMembersByInterestsById(schoolId, myProfile.interests, user.id, 10)
               : Promise.resolve([]),
-            fetchPostsBySchoolId(schoolId, undefined, 5),
+            fetchSchoolContributorsById(schoolId, 5).catch(() => [] as SchoolContributor[]),
+            fetchPostsBySchoolId(schoolId, 'School Question', 3),
+            fetchPostsBySchoolId(schoolId, 'Need Help', 3, 'open'),
+            fetchUpcomingEventsBySchoolId(schoolId, 3).catch(() => [] as Post[]),
             fetchStoriesBySchoolId(schoolId, 10).catch(() => [] as Story[]),
           ])
         : await Promise.all([
@@ -124,24 +155,52 @@ export default function SearchScreen() {
             myProfile.interests.length > 0
               ? fetchSchoolMembersByInterests(myProfile.school_name!, myProfile.interests, user.id, 10)
               : Promise.resolve([]),
-            fetchPostsBySchool(myProfile.school_name!, undefined, 5),
+            fetchSchoolContributors(myProfile.school_name!, 5).catch(() => [] as SchoolContributor[]),
+            fetchPostsBySchool(myProfile.school_name!, 'School Question', 3),
+            fetchPostsBySchool(myProfile.school_name!, 'Need Help', 3, 'open'),
+            fetchUpcomingEventsBySchool(myProfile.school_name!, 3).catch(() => [] as Post[]),
             fetchStoriesBySchool(myProfile.school_name!, 10).catch(() => [] as Story[]),
           ]);
 
       // UX filtering only, not a security boundary — see blocks.ts. Already-
       // followed people are also skipped here — no strong reason to keep
-      // suggesting someone you're already following.
+      // suggesting someone you're already following. Capped small — this is
+      // a "worth knowing" list, not a directory.
       setSuggestedPeople(
         dedupeMembers(byGrade, byInterests)
           .filter((m) => !blockedIds.has(m.id) && !followingIdSet.has(m.id))
-          .slice(0, 10)
+          .slice(0, SUGGESTED_PEOPLE_LIMIT)
       );
-      setSuggestedPosts(schoolPosts.filter((p) => !blockedIds.has(p.author_id)));
+      setContributors(contributorList.filter((c) => !blockedIds.has(c.id)));
+      setRecentQuestions(questions.filter((p) => !blockedIds.has(p.author_id)));
+      setNeedHelpPosts(needHelp.filter((p) => !blockedIds.has(p.author_id)));
+      setUpcomingEvents(events.filter((p) => !blockedIds.has(p.author_id)));
       setSchoolStories(stories.filter((s) => !blockedIds.has(s.author_id)));
     } catch {
       // Discovery is a bonus surface, not the primary flow — fail quietly.
     }
   }, [user]);
+
+  // One-way — suggested people are, by construction, never someone already
+  // followed, so there's no toggle/unfollow state to track here. Removes the
+  // card optimistically on success rather than waiting for the next
+  // loadDiscovery(), same "act, then reconcile" feel as LikeButton/SaveButton.
+  const handleFollow = async (person: SchoolMember) => {
+    if (!user || pendingFollowIds.has(person.id)) return;
+    setPendingFollowIds((prev) => new Set(prev).add(person.id));
+    try {
+      await followUser({ followerId: user.id, followingId: person.id });
+      setSuggestedPeople((prev) => prev.filter((p) => p.id !== person.id));
+      showToast(`Following ${person.full_name ?? 'them'}`);
+    } catch {
+      showToast(`Couldn't follow ${person.full_name ?? 'this person'}`);
+      setPendingFollowIds((prev) => {
+        const next = new Set(prev);
+        next.delete(person.id);
+        return next;
+      });
+    }
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -329,33 +388,103 @@ export default function SearchScreen() {
 
           {suggestedPeople.length > 0 && (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>People You May Know</Text>
-              {suggestedPeople.map((person) => (
-                <TouchableOpacity
-                  key={person.id}
-                  style={styles.resultRow}
-                  onPress={() => navigation.navigate('UserProfile', { userId: person.id })}
-                >
-                  <Avatar uri={person.avatar_url} size={44} />
-                  <View style={styles.resultText}>
-                    <Text style={styles.resultName}>{person.full_name ?? 'Unknown'}</Text>
-                    {person.grade ? <Text style={styles.resultMeta}>Grade {person.grade}</Text> : null}
+              <Text style={styles.sectionTitle}>👋 People You May Know</Text>
+              {suggestedPeople.map((person) => {
+                const shared = sharedInterests(myInterests, person.interests);
+                const pending = pendingFollowIds.has(person.id);
+                return (
+                  <View key={person.id} style={styles.personCard}>
+                    <TouchableOpacity
+                      style={styles.personCardMain}
+                      onPress={() => navigation.navigate('UserProfile', { userId: person.id })}
+                    >
+                      <Avatar uri={person.avatar_url} size={48} />
+                      <View style={styles.resultText}>
+                        <Text style={styles.resultName}>{person.full_name ?? 'Unknown'}</Text>
+                        {person.username ? <Text style={styles.resultMeta}>@{person.username}</Text> : null}
+                        {person.grade ? <Text style={styles.resultMeta}>🎓 {person.grade} Grade</Text> : null}
+                        {shared.length > 0 && (
+                          <Text style={styles.personInterests} numberOfLines={1}>
+                            {shared.slice(0, 3).map((i) => `${getInterestIcon(i)} ${i}`).join(' · ')}
+                          </Text>
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.followButton}
+                      onPress={() => handleFollow(person)}
+                      disabled={pending}
+                    >
+                      {pending ? (
+                        <ActivityIndicator size="small" color={colors.primary} />
+                      ) : (
+                        <Text style={styles.followButtonText}>Follow</Text>
+                      )}
+                    </TouchableOpacity>
                   </View>
-                </TouchableOpacity>
-              ))}
+                );
+              })}
             </View>
           )}
 
-          {suggestedPosts.length > 0 && (
+          {contributors.length > 0 && (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Suggested for You</Text>
-              {suggestedPosts.map((post) => (
+              <Text style={styles.sectionTitle}>🤝 Community Helpers</Text>
+              <FlatList
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                data={contributors}
+                keyExtractor={(c) => c.id}
+                contentContainerStyle={styles.storyRow}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={styles.storyItem}
+                    onPress={() => navigation.navigate('UserProfile', { userId: item.id })}
+                  >
+                    <Avatar uri={item.avatar_url} size={52} />
+                    <Text style={styles.storyItemName} numberOfLines={1}>
+                      {item.full_name ?? 'Unknown'}
+                    </Text>
+                    <Text style={styles.contributorMeta}>💙 {item.thanks_received_count}</Text>
+                  </TouchableOpacity>
+                )}
+              />
+            </View>
+          )}
+
+          {recentQuestions.length > 0 && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>❓ Recent Questions</Text>
+              {recentQuestions.map((post) => (
                 <PostPreviewCard key={post.id} post={post} onPress={() => navigation.navigate('PostDetail', { post })} />
               ))}
             </View>
           )}
 
-          {recentSearches.length === 0 && suggestedPeople.length === 0 && suggestedPosts.length === 0 && (
+          {needHelpPosts.length > 0 && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>🤝 Need Help</Text>
+              {needHelpPosts.map((post) => (
+                <PostPreviewCard key={post.id} post={post} onPress={() => navigation.navigate('PostDetail', { post })} />
+              ))}
+            </View>
+          )}
+
+          {upcomingEvents.length > 0 && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>🎉 Upcoming Events</Text>
+              {upcomingEvents.map((post) => (
+                <PostPreviewCard key={post.id} post={post} onPress={() => navigation.navigate('PostDetail', { post })} />
+              ))}
+            </View>
+          )}
+
+          {recentSearches.length === 0 &&
+            suggestedPeople.length === 0 &&
+            contributors.length === 0 &&
+            recentQuestions.length === 0 &&
+            needHelpPosts.length === 0 &&
+            upcomingEvents.length === 0 && (
             <EmptyState
               icon="search-outline"
               title="Search for students, posts, or schools"
@@ -555,6 +684,44 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     fontSize: fontSize.xs,
     color: colors.textMid,
+  },
+  personCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
+  personCardMain: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  personInterests: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.xs,
+    color: colors.primary,
+    marginTop: 2,
+  },
+  followButton: {
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    minWidth: 72,
+    alignItems: 'center',
+  },
+  followButtonText: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
+    color: colors.primary,
+  },
+  contributorMeta: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.xs,
+    color: colors.textMid,
+    marginTop: 1,
   },
   schoolRow: {
     flexDirection: 'row',

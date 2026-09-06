@@ -10,6 +10,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { supabase } from '../../lib/supabase';
 import { fetchSchoolById } from '../../lib/schools';
 import IconInput from '../../components/IconInput';
+import InterestPicker from '../../components/InterestPicker';
 import PrimaryButton from '../../components/PrimaryButton';
 import LoadingScreen from '../../components/LoadingScreen';
 import FadeInView from '../../components/FadeInView';
@@ -35,7 +36,6 @@ export default function EditProfileScreen() {
   const [fullName, setFullName] = useState('');
   const [grade, setGrade] = useState('');
   const [interests, setInterests] = useState<string[]>([]);
-  const [interestInput, setInterestInput] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [isNewStudent, setIsNewStudent] = useState<boolean | null>(null);
   const [schoolId, setSchoolId] = useState<string | null>(null);
@@ -135,20 +135,6 @@ export default function EditProfileScreen() {
     } finally {
       setUploadingAvatar(false);
     }
-  };
-
-  const handleAddInterest = () => {
-    const trimmed = interestInput.trim();
-    if (!trimmed || interests.includes(trimmed)) {
-      setInterestInput('');
-      return;
-    }
-    setInterests([...interests, trimmed]);
-    setInterestInput('');
-  };
-
-  const handleRemoveInterest = (interest: string) => {
-    setInterests(interests.filter((i) => i !== interest));
   };
 
   const handleSave = async () => {
@@ -271,31 +257,7 @@ export default function EditProfileScreen() {
         </View>
 
         <Text style={styles.label}>Interests</Text>
-        <View style={styles.interestInputRow}>
-          <IconInput
-            icon="sparkles-outline"
-            style={styles.interestInput}
-            placeholder="e.g. Basketball"
-            value={interestInput}
-            onChangeText={setInterestInput}
-            onSubmitEditing={handleAddInterest}
-            returnKeyType="done"
-          />
-          <TouchableOpacity style={styles.addButton} onPress={handleAddInterest}>
-            <Ionicons name="add" size={22} color="#fff" />
-          </TouchableOpacity>
-        </View>
-        <View style={styles.chipRow}>
-          {interests.map((interest) => (
-            <TouchableOpacity
-              key={interest}
-              style={[styles.chip, styles.chipSelected]}
-              onPress={() => handleRemoveInterest(interest)}
-            >
-              <Text style={styles.chipTextSelected}>{interest} ✕</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+        <InterestPicker value={interests} onChange={setInterests} />
 
         <PrimaryButton title="Save Profile" icon="checkmark-outline" onPress={handleSave} loading={saving} style={styles.saveButton} />
       </FadeInView>
@@ -450,22 +412,6 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.semibold,
     color: '#fff',
     fontSize: fontSize.sm,
-  },
-  interestInputRow: {
-    width: '100%',
-    flexDirection: 'row',
-    gap: spacing.xs,
-    marginBottom: spacing.sm,
-  },
-  interestInput: {
-    flex: 1,
-  },
-  addButton: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.md,
-    width: 50,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   saveButton: {
     width: '100%',

@@ -10,7 +10,10 @@ export type RootStackParamList = {
   // session as above (Step 25). Onboarding-only — no "main app" equivalent,
   // unlike ChooseSchool.
   ChooseInterests: undefined;
-  // Shown once, right after ChooseInterests, only for the same session.
+  // Shown once, right after ChooseInterests, only for the same session
+  // (Step 29 audit fix).
+  ChooseNewStudent: undefined;
+  // Shown once, right after ChooseNewStudent, only for the same session.
   // Terminal onboarding step — completing or skipping it always leads to Main.
   Welcome: undefined;
   Main: undefined;

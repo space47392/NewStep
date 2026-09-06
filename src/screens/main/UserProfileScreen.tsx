@@ -6,7 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
-import { fetchProfileById } from '../../lib/profile';
+import { fetchProfileById, PublicProfile } from '../../lib/profile';
 import { fetchPostsByAuthor } from '../../lib/posts';
 import { fetchHelpStats } from '../../lib/points';
 import { fetchAchievementProgress } from '../../lib/achievements';
@@ -22,7 +22,7 @@ import FadeInView from '../../components/FadeInView';
 import ActionSheet, { ActionSheetAction } from '../../components/ActionSheet';
 import ReportSheet from '../../components/ReportSheet';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
-import { MainStackParamList, Profile, Post, AchievementProgress, ReportTargetType } from '../../types';
+import { MainStackParamList, Post, AchievementProgress, ReportTargetType } from '../../types';
 
 // Same visual language as ProfileScreen's own read-only view — the "Community"
 // card, the achievement grid, the Posts list all match, so viewing yourself
@@ -34,7 +34,7 @@ export default function UserProfileScreen() {
   const { user } = useAuth();
   const { showToast } = useToast();
 
-  const [profile, setProfile] = useState<Profile | null>(null);
+  const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
   const [studentsHelped, setStudentsHelped] = useState(0);
   const [achievements, setAchievements] = useState<AchievementProgress[]>([]);

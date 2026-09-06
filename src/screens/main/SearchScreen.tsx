@@ -25,6 +25,7 @@ import Avatar from '../../components/Avatar';
 import EmptyState from '../../components/EmptyState';
 import FadeInView from '../../components/FadeInView';
 import PostPreviewCard from '../../components/PostPreviewCard';
+import PrimaryButton from '../../components/PrimaryButton';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
 import { getInterestIcon } from '../../constants/interests';
 import {
@@ -410,17 +411,13 @@ export default function SearchScreen() {
                         )}
                       </View>
                     </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.followButton}
+                    <PrimaryButton
+                      title="Follow"
+                      icon="person-add-outline"
                       onPress={() => handleFollow(person)}
-                      disabled={pending}
-                    >
-                      {pending ? (
-                        <ActivityIndicator size="small" color={colors.primary} />
-                      ) : (
-                        <Text style={styles.followButtonText}>Follow</Text>
-                      )}
-                    </TouchableOpacity>
+                      loading={pending}
+                      style={styles.followButton}
+                    />
                   </View>
                 );
               })}
@@ -703,19 +700,11 @@ const styles = StyleSheet.create({
     color: colors.primary,
     marginTop: 2,
   },
+  // Same PrimaryButton every other Follow action in the app uses (see
+  // UserProfileScreen) — just narrower, so it fits inline in a person row
+  // instead of stretching full-width.
   followButton: {
-    borderWidth: 1.5,
-    borderColor: colors.primary,
-    borderRadius: radius.full,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    minWidth: 72,
-    alignItems: 'center',
-  },
-  followButtonText: {
-    fontFamily: fontFamily.semibold,
-    fontSize: fontSize.sm,
-    color: colors.primary,
+    width: 104,
   },
   contributorMeta: {
     fontFamily: fontFamily.semibold,

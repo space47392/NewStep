@@ -5,6 +5,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
+import { PUBLIC_PROFILE_FIELDS, PublicProfile } from '../../lib/profile';
 import { fetchHelpStats, fetchPointsHistory, formatPointReason } from '../../lib/points';
 import { fetchAchievementProgress } from '../../lib/achievements';
 import { fetchFollowCounts } from '../../lib/follows';
@@ -17,7 +18,7 @@ import EmptyState from '../../components/EmptyState';
 import LoadingScreen from '../../components/LoadingScreen';
 import FadeInView from '../../components/FadeInView';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
-import { MainStackParamList, Profile, PointsHistoryEntry, AchievementProgress, School, Post } from '../../types';
+import { MainStackParamList, PointsHistoryEntry, AchievementProgress, School, Post } from '../../types';
 
 // A read-only view of your own profile — the same shape UserProfileScreen
 // already uses for everyone else, so "you" don't look like a different
@@ -55,9 +56,9 @@ export default function ProfileScreen() {
         try {
           const { data, error } = await supabase
             .from('profiles')
-            .select('*')
+            .select(PUBLIC_PROFILE_FIELDS)
             .eq('id', user.id)
-            .maybeSingle<Profile>();
+            .maybeSingle<PublicProfile>();
 
           if (error) throw error;
           if (data) {

@@ -11,6 +11,7 @@ import RegisterScreen from '../screens/auth/RegisterScreen';
 import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
 import ChooseUsernameScreen from '../screens/auth/ChooseUsernameScreen';
 import ChooseInterestsScreen from '../screens/auth/ChooseInterestsScreen';
+import ChooseNewStudentScreen from '../screens/auth/ChooseNewStudentScreen';
 import WelcomeScreen from '../screens/auth/WelcomeScreen';
 import ChooseSchoolScreen from '../screens/main/ChooseSchoolScreen';
 import MainNavigator from './MainNavigator';
@@ -39,11 +40,13 @@ export default function AppNavigator() {
   const [justSignedUp, setJustSignedUp] = useState(false);
   const [schoolOnboardingDone, setSchoolOnboardingDone] = useState(false);
   const [interestsOnboardingDone, setInterestsOnboardingDone] = useState(false);
+  const [newStudentOnboardingDone, setNewStudentOnboardingDone] = useState(false);
   const [welcomeOnboardingDone, setWelcomeOnboardingDone] = useState(false);
   useEffect(() => {
     setJustSignedUp(false);
     setSchoolOnboardingDone(false);
     setInterestsOnboardingDone(false);
+    setNewStudentOnboardingDone(false);
     setWelcomeOnboardingDone(false);
   }, [session?.user?.id]);
 
@@ -67,12 +70,23 @@ export default function AppNavigator() {
   // re-shown after this session ends.
   const showInterestsOnboarding =
     !!session && !!username && justSignedUp && schoolOnboardingDone && !interestsOnboardingDone;
+  // Step 29 audit fix: one more one-time step chained after Interests, same
+  // gating shape — reuses the existing profiles.is_new_student column/RLS,
+  // just asked once here instead of only ever being reachable via Edit Profile.
+  const showNewStudentOnboarding =
+    !!session &&
+    !!username &&
+    justSignedUp &&
+    schoolOnboardingDone &&
+    interestsOnboardingDone &&
+    !newStudentOnboardingDone;
   const showWelcomeOnboarding =
     !!session &&
     !!username &&
     justSignedUp &&
     schoolOnboardingDone &&
     interestsOnboardingDone &&
+    newStudentOnboardingDone &&
     !welcomeOnboardingDone;
 
   return (
@@ -103,6 +117,10 @@ export default function AppNavigator() {
         ) : showInterestsOnboarding ? (
           <RootStack.Screen name="ChooseInterests">
             {() => <ChooseInterestsScreen onDone={() => setInterestsOnboardingDone(true)} />}
+          </RootStack.Screen>
+        ) : showNewStudentOnboarding ? (
+          <RootStack.Screen name="ChooseNewStudent">
+            {() => <ChooseNewStudentScreen onDone={() => setNewStudentOnboardingDone(true)} />}
           </RootStack.Screen>
         ) : showWelcomeOnboarding ? (
           <RootStack.Screen name="Welcome">

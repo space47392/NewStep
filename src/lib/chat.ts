@@ -122,16 +122,7 @@ export async function sendMessage(params: {
     reply_to_message_id: params.replyToMessageId ?? null,
   });
 
-  // TEMPORARY diagnostic logging — remove once the send failure is root-caused.
-  if (error) {
-    console.error('[sendMessage] insert failed', {
-      code: error.code,
-      message: error.message,
-      details: error.details,
-      hint: error.hint,
-    });
-    throw error;
-  }
+  if (error) throw error;
 }
 
 export async function markMessagesAsRead(conversationId: string, currentUserId: string): Promise<void> {

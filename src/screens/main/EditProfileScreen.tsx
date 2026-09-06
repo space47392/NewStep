@@ -9,13 +9,14 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { supabase } from '../../lib/supabase';
 import { fetchSchoolById } from '../../lib/schools';
+import { PUBLIC_PROFILE_FIELDS, PublicProfile } from '../../lib/profile';
 import IconInput from '../../components/IconInput';
 import InterestPicker from '../../components/InterestPicker';
 import PrimaryButton from '../../components/PrimaryButton';
 import LoadingScreen from '../../components/LoadingScreen';
 import FadeInView from '../../components/FadeInView';
 import { colors, spacing, radius, fontSize, fontFamily } from '../../constants/theme';
-import { MainStackParamList, Profile, School } from '../../types';
+import { MainStackParamList, School } from '../../types';
 
 const GRADES = ['6th', '7th', '8th', '9th', '10th', '11th', '12th'];
 
@@ -47,9 +48,9 @@ export default function EditProfileScreen() {
     (async () => {
       const { data, error } = await supabase
         .from('profiles')
-        .select('*')
+        .select(PUBLIC_PROFILE_FIELDS)
         .eq('id', user.id)
-        .maybeSingle<Profile>();
+        .maybeSingle<PublicProfile>();
 
       if (error) {
         Alert.alert('Could not load profile', error.message);

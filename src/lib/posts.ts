@@ -18,6 +18,7 @@ export const POST_SELECT = `
   event_date,
   event_end_time,
   event_location,
+  interested_count,
   comments:comments(count),
   profiles:author_id (
     id,

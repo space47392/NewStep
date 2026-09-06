@@ -195,6 +195,10 @@ export type Post = {
   event_date: string | null;
   event_end_time: string | null;
   event_location: string | null;
+  // Denormalized public count of event_interests rows — see
+  // event_interests_schema.sql. Always 0 for non-Event posts. Never expose
+  // the underlying rows (who's interested) client-side; only this count.
+  interested_count: number;
   // PostgREST embedded aggregate — see POST_SELECT in lib/posts.ts. Absent on any
   // select that doesn't ask for it, so always optional-chain when reading it.
   comments?: { count: number }[];

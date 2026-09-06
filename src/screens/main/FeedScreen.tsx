@@ -17,6 +17,7 @@ import {
 } from '../../lib/posts';
 import { fetchLikedPostIds } from '../../lib/likes';
 import { fetchSavedPostIds, savePost, unsavePost } from '../../lib/postSaves';
+import { fetchInterestedPostIds } from '../../lib/eventInterests';
 import { sharePost } from '../../lib/share';
 import { fetchActiveStories, uploadStory } from '../../lib/stories';
 import { getSeenStoryIds, pruneSeenStoryIds } from '../../lib/storyPrefs';
@@ -38,6 +39,7 @@ import HelpStatusBadge from '../../components/HelpStatusBadge';
 import EventDetails from '../../components/EventDetails';
 import LikeButton from '../../components/LikeButton';
 import SaveButton from '../../components/SaveButton';
+import InterestButton from '../../components/InterestButton';
 import PhotoCarousel from '../../components/PhotoCarousel';
 import { Post, Story, MainStackParamList, ReportTargetType } from '../../types';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
@@ -58,6 +60,7 @@ export default function FeedScreen() {
   const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
   const [likedPostIds, setLikedPostIds] = useState<Set<string>>(new Set());
   const [savedPostIds, setSavedPostIds] = useState<Set<string>>(new Set());
+  const [interestedPostIds, setInterestedPostIds] = useState<Set<string>>(new Set());
   const [stories, setStories] = useState<Story[]>([]);
   const [seenStoryIds, setSeenStoryIds] = useState<Set<string>>(new Set());
   const [uploadingStory, setUploadingStory] = useState(false);
@@ -125,12 +128,14 @@ export default function FeedScreen() {
       setForYouHasMore(data.length === PAGE_SIZE);
       setErrorMessage(null);
       if (user) {
-        const [liked, saved] = await Promise.all([
+        const [liked, saved, interested] = await Promise.all([
           fetchLikedPostIds(user.id, visible.map((p) => p.id)),
           fetchSavedPostIds(user.id, visible.map((p) => p.id)),
+          fetchInterestedPostIds(user.id, visible.map((p) => p.id)),
         ]);
         setLikedPostIds(liked);
         setSavedPostIds(saved);
+        setInterestedPostIds(interested);
       }
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : 'Could not load posts.');
@@ -148,12 +153,14 @@ export default function FeedScreen() {
       setPosts((prev) => [...prev, ...visible]);
       setForYouHasMore(data.length === PAGE_SIZE);
       if (visible.length > 0) {
-        const [liked, saved] = await Promise.all([
+        const [liked, saved, interested] = await Promise.all([
           fetchLikedPostIds(user.id, visible.map((p) => p.id)),
           fetchSavedPostIds(user.id, visible.map((p) => p.id)),
+          fetchInterestedPostIds(user.id, visible.map((p) => p.id)),
         ]);
         setLikedPostIds((prev) => new Set([...prev, ...liked]));
         setSavedPostIds((prev) => new Set([...prev, ...saved]));
+        setInterestedPostIds((prev) => new Set([...prev, ...interested]));
       }
     } catch {
       setForYouHasMore(false);
@@ -185,12 +192,14 @@ export default function FeedScreen() {
       // LikeButton/SaveButton always rendered as "off" here regardless of the
       // real state — same batched-fetch pattern loadPosts() already uses.
       if (data.length > 0) {
-        const [liked, saved] = await Promise.all([
+        const [liked, saved, interested] = await Promise.all([
           fetchLikedPostIds(user.id, data.map((p) => p.id)),
           fetchSavedPostIds(user.id, data.map((p) => p.id)),
+          fetchInterestedPostIds(user.id, data.map((p) => p.id)),
         ]);
         setLikedPostIds((prev) => new Set([...prev, ...liked]));
         setSavedPostIds((prev) => new Set([...prev, ...saved]));
+        setInterestedPostIds((prev) => new Set([...prev, ...interested]));
       }
     } catch {
       setFollowingPosts([]);
@@ -211,12 +220,14 @@ export default function FeedScreen() {
       setFollowingPosts((prev) => [...prev, ...more]);
       setFollowingHasMore(more.length === PAGE_SIZE);
       if (more.length > 0) {
-        const [liked, saved] = await Promise.all([
+        const [liked, saved, interested] = await Promise.all([
           fetchLikedPostIds(user.id, more.map((p) => p.id)),
           fetchSavedPostIds(user.id, more.map((p) => p.id)),
+          fetchInterestedPostIds(user.id, more.map((p) => p.id)),
         ]);
         setLikedPostIds((prev) => new Set([...prev, ...liked]));
         setSavedPostIds((prev) => new Set([...prev, ...saved]));
+        setInterestedPostIds((prev) => new Set([...prev, ...interested]));
       }
     } catch {
       setFollowingHasMore(false);
@@ -754,6 +765,12 @@ export default function FeedScreen() {
                   </TouchableOpacity>
                 )}
 
+                {item.category === 'Event' && (
+                  <View style={styles.interestRow}>
+                    <InterestButton postId={item.id} initialInterested={interestedPostIds.has(item.id)} />
+                  </View>
+                )}
+
                 <View style={styles.cardFooter}>
                   <LikeButton
                     postId={item.id}
@@ -1121,6 +1138,10 @@ const styles = StyleSheet.create({
     lineHeight: 21,
   },
   photoWrap: {
+    marginTop: spacing.sm,
+  },
+  interestRow: {
+    alignItems: 'flex-start',
     marginTop: spacing.sm,
   },
   cardFooter: {

@@ -45,6 +45,10 @@ export default function EventDetails({ post }: Props) {
           <Text style={styles.locationText}>{post.event_location}</Text>
         </View>
       ) : null}
+      <View style={styles.row}>
+        <Ionicons name="star" size={13} color={colors.textMid} />
+        <Text style={styles.locationText}>{post.interested_count} interested</Text>
+      </View>
     </View>
   );
 }

@@ -23,6 +23,7 @@ import { volunteerToHelp, markPostCompleted, fetchPostById, deletePost } from '.
 import { getOrCreateConversation } from '../../lib/chat';
 import { fetchLikedPostIds } from '../../lib/likes';
 import { fetchSavedPostIds, savePost, unsavePost } from '../../lib/postSaves';
+import { fetchInterestedPostIds } from '../../lib/eventInterests';
 import { sharePost } from '../../lib/share';
 import { fetchHelpStats, thankHelper } from '../../lib/points';
 import { fetchProfileById } from '../../lib/profile';
@@ -39,6 +40,7 @@ import StoryOriginBadge from '../../components/StoryOriginBadge';
 import EventDetails from '../../components/EventDetails';
 import LikeButton from '../../components/LikeButton';
 import SaveButton from '../../components/SaveButton';
+import InterestButton from '../../components/InterestButton';
 import PhotoCarousel from '../../components/PhotoCarousel';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
 import { CATEGORY_STYLES } from '../../constants/categoryStyles';
@@ -65,6 +67,7 @@ export default function PostDetailScreen() {
   const [deletingPost, setDeletingPost] = useState(false);
   const [likedByMe, setLikedByMe] = useState(false);
   const [savedByMe, setSavedByMe] = useState(false);
+  const [interestedByMe, setInterestedByMe] = useState(false);
   const [reportTarget, setReportTarget] = useState<{ type: ReportTargetType; id: string } | null>(null);
   const [thanking, setThanking] = useState(false);
   const [contribution, setContribution] = useState<{
@@ -83,12 +86,14 @@ export default function PostDetailScreen() {
           const freshPost = await fetchPostById(route.params.post.id);
           setPost(freshPost);
           if (user) {
-            const [liked, saved] = await Promise.all([
+            const [liked, saved, interested] = await Promise.all([
               fetchLikedPostIds(user.id, [freshPost.id]),
               fetchSavedPostIds(user.id, [freshPost.id]),
+              fetchInterestedPostIds(user.id, [freshPost.id]),
             ]);
             setLikedByMe(liked.has(freshPost.id));
             setSavedByMe(saved.has(freshPost.id));
+            setInterestedByMe(interested.has(freshPost.id));
           }
         } catch {
           // ignored — comments effect below still loads independently
@@ -243,12 +248,14 @@ export default function PostDetailScreen() {
       setPost(freshPost);
       setComments(freshComments);
       if (user) {
-        const [liked, saved] = await Promise.all([
+        const [liked, saved, interested] = await Promise.all([
           fetchLikedPostIds(user.id, [freshPost.id]),
           fetchSavedPostIds(user.id, [freshPost.id]),
+          fetchInterestedPostIds(user.id, [freshPost.id]),
         ]);
         setLikedByMe(liked.has(freshPost.id));
         setSavedByMe(saved.has(freshPost.id));
+        setInterestedByMe(interested.has(freshPost.id));
       }
     } catch {
       // best-effort — leave whatever is currently shown on failure
@@ -417,6 +424,12 @@ export default function PostDetailScreen() {
                     navigation.navigate('PhotoViewer', { photoUrls: post.photo_urls, initialIndex: photoIndex })
                   }
                 />
+              </View>
+            )}
+
+            {post.category === 'Event' && (
+              <View style={styles.interestRow}>
+                <InterestButton postId={post.id} initialInterested={interestedByMe} />
               </View>
             )}
 
@@ -732,6 +745,10 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   photoWrap: {
+    marginBottom: spacing.md,
+  },
+  interestRow: {
+    alignItems: 'flex-start',
     marginBottom: spacing.md,
   },
   likeRow: {

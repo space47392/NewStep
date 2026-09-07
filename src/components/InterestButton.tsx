@@ -59,6 +59,9 @@ export default function InterestButton({ postId, initialInterested }: Props) {
       style={[styles.button, interested && styles.buttonActive]}
       onPress={handleToggle}
       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      accessibilityRole="button"
+      accessibilityLabel={interested ? 'Remove interested' : 'Mark as interested'}
+      accessibilityState={{ selected: interested }}
     >
       <Ionicons name={interested ? 'star' : 'star-outline'} size={15} color={interested ? '#fff' : colors.primary} />
       <Text style={[styles.text, interested && styles.textActive]}>Interested{interested ? ' ✓' : ''}</Text>

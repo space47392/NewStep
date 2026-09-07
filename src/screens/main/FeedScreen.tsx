@@ -36,7 +36,7 @@ import PrimaryButton from '../../components/PrimaryButton';
 import ActionSheet, { ActionSheetAction } from '../../components/ActionSheet';
 import ReportSheet from '../../components/ReportSheet';
 import HelpStatusBadge from '../../components/HelpStatusBadge';
-import EventDetails from '../../components/EventDetails';
+import EventDetails, { isEventPast } from '../../components/EventDetails';
 import LikeButton from '../../components/LikeButton';
 import SaveButton from '../../components/SaveButton';
 import InterestButton from '../../components/InterestButton';
@@ -800,7 +800,11 @@ export default function FeedScreen() {
                   </TouchableOpacity>
                 )}
 
-                {item.category === 'Event' && (
+                {/* Hidden (not just disabled) once the event has passed — a
+                    past event can't still be "maybe attending"; the passive
+                    interested count in EventDetails above stays visible and
+                    the underlying interest rows are never touched (Step 32). */}
+                {item.category === 'Event' && !isEventPast(item) && (
                   <View style={styles.interestRow}>
                     <InterestButton postId={item.id} initialInterested={interestedPostIds.has(item.id)} />
                   </View>

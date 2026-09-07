@@ -37,7 +37,7 @@ import ActionSheet, { ActionSheetAction } from '../../components/ActionSheet';
 import ReportSheet from '../../components/ReportSheet';
 import HelpStatusBadge from '../../components/HelpStatusBadge';
 import StoryOriginBadge from '../../components/StoryOriginBadge';
-import EventDetails from '../../components/EventDetails';
+import EventDetails, { isEventPast } from '../../components/EventDetails';
 import LikeButton from '../../components/LikeButton';
 import SaveButton from '../../components/SaveButton';
 import InterestButton from '../../components/InterestButton';
@@ -431,7 +431,10 @@ export default function PostDetailScreen() {
               </View>
             )}
 
-            {post.category === 'Event' && (
+            {/* Hidden (not disabled) once the event has passed — see
+                FeedScreen's matching comment (Step 32). The passive
+                interested count in EventDetails above stays visible either way. */}
+            {post.category === 'Event' && !isEventPast(post) && (
               <View style={styles.interestRow}>
                 <InterestButton postId={post.id} initialInterested={interestedByMe} />
               </View>

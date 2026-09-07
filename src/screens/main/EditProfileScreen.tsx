@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, Image, ScrollView, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -42,6 +42,18 @@ export default function EditProfileScreen() {
   const [schoolId, setSchoolId] = useState<string | null>(null);
   const [selectedSchool, setSelectedSchool] = useState<School | null>(null);
 
+  // --- Unsaved-changes protection (Step 33) ---------------------------------
+  // A snapshot comparison against the fields this screen's own Save button
+  // actually writes — deliberately excludes schoolId/selectedSchool, since a
+  // school change is saved immediately (and separately) by ChooseSchoolScreen
+  // itself, not by this screen's Save; including it here would falsely flag
+  // "unsaved changes" for someone who only picked a new school and touched
+  // nothing else. null until the initial load completes, so the dirty check
+  // never fires against empty placeholder state.
+  const initialSnapshotRef = useRef<string | null>(null);
+  const isDirtyRef = useRef(false);
+  const buildSnapshot = () => JSON.stringify({ fullName, grade, interests, avatarUrl, isNewStudent });
+
   useEffect(() => {
     if (!user) return;
 
@@ -66,11 +78,41 @@ export default function EditProfileScreen() {
             .then(setSelectedSchool)
             .catch(() => setSelectedSchool(null));
         }
+        // Built straight from the fetched row, not from state — the setters
+        // above haven't committed within this closure yet, so reading state
+        // here would still see the pre-load placeholder values.
+        initialSnapshotRef.current = JSON.stringify({
+          fullName: data.full_name ?? '',
+          grade: data.grade ?? '',
+          interests: data.interests ?? [],
+          avatarUrl: data.avatar_url ?? null,
+          isNewStudent: data.is_new_student,
+        });
       }
 
       setLoadingProfile(false);
     })();
   }, [user]);
+
+  useEffect(() => {
+    if (initialSnapshotRef.current === null) return;
+    isDirtyRef.current = buildSnapshot() !== initialSnapshotRef.current;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fullName, grade, interests, avatarUrl, isNewStudent]);
+
+  // Registered once — reads isDirtyRef fresh at fire time; fires the same way
+  // for the header Back button, swipe-back, and Android hardware back.
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      if (!isDirtyRef.current) return;
+      e.preventDefault();
+      Alert.alert('Discard changes?', 'Your changes will be lost.', [
+        { text: 'Keep Editing', style: 'cancel' },
+        { text: 'Discard', style: 'destructive', onPress: () => navigation.dispatch(e.data.action) },
+      ]);
+    });
+    return unsubscribe;
+  }, [navigation]);
 
   // Re-checked on every focus (not just once) so returning from
   // ChooseSchoolScreen immediately reflects the newly picked school — the
@@ -155,6 +197,9 @@ export default function EditProfileScreen() {
     if (error) {
       Alert.alert('Save failed', error.message);
     } else {
+      // Successful save is an intentional exit — the upcoming goBack()
+      // should never trigger the discard-changes prompt.
+      isDirtyRef.current = false;
       showToast('Profile updated');
       navigation.goBack();
     }

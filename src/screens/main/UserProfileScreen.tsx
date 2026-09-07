@@ -133,26 +133,30 @@ export default function UserProfileScreen() {
     if (!user) return;
 
     if (isFollowingUser) {
-      Alert.alert(`Unfollow ${profile?.full_name ?? 'this user'}?`, undefined, [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Unfollow',
-          style: 'destructive',
-          onPress: async () => {
-            setFollowLoading(true);
-            try {
-              await unfollowUser({ followerId: user.id, followingId: userId });
-              setIsFollowingUser(false);
-              setFollowCounts((prev) => ({ ...prev, followers: Math.max(0, prev.followers - 1) }));
-            } catch (err) {
-              const message = err instanceof Error ? err.message : 'Could not unfollow.';
-              Alert.alert('Error', message);
-            } finally {
-              setFollowLoading(false);
-            }
+      Alert.alert(
+        `Unfollow ${profile?.full_name ?? 'this user'}?`,
+        "You won't see their posts in your Following feed.",
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Unfollow',
+            style: 'destructive',
+            onPress: async () => {
+              setFollowLoading(true);
+              try {
+                await unfollowUser({ followerId: user.id, followingId: userId });
+                setIsFollowingUser(false);
+                setFollowCounts((prev) => ({ ...prev, followers: Math.max(0, prev.followers - 1) }));
+              } catch (err) {
+                const message = err instanceof Error ? err.message : 'Could not unfollow.';
+                Alert.alert('Error', message);
+              } finally {
+                setFollowLoading(false);
+              }
+            },
           },
-        },
-      ]);
+        ]
+      );
       return;
     }
 
@@ -235,7 +239,13 @@ export default function UserProfileScreen() {
               <Text style={styles.backText}>Back</Text>
             </TouchableOpacity>
             {!isOwnProfile && (
-              <TouchableOpacity style={styles.menuButton} onPress={() => setMenuVisible(true)}>
+              <TouchableOpacity
+                style={styles.menuButton}
+                onPress={() => setMenuVisible(true)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel="Open profile menu"
+              >
                 <Ionicons name="ellipsis-horizontal" size={20} color={colors.textMid} />
               </TouchableOpacity>
             )}

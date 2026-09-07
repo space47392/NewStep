@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -89,6 +89,47 @@ export default function CreatePostScreen() {
 
   const totalPhotos = existingPhotoUrls.length + newPhotos.length;
   const remainingSlots = MAX_PHOTOS - totalPhotos;
+
+  // --- Unsaved-changes protection (Step 33) ---------------------------------
+  // A snapshot comparison, not a boolean flag: "dirty" means the form
+  // currently differs from what it looked like on mount (which is already the
+  // editingPost's own values when editing, so an edit that's saved and
+  // re-opened, or cleared back to its original content, correctly reads as
+  // clean rather than dirty).
+  const buildSnapshot = () =>
+    JSON.stringify({
+      content,
+      category,
+      existingPhotoUrls,
+      newPhotoUris: newPhotos.map((a) => a.uri),
+      eventDate: eventDate?.toISOString() ?? null,
+      eventStartTime: eventStartTime?.toISOString() ?? null,
+      eventEndTime: showEndTimeField ? eventEndTime?.toISOString() ?? null : null,
+      eventLocation,
+    });
+  const initialSnapshotRef = useRef(buildSnapshot());
+  const isDirtyRef = useRef(false);
+
+  useEffect(() => {
+    isDirtyRef.current = buildSnapshot() !== initialSnapshotRef.current;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [content, category, existingPhotoUrls, newPhotos, eventDate, eventStartTime, eventEndTime, showEndTimeField, eventLocation]);
+
+  // Registered once — reads isDirtyRef fresh at fire time, so it doesn't need
+  // to re-subscribe on every keystroke. Fires identically for the header
+  // close button, iOS swipe-back, and Android hardware back, since all three
+  // go through the same navigation event.
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      if (!isDirtyRef.current) return;
+      e.preventDefault();
+      Alert.alert('Discard changes?', 'Your changes will be lost.', [
+        { text: 'Keep Editing', style: 'cancel' },
+        { text: 'Discard', style: 'destructive', onPress: () => navigation.dispatch(e.data.action) },
+      ]);
+    });
+    return unsubscribe;
+  }, [navigation]);
 
   const handlePickPhotos = async () => {
     if (remainingSlots <= 0) return;
@@ -205,6 +246,9 @@ export default function CreatePostScreen() {
           eventLocation: category === 'Event' ? eventLocation.trim() || undefined : undefined,
         });
       }
+      // Successful submit is an intentional exit, not an accidental one — the
+      // upcoming goBack() should never trigger the discard-changes prompt.
+      isDirtyRef.current = false;
       navigation.goBack();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Something went wrong.';
@@ -217,7 +261,12 @@ export default function CreatePostScreen() {
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeButton}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.closeButton}
+          accessibilityRole="button"
+          accessibilityLabel="Close"
+        >
           <Ionicons name="close" size={22} color={colors.textMid} />
         </TouchableOpacity>
         <Text style={styles.title}>{editingPost ? 'Edit Post' : 'New Post'}</Text>

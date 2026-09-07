@@ -540,6 +540,8 @@ export default function FeedScreen() {
                 style={styles.bellButton}
                 onPress={() => navigation.navigate('Notifications')}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel="Open notifications"
               >
                 <Ionicons name="notifications-outline" size={24} color={colors.textDark} />
                 {unreadNotificationCount > 0 && (
@@ -740,6 +742,9 @@ export default function FeedScreen() {
                       e.stopPropagation();
                       setMenuPost(item);
                     }}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    accessibilityRole="button"
+                    accessibilityLabel="Open post menu"
                   >
                     <Ionicons name="ellipsis-horizontal" size={18} color={colors.textMid} />
                   </TouchableOpacity>
@@ -825,6 +830,8 @@ export default function FeedScreen() {
                         e.stopPropagation();
                         sharePost(item);
                       }}
+                      accessibilityRole="button"
+                      accessibilityLabel="Share post"
                     >
                       <Ionicons name="share-outline" size={20} color={colors.textMid} />
                     </TouchableOpacity>

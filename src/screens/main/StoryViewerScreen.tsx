@@ -306,8 +306,20 @@ export default function StoryViewerScreen() {
             </Text>
           </View>
         </TouchableOpacity>
+        {/* Header icon buttons sit only spacing.sm (8px) apart, so hitSlop here
+            is deliberately small and asymmetric (narrow left/right, generous
+            top/bottom) — StoryViewer previously had a real tap-zone
+            interception bug, so this is sized to never let two adjacent
+            buttons' expanded hit areas overlap each other (Step 33). */}
         {isOwnStory ? (
-          <TouchableOpacity style={styles.iconButton} onPress={() => setMenuVisible(true)} disabled={deleting}>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => setMenuVisible(true)}
+            disabled={deleting}
+            hitSlop={{ top: 10, bottom: 10, left: 3, right: 3 }}
+            accessibilityRole="button"
+            accessibilityLabel="Open story menu"
+          >
             {deleting ? (
               <ActivityIndicator color="#fff" />
             ) : (
@@ -318,11 +330,20 @@ export default function StoryViewerScreen() {
           <TouchableOpacity
             style={styles.iconButton}
             onPress={() => setReportTarget({ type: 'story', id: story.id })}
+            hitSlop={{ top: 10, bottom: 10, left: 3, right: 3 }}
+            accessibilityRole="button"
+            accessibilityLabel="Report story"
           >
             <Ionicons name="flag-outline" size={20} color="#fff" />
           </TouchableOpacity>
         )}
-        <TouchableOpacity style={styles.iconButton} onPress={() => navigation.goBack()}>
+        <TouchableOpacity
+          style={styles.iconButton}
+          onPress={() => navigation.goBack()}
+          hitSlop={{ top: 10, bottom: 10, left: 3, right: 10 }}
+          accessibilityRole="button"
+          accessibilityLabel="Close story"
+        >
           <Ionicons name="close" size={24} color="#fff" />
         </TouchableOpacity>
       </View>

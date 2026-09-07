@@ -87,7 +87,13 @@ export default function LikeButton({ postId, initialLikeCount, initialLikedByMe 
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity onPress={handleToggle} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+      <TouchableOpacity
+        onPress={handleToggle}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        accessibilityRole="button"
+        accessibilityLabel={liked ? 'Unlike post' : 'Like post'}
+        accessibilityState={{ selected: liked }}
+      >
         <Animated.View style={{ transform: [{ scale }] }}>
           <Ionicons
             name={liked ? 'heart' : 'heart-outline'}

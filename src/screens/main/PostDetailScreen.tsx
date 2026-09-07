@@ -375,7 +375,13 @@ export default function PostDetailScreen() {
           <Ionicons name="arrow-back" size={20} color={colors.primary} />
           <Text style={styles.backText}>Back</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.menuButton} onPress={() => setMenuVisible(true)}>
+        <TouchableOpacity
+          style={styles.menuButton}
+          onPress={() => setMenuVisible(true)}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityRole="button"
+          accessibilityLabel="Open post menu"
+        >
           <Ionicons name="ellipsis-horizontal" size={20} color={colors.textMid} />
         </TouchableOpacity>
       </View>
@@ -448,6 +454,8 @@ export default function PostDetailScreen() {
                   style={styles.footerIconButton}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   onPress={() => sharePost(post)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Share post"
                 >
                   <Ionicons name="share-outline" size={20} color={colors.textMid} />
                 </TouchableOpacity>

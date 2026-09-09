@@ -112,7 +112,12 @@ export default function PostDetailScreen() {
           }
         }
       })();
-    }, [route.params.post.id, user])
+      // user?.id, not the whole `user` object — `user` gets a new object
+      // reference on every Supabase access-token refresh even though the
+      // signed-in account hasn't changed, which would otherwise re-run this
+      // full post/like/save/interest refetch roughly hourly on a long-lived
+      // PostDetail screen (Step 41).
+    }, [route.params.post.id, user?.id])
   );
 
   useEffect(() => {
@@ -131,7 +136,15 @@ export default function PostDetailScreen() {
     })();
 
     const unsubscribe = subscribeToComments(post.id, (comment) => {
-      setComments((prev) => [...prev, comment]);
+      // Guards against a comment appearing twice when this event races with
+      // handleRefresh()'s independent full setComments(freshComments) replace
+      // — if that refresh's snapshot already included this comment (no
+      // ordering guarantee between the two), this would otherwise append it
+      // a second time with nothing to later reconcile it (Step 41).
+      setComments((prev) => {
+        if (prev.some((c) => c.id === comment.id)) return prev;
+        return [...prev, comment];
+      });
     });
 
     return () => {

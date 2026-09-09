@@ -123,6 +123,13 @@ export default function ConversationScreen() {
     setRetrying(false);
   };
 
+  // Depends on user?.id, not the whole `user` object — `user` gets a new
+  // object reference on every Supabase access-token refresh even though the
+  // signed-in account hasn't changed, which would otherwise tear down and
+  // recreate this channel (and re-run loadMessages()/markMessagesAsRead())
+  // roughly hourly on a long-lived conversation screen, opening a window for
+  // a message to be duplicated between the old channel's INSERT event and
+  // the fresh loadMessages() fetch (Step 41).
   useEffect(() => {
     loadMessages();
 
@@ -150,7 +157,7 @@ export default function ConversationScreen() {
     return () => {
       unsubscribe();
     };
-  }, [conversationId, user, loadMessages]);
+  }, [conversationId, user?.id, loadMessages]);
 
   // Ephemeral broadcast channel — no table, no history, just relayed to whoever
   // else is subscribed to this conversation's typing topic right now.

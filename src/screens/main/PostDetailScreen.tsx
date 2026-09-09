@@ -151,7 +151,23 @@ export default function PostDetailScreen() {
 
   // Community contribution summary — reuses the existing help-stats/points
   // reads (Step 3) rather than any new counter; only fetched once a helper
-  // actually exists and the request is done, not on every load.
+  // actually exists and the request is done, not on every load. Extracted so
+  // handleThankHelper can also call it directly after a successful thanks —
+  // the effect below only re-runs on status/helper changes, neither of which
+  // change when a thanks is sent, so without this the Points/Thanks numbers
+  // shown here would stay stale until the screen is reopened (Step 39).
+  const fetchContribution = useCallback(async (helperId: string) => {
+    const [stats, helperProfile] = await Promise.all([
+      fetchHelpStats(helperId),
+      fetchProfileById(helperId),
+    ]);
+    return {
+      studentsHelped: stats.studentsHelped,
+      points: helperProfile.points,
+      thanksReceived: helperProfile.thanks_received_count,
+    };
+  }, []);
+
   useEffect(() => {
     if (post.status !== 'completed' || !post.helper) {
       setContribution(null);
@@ -161,17 +177,8 @@ export default function PostDetailScreen() {
     let isMounted = true;
     (async () => {
       try {
-        const [stats, helperProfile] = await Promise.all([
-          fetchHelpStats(post.helper!.id),
-          fetchProfileById(post.helper!.id),
-        ]);
-        if (isMounted) {
-          setContribution({
-            studentsHelped: stats.studentsHelped,
-            points: helperProfile.points,
-            thanksReceived: helperProfile.thanks_received_count,
-          });
-        }
+        const result = await fetchContribution(post.helper!.id);
+        if (isMounted) setContribution(result);
       } catch {
         if (isMounted) setContribution(null);
       }
@@ -180,7 +187,7 @@ export default function PostDetailScreen() {
     return () => {
       isMounted = false;
     };
-  }, [post.status, post.helper?.id]);
+  }, [post.status, post.helper?.id, fetchContribution]);
 
   const category = CATEGORY_STYLES[post.category];
   const canVolunteer = post.category === 'Need Help' && post.status === 'open' && post.author_id !== user?.id;
@@ -248,6 +255,13 @@ export default function PostDetailScreen() {
       }).catch(() => {});
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       showToast('Thanks sent!');
+      // Refresh the Points/Thanks summary right away — thank_helper() doesn't
+      // change post.status or post.helper, so the effect above won't re-run
+      // on its own. Best-effort and non-blocking: the toast above already
+      // confirmed success, this just keeps the visible numbers in sync (Step 39).
+      fetchContribution(post.helper.id)
+        .then(setContribution)
+        .catch(() => {});
     } catch (err) {
       // Success already used a toast above — failure should match instead of
       // jumping to a heavier blocking dialog for the same action (Step 30).

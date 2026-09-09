@@ -49,6 +49,21 @@ import { CATEGORY_STYLES } from '../../constants/categoryStyles';
 // Shared by both feeds' pagination — same page size, same .range() shape.
 const PAGE_SIZE = 20;
 
+// Reconciles a boolean-membership Set (liked/saved/interested) for exactly
+// the ids a fresh fetch actually covers — added or removed per the fresh
+// truth — while leaving every other id (e.g. posts loaded via "Load more",
+// which that fetch has no fresh info about) untouched. Used by loadPosts()'s
+// 'merge' mode so a plain refocus can revalidate page 0 without wiping
+// like/save/interested state for anything beyond it (Step 39).
+function reconcileIdSet(prev: Set<string>, coveredIds: string[], freshIds: Set<string>): Set<string> {
+  const next = new Set(prev);
+  for (const id of coveredIds) {
+    if (freshIds.has(id)) next.add(id);
+    else next.delete(id);
+  }
+  return next;
+}
+
 export default function FeedScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
   const { user } = useAuth();
@@ -100,29 +115,63 @@ export default function FeedScreen() {
   // first navigation transition completes — reset on focus (below), so it's
   // never left stuck true after returning from PostDetail (Step 34).
   const openingPostRef = useRef(false);
+  // Mirrors loadFollowingFeed's own in-flight state via a ref (not the
+  // followingLoading state value) so the focus effect below can check it
+  // without needing feedMode/loadFollowingFeed's state in its dependency
+  // array — see the comment on the focus effect itself for why that matters
+  // (Step 39).
+  const followingLoadingRef = useRef(false);
+  // Read inside the focus effect instead of depending on feedMode directly —
+  // switching feedMode via the For You/Following pill is a local state
+  // change, not a navigation focus event, and putting feedMode in that
+  // effect's deps would make useFocusEffect treat every tab toggle as a new
+  // focus, re-running the whole load (including For You/stories/banner) just
+  // from switching tabs (Step 39).
+  const feedModeRef = useRef(feedMode);
+  useEffect(() => {
+    feedModeRef.current = feedMode;
+  }, [feedMode]);
   const handleOpenPost = (post: Post, focusComment?: boolean) => {
     if (openingPostRef.current) return;
     openingPostRef.current = true;
     navigation.navigate('PostDetail', { post, focusComment });
   };
 
+  // Applies an update to whichever of posts/followingPosts actually contains
+  // the given post id — a post can independently appear in either list (or
+  // neither), and an action taken from a visible card should always reflect
+  // there regardless of which tab it was taken from (Step 34/39). No-ops
+  // (returns the same array reference) on whichever list doesn't contain the
+  // post, so this never causes a pointless re-render of the feed that isn't
+  // showing it.
+  const updatePostInLists = useCallback((postId: string, updater: (post: Post) => Post) => {
+    const apply = (list: Post[]) => {
+      if (!list.some((p) => p.id === postId)) return list;
+      return list.map((p) => (p.id === postId ? updater(p) : p));
+    };
+    setPosts(apply);
+    setFollowingPosts(apply);
+  }, []);
+
+  // Same idea as updatePostInLists, for removal — used by handleDeletePost so
+  // a delete taken from the Following tab removes the card there too, not
+  // just from the For You array (Step 39).
+  const removePostFromLists = useCallback((postId: string) => {
+    const remove = (list: Post[]) => (list.some((p) => p.id === postId) ? list.filter((p) => p.id !== postId) : list);
+    setPosts(remove);
+    setFollowingPosts(remove);
+  }, []);
+
   // Keeps EventDetails' displayed "N interested" count in sync with
   // InterestButton's own optimistic toggle, without a second count query per
-  // tap — both posts/followingPosts are checked since the same post can
-  // independently appear in either list (Step 34). No-ops (returns the same
-  // array reference) on whichever list doesn't contain the post, so this
-  // never causes a pointless re-render of the feed that isn't showing it.
-  const handleInterestToggle = useCallback((postId: string, nextInterested: boolean) => {
-    const delta = nextInterested ? 1 : -1;
-    const bump = (list: Post[]) => {
-      if (!list.some((p) => p.id === postId)) return list;
-      return list.map((p) =>
-        p.id === postId ? { ...p, interested_count: Math.max(0, p.interested_count + delta) } : p
-      );
-    };
-    setPosts(bump);
-    setFollowingPosts(bump);
-  }, []);
+  // tap (Step 34).
+  const handleInterestToggle = useCallback(
+    (postId: string, nextInterested: boolean) => {
+      const delta = nextInterested ? 1 : -1;
+      updatePostInLists(postId, (p) => ({ ...p, interested_count: Math.max(0, p.interested_count + delta) }));
+    },
+    [updatePostInLists]
+  );
 
   // Lets a post go straight from "open" to "accepted" right from the feed card
   // — same secure volunteer_to_help() RPC PostDetailScreen already uses (Step 1),
@@ -132,7 +181,7 @@ export default function FeedScreen() {
     setVolunteeringPostId(post.id);
     try {
       const updated = await volunteerToHelp(post.id);
-      setPosts((prev) => prev.map((p) => (p.id === post.id ? updated : p)));
+      updatePostInLists(post.id, () => updated);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       showToast('You volunteered to help!');
     } catch (err) {
@@ -155,39 +204,72 @@ export default function FeedScreen() {
     }
   }, [user]);
 
-  const loadPosts = useCallback(async () => {
-    try {
-      const data = await fetchPosts(PAGE_SIZE, 0);
-      // UX filtering only, not a security boundary — posts stay publicly
-      // queryable at the RLS layer either way (see blocks.ts).
-      const blockedIds = user ? await fetchBlockedUserIds(user.id).catch(() => new Set<string>()) : new Set<string>();
-      setBlockedIdsCache(blockedIds);
-      const visible = data.filter((p) => !blockedIds.has(p.author_id));
-      setPosts(visible);
-      setForYouHasMore(data.length === PAGE_SIZE);
-      setLoadFailed(false);
-      hasEverLoadedPostsRef.current = true;
-      if (user) {
-        const [liked, saved, interested] = await Promise.all([
-          fetchLikedPostIds(user.id, visible.map((p) => p.id)),
-          fetchSavedPostIds(user.id, visible.map((p) => p.id)),
-          fetchInterestedPostIds(user.id, visible.map((p) => p.id)),
-        ]);
-        setLikedPostIds(liked);
-        setSavedPostIds(saved);
-        setInterestedPostIds(interested);
+  // mode 'replace' (default): used for the very first load, pull-to-refresh,
+  // and retry-after-failure — wholesale replaces the list, same as before.
+  // mode 'merge': used for a plain refocus (e.g. returning from PostDetail) —
+  // revalidates page 0 in place (updating matching ids, prepending anything
+  // genuinely new) instead of truncating the list back down to just page 0,
+  // which previously threw away everything loaded via "Load more" (Step 39).
+  const loadPosts = useCallback(
+    async (mode: 'replace' | 'merge' = 'replace') => {
+      try {
+        const data = await fetchPosts(PAGE_SIZE, 0);
+        // UX filtering only, not a security boundary — posts stay publicly
+        // queryable at the RLS layer either way (see blocks.ts).
+        const blockedIds = user ? await fetchBlockedUserIds(user.id).catch(() => new Set<string>()) : new Set<string>();
+        setBlockedIdsCache(blockedIds);
+        const visible = data.filter((p) => !blockedIds.has(p.author_id));
+        const pageIds = visible.map((p) => p.id);
+
+        if (mode === 'merge') {
+          setPosts((prev) => {
+            const freshById = new Map(visible.map((p) => [p.id, p]));
+            const existingIds = new Set(prev.map((p) => p.id));
+            // Anything on the fresh page 0 that isn't already loaded is a
+            // genuinely new post (from someone else) — added at the top, in
+            // the same newest-first order fetchPosts() already returns. This
+            // also keeps the next "Load more" offset (based on posts.length)
+            // correct: new posts pushed the rest of the feed down by exactly
+            // this many rows server-side too.
+            const newOnes = visible.filter((p) => !existingIds.has(p.id));
+            const merged = prev.map((p) => freshById.get(p.id) ?? p);
+            return [...newOnes, ...merged];
+          });
+        } else {
+          setPosts(visible);
+        }
+        setForYouHasMore(data.length === PAGE_SIZE);
+        setLoadFailed(false);
+        hasEverLoadedPostsRef.current = true;
+        if (user) {
+          const [liked, saved, interested] = await Promise.all([
+            fetchLikedPostIds(user.id, pageIds),
+            fetchSavedPostIds(user.id, pageIds),
+            fetchInterestedPostIds(user.id, pageIds),
+          ]);
+          if (mode === 'merge') {
+            setLikedPostIds((prev) => reconcileIdSet(prev, pageIds, liked));
+            setSavedPostIds((prev) => reconcileIdSet(prev, pageIds, saved));
+            setInterestedPostIds((prev) => reconcileIdSet(prev, pageIds, interested));
+          } else {
+            setLikedPostIds(liked);
+            setSavedPostIds(saved);
+            setInterestedPostIds(interested);
+          }
+        }
+      } catch {
+        // Only a genuinely first-ever failure (no posts have ever successfully
+        // loaded) shows the blocking ErrorState — a failed background refresh
+        // keeps whatever's already on screen and just says so (Step 36).
+        if (hasEverLoadedPostsRef.current) {
+          showToast("Couldn't refresh your feed");
+        } else {
+          setLoadFailed(true);
+        }
       }
-    } catch {
-      // Only a genuinely first-ever failure (no posts have ever successfully
-      // loaded) shows the blocking ErrorState — a failed background refresh
-      // keeps whatever's already on screen and just says so (Step 36).
-      if (hasEverLoadedPostsRef.current) {
-        showToast("Couldn't refresh your feed");
-      } else {
-        setLoadFailed(true);
-      }
-    }
-  }, [user, showToast]);
+    },
+    [user, showToast]
+  );
 
   const handleRetryForYou = async () => {
     if (retryingForYou) return;
@@ -227,8 +309,13 @@ export default function FeedScreen() {
   // than always alongside the For You feed, since most sessions may never
   // switch to it. fetchFollowingIds() is itself capped (follows.ts), and this
   // paginates the same way NotificationsScreen/FollowListScreen already do.
+  // Also called on every subsequent focus while the Following tab is active
+  // (see the main useFocusEffect below) — followingLoadingRef guards against
+  // that overlapping with the lazy first-open load or a rapid double-focus,
+  // so only one request is ever in flight at a time (Step 39).
   const loadFollowingFeed = useCallback(async () => {
-    if (!user) return;
+    if (!user || followingLoadingRef.current) return;
+    followingLoadingRef.current = true;
     setFollowingLoading(true);
     try {
       const [followingIds, blockedIds] = await Promise.all([
@@ -267,6 +354,7 @@ export default function FeedScreen() {
     } finally {
       setFollowingLoading(false);
       setFollowingLoaded(true);
+      followingLoadingRef.current = false;
     }
   }, [user, showToast]);
 
@@ -374,17 +462,35 @@ export default function FeedScreen() {
 
   // Refetch every time this tab gains focus (e.g. returning from editing a post),
   // but only show the full-screen spinner the very first time — later refreshes
-  // happen quietly behind the existing list so editing doesn't cause a jarring reload.
+  // happen quietly behind the existing list so editing doesn't cause a jarring
+  // reload. On a plain refocus (not the first load), For You revalidates page 0
+  // in place via loadPosts('merge') instead of truncating back to it (Step 39).
+  //
+  // Also refreshes the Following feed here when it's the active tab — this is
+  // the fix for Following never updating after its first load. It's read via
+  // feedModeRef (not a `feedMode` dependency) deliberately: this callback must
+  // only change identity when the load functions themselves change, never when
+  // feedMode toggles, or useFocusEffect would treat every tab switch as a new
+  // focus and eagerly reload For You/stories/banner too — the exact "refetch
+  // everything on every focus" this fix is explicitly not supposed to do.
   useFocusEffect(
     useCallback(() => {
       openingPostRef.current = false;
       (async () => {
-        if (!hasLoadedOnce.current) setLoading(true);
-        await Promise.all([loadPosts(), loadStories(), loadSchoolBanner(), loadNotificationCount()]);
+        const isFirstLoad = !hasLoadedOnce.current;
+        if (isFirstLoad) setLoading(true);
+        const tasks: Promise<unknown>[] = [
+          loadPosts(isFirstLoad ? 'replace' : 'merge'),
+          loadStories(),
+          loadSchoolBanner(),
+          loadNotificationCount(),
+        ];
+        if (feedModeRef.current === 'following') tasks.push(loadFollowingFeed());
+        await Promise.all(tasks);
         setLoading(false);
         hasLoadedOnce.current = true;
       })();
-    }, [loadPosts, loadStories, loadSchoolBanner, loadNotificationCount])
+    }, [loadPosts, loadStories, loadSchoolBanner, loadNotificationCount, loadFollowingFeed])
   );
 
   // Loads the Following feed the first time that tab is opened, not eagerly
@@ -453,7 +559,7 @@ export default function FeedScreen() {
           setDeletingPostId(post.id);
           try {
             await deletePost(post.id, post.photo_urls);
-            setPosts((prev) => prev.filter((p) => p.id !== post.id));
+            removePostFromLists(post.id);
             showToast('Post deleted');
           } catch (err) {
             const message = err instanceof Error ? err.message : 'Could not delete post.';

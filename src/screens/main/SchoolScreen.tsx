@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { View, Text, ScrollView, FlatList, TouchableOpacity, RefreshControl, StyleSheet } from 'react-native';
 import { useFocusEffect, useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -94,6 +94,16 @@ export default function SchoolScreen() {
   const [myGrade, setMyGrade] = useState<string | null>(null);
   const [gradeMates, setGradeMates] = useState<SchoolMember[]>([]);
   const [interestMates, setInterestMates] = useState<SchoolMember[]>([]);
+
+  // Guards against a rapid double-tap pushing PostDetail twice before the
+  // first navigation transition completes — reset on focus below, same
+  // minimal pattern as FeedScreen (Step 34).
+  const openingPostRef = useRef(false);
+  const handleOpenPost = (post: Post) => {
+    if (openingPostRef.current) return;
+    openingPostRef.current = true;
+    navigation.navigate('PostDetail', { post });
+  };
 
   const loadSchoolData = useCallback(async () => {
     try {
@@ -200,6 +210,7 @@ export default function SchoolScreen() {
   // already uses, so returning from a post/story doesn't cause a jarring reload.
   useFocusEffect(
     useCallback(() => {
+      openingPostRef.current = false;
       (async () => {
         if (!hasLoadedOnce) setLoading(true);
         await loadSchoolData();
@@ -303,7 +314,7 @@ export default function SchoolScreen() {
         <FadeInView style={styles.section} delay={20}>
           <SectionHeader title="📰 What's Happening" />
           {recentPosts.map((post) => (
-            <PostPreviewCard key={post.id} post={post} onPress={() => navigation.navigate('PostDetail', { post })} />
+            <PostPreviewCard key={post.id} post={post} onPress={() => handleOpenPost(post)} />
           ))}
         </FadeInView>
       )}
@@ -316,7 +327,7 @@ export default function SchoolScreen() {
               key={post.id}
               post={post}
               showCategory={false}
-              onPress={() => navigation.navigate('PostDetail', { post })}
+              onPress={() => handleOpenPost(post)}
             />
           ))}
         </FadeInView>
@@ -330,7 +341,7 @@ export default function SchoolScreen() {
               key={post.id}
               post={post}
               showCategory={false}
-              onPress={() => navigation.navigate('PostDetail', { post })}
+              onPress={() => handleOpenPost(post)}
             />
           ))}
         </FadeInView>
@@ -344,7 +355,7 @@ export default function SchoolScreen() {
               key={post.id}
               post={post}
               showCategory={false}
-              onPress={() => navigation.navigate('PostDetail', { post })}
+              onPress={() => handleOpenPost(post)}
             />
           ))}
         </FadeInView>
@@ -358,7 +369,7 @@ export default function SchoolScreen() {
               key={post.id}
               post={post}
               showCategory={false}
-              onPress={() => navigation.navigate('PostDetail', { post })}
+              onPress={() => handleOpenPost(post)}
             />
           ))}
         </FadeInView>

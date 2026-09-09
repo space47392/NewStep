@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { View, Text, FlatList, RefreshControl, StyleSheet } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -31,6 +31,14 @@ export default function HelpScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [hasSchool, setHasSchool] = useState(true);
+  // Guards against a rapid double-tap pushing PostDetail twice — reset on
+  // focus below, same minimal pattern as FeedScreen (Step 34).
+  const openingPostRef = useRef(false);
+  const handleOpenPost = (post: Post) => {
+    if (openingPostRef.current) return;
+    openingPostRef.current = true;
+    navigation.navigate('PostDetail', { post });
+  };
 
   const loadHelpPosts = useCallback(async () => {
     if (!user) return;
@@ -62,6 +70,7 @@ export default function HelpScreen() {
   // from this open-only list immediately.
   useFocusEffect(
     useCallback(() => {
+      openingPostRef.current = false;
       (async () => {
         await loadHelpPosts();
         setLoading(false);
@@ -128,11 +137,7 @@ export default function HelpScreen() {
         }
         renderItem={({ item, index }) => (
           <FadeInView delay={Math.min(index, 6) * 30}>
-            <PostPreviewCard
-              post={item}
-              showCategory={false}
-              onPress={() => navigation.navigate('PostDetail', { post: item })}
-            />
+            <PostPreviewCard post={item} showCategory={false} onPress={() => handleOpenPost(item)} />
           </FadeInView>
         )}
       />

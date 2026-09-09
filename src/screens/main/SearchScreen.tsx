@@ -14,6 +14,7 @@ import {
   fetchSchoolMembersByInterestsById,
   fetchSchoolContributors,
   fetchSchoolContributorsById,
+  fetchSchoolById,
 } from '../../lib/schools';
 import { getRecentSearches, addRecentSearch, removeRecentSearch, clearRecentSearches } from '../../lib/recentSearches';
 import { fetchBlockedUserIds } from '../../lib/blocks';
@@ -104,6 +105,9 @@ export default function SearchScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Guards against a rapid double-tap pushing PostDetail twice — reset on
+  // focus above, same minimal pattern as FeedScreen (Step 34).
+  const openingPostRef = useRef(false);
 
   // Reused by both the initial focus load and pull-to-refresh — reuses the
   // exact same Step 5 discovery functions SchoolScreen's "Find your
@@ -113,10 +117,10 @@ export default function SearchScreen() {
     if (!user) return;
     try {
       const myProfile = await fetchProfileById(user.id);
-      setMySchoolName(myProfile.school_name);
       setMyInterests(myProfile.interests ?? []);
       const schoolId = myProfile.school_id;
       if (!schoolId && !myProfile.school_name) {
+        setMySchoolName(null);
         setSuggestedPeople([]);
         setContributors([]);
         setRecentQuestions([]);
@@ -126,10 +130,17 @@ export default function SearchScreen() {
         return;
       }
 
-      const [blockedIds, followingIds] = await Promise.all([
+      // Picking a school via ChooseSchoolScreen's directory only ever writes
+      // school_id, never school_name (see setMySchool()) — so a directory-
+      // picked profile needs its real name resolved from the schools table,
+      // the same way FeedScreen's loadSchoolBanner already does, or the
+      // School Stories section below would never show for that user (Step 34).
+      const [blockedIds, followingIds, directorySchool] = await Promise.all([
         fetchBlockedUserIds(user.id).catch(() => new Set<string>()),
         fetchFollowingIds(user.id).catch(() => [] as string[]),
+        schoolId ? fetchSchoolById(schoolId).catch(() => null) : Promise.resolve(null),
       ]);
+      setMySchoolName(schoolId ? directorySchool?.name ?? myProfile.school_name : myProfile.school_name);
       const followingIdSet = new Set(followingIds);
       // Prefer the stable school_id once set; school_name stays the fallback
       // for every profile that hasn't picked from the directory yet. Recent
@@ -206,6 +217,7 @@ export default function SearchScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      openingPostRef.current = false;
       getRecentSearches().then(setRecentSearches);
       loadDiscovery();
     }, [loadDiscovery])
@@ -270,7 +282,17 @@ export default function SearchScreen() {
   };
 
   const handleSelectPost = async (post: Post) => {
+    if (openingPostRef.current) return;
+    openingPostRef.current = true;
     await recordSearch();
+    navigation.navigate('PostDetail', { post });
+  };
+
+  // Same guard, without recordSearch()'s side effect — tapping a Discovery
+  // post (not a search result) shouldn't add it to Recent Searches.
+  const handleOpenPost = (post: Post) => {
+    if (openingPostRef.current) return;
+    openingPostRef.current = true;
     navigation.navigate('PostDetail', { post });
   };
 
@@ -468,7 +490,7 @@ export default function SearchScreen() {
             <View style={styles.section}>
               <SectionHeader title="❓ Recent Questions" />
               {recentQuestions.map((post) => (
-                <PostPreviewCard key={post.id} post={post} onPress={() => navigation.navigate('PostDetail', { post })} />
+                <PostPreviewCard key={post.id} post={post} onPress={() => handleOpenPost(post)} />
               ))}
             </View>
           )}
@@ -477,7 +499,7 @@ export default function SearchScreen() {
             <View style={styles.section}>
               <SectionHeader title="🤝 Need Help" onSeeAll={goToHelp} />
               {needHelpPosts.map((post) => (
-                <PostPreviewCard key={post.id} post={post} onPress={() => navigation.navigate('PostDetail', { post })} />
+                <PostPreviewCard key={post.id} post={post} onPress={() => handleOpenPost(post)} />
               ))}
             </View>
           )}
@@ -486,7 +508,7 @@ export default function SearchScreen() {
             <View style={styles.section}>
               <SectionHeader title="🎉 Upcoming Events" />
               {upcomingEvents.map((post) => (
-                <PostPreviewCard key={post.id} post={post} onPress={() => navigation.navigate('PostDetail', { post })} />
+                <PostPreviewCard key={post.id} post={post} onPress={() => handleOpenPost(post)} />
               ))}
             </View>
           )}

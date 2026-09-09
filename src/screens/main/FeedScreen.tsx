@@ -86,6 +86,33 @@ export default function FeedScreen() {
   const [blockedIdsCache, setBlockedIdsCache] = useState<Set<string>>(new Set());
   const [followingIdsCache, setFollowingIdsCache] = useState<string[]>([]);
   const hasLoadedOnce = useRef(false);
+  // Guards against a rapid double-tap pushing PostDetail twice before the
+  // first navigation transition completes — reset on focus (below), so it's
+  // never left stuck true after returning from PostDetail (Step 34).
+  const openingPostRef = useRef(false);
+  const handleOpenPost = (post: Post, focusComment?: boolean) => {
+    if (openingPostRef.current) return;
+    openingPostRef.current = true;
+    navigation.navigate('PostDetail', { post, focusComment });
+  };
+
+  // Keeps EventDetails' displayed "N interested" count in sync with
+  // InterestButton's own optimistic toggle, without a second count query per
+  // tap — both posts/followingPosts are checked since the same post can
+  // independently appear in either list (Step 34). No-ops (returns the same
+  // array reference) on whichever list doesn't contain the post, so this
+  // never causes a pointless re-render of the feed that isn't showing it.
+  const handleInterestToggle = useCallback((postId: string, nextInterested: boolean) => {
+    const delta = nextInterested ? 1 : -1;
+    const bump = (list: Post[]) => {
+      if (!list.some((p) => p.id === postId)) return list;
+      return list.map((p) =>
+        p.id === postId ? { ...p, interested_count: Math.max(0, p.interested_count + delta) } : p
+      );
+    };
+    setPosts(bump);
+    setFollowingPosts(bump);
+  }, []);
 
   // Lets a post go straight from "open" to "accepted" right from the feed card
   // — same secure volunteer_to_help() RPC PostDetailScreen already uses (Step 1),
@@ -311,6 +338,7 @@ export default function FeedScreen() {
   // happen quietly behind the existing list so editing doesn't cause a jarring reload.
   useFocusEffect(
     useCallback(() => {
+      openingPostRef.current = false;
       (async () => {
         if (!hasLoadedOnce.current) setLoading(true);
         await Promise.all([loadPosts(), loadStories(), loadSchoolBanner(), loadNotificationCount()]);
@@ -712,7 +740,7 @@ export default function FeedScreen() {
                 style={styles.card}
                 activeOpacity={0.85}
                 disabled={isDeleting}
-                onPress={() => navigation.navigate('PostDetail', { post: item })}
+                onPress={() => handleOpenPost(item)}
               >
                 {isDeleting && (
                   <View style={styles.deletingOverlay}>
@@ -811,7 +839,11 @@ export default function FeedScreen() {
                     the underlying interest rows are never touched (Step 32). */}
                 {item.category === 'Event' && !isEventPast(item) && (
                   <View style={styles.interestRow}>
-                    <InterestButton postId={item.id} initialInterested={interestedPostIds.has(item.id)} />
+                    <InterestButton
+                      postId={item.id}
+                      initialInterested={interestedPostIds.has(item.id)}
+                      onToggle={(next) => handleInterestToggle(item.id, next)}
+                    />
                   </View>
                 )}
 
@@ -840,7 +872,7 @@ export default function FeedScreen() {
                       hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
                       onPress={(e) => {
                         e.stopPropagation();
-                        navigation.navigate('PostDetail', { post: item, focusComment: true });
+                        handleOpenPost(item, true);
                       }}
                     >
                       <Ionicons name="chatbubble-outline" size={14} color={colors.primary} />

@@ -10,6 +10,12 @@ import { colors, spacing, radius, fontSize, fontFamily } from '../constants/them
 type Props = {
   postId: string;
   initialInterested: boolean;
+  // Called only after a successful toggle (never optimistically, and never
+  // on failure) — lets the caller keep its own locally-held interested_count
+  // (e.g. EventDetails' displayed count) in sync without a second count
+  // query per tap. Optional: every existing call site keeps working
+  // unchanged without it.
+  onToggle?: (nextInterested: boolean) => void;
 };
 
 // Mirrors SaveButton's optimistic-toggle pattern exactly. Deliberately a
@@ -17,7 +23,7 @@ type Props = {
 // participate" (Interested) — never merged. Only ever rendered for
 // category === 'Event' posts (see FeedScreen/PostDetailScreen); the
 // event_interests INSERT policy enforces that server-side too, not just here.
-export default function InterestButton({ postId, initialInterested }: Props) {
+export default function InterestButton({ postId, initialInterested, onToggle }: Props) {
   const { user } = useAuth();
   const { showToast } = useToast();
   const [interested, setInterested] = useState(initialInterested);
@@ -44,6 +50,7 @@ export default function InterestButton({ postId, initialInterested }: Props) {
       } else {
         await unmarkInterested({ postId, userId: user.id });
       }
+      onToggle?.(next);
     } catch {
       // Revert the optimistic update on failure — and say so, rather than
       // silently flipping back with no explanation.

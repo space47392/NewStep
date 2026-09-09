@@ -4,6 +4,7 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/ToastContext';
 import {
   fetchNotifications,
   markNotificationsRead,
@@ -28,6 +29,7 @@ const PAGE_SIZE = 20;
 export default function NotificationsScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
   const { user } = useAuth();
+  const { showToast } = useToast();
 
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -98,7 +100,10 @@ export default function NotificationsScreen() {
         const post = await fetchPostById(target.postId);
         navigation.navigate('PostDetail', { post });
       } else if (target.screen === 'Conversation') {
-        if (!group.actor) return;
+        if (!group.actor) {
+          showToast('This conversation is no longer available');
+          return;
+        }
         navigation.navigate('Conversation', { conversationId: target.conversationId, otherUser: group.actor });
       } else if (target.screen === 'UserProfile') {
         navigation.navigate('UserProfile', { userId: target.userId });
@@ -107,7 +112,19 @@ export default function NotificationsScreen() {
         navigation.navigate('Tabs', { screen: 'Profile' });
       }
     } catch {
-      // e.g. the post was deleted since — just stay on this screen
+      // e.g. the post was deleted, or the conversation/user is gone since —
+      // stay on this screen but say so, rather than a silent no-op tap
+      // (Step 34). Never surface the raw error, just a friendly, context-
+      // appropriate message.
+      const message =
+        target.screen === 'PostDetail'
+          ? 'This post is no longer available'
+          : target.screen === 'Conversation'
+            ? 'This conversation is no longer available'
+            : target.screen === 'UserProfile'
+              ? 'This profile is no longer available'
+              : 'This is no longer available';
+      showToast(message);
     } finally {
       setOpeningId(null);
     }

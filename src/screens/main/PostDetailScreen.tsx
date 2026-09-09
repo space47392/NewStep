@@ -55,6 +55,11 @@ export default function PostDetailScreen() {
   // Local copy so the screen can reflect the new status/helper after volunteering,
   // since route.params.post is just a snapshot from when the feed card was tapped.
   const [post, setPost] = useState(route.params.post);
+  // True once the post is confirmed gone server-side — hides the entire
+  // interactive card/comments/composer in favor of a friendly EmptyState,
+  // instead of leaving the stale route.params.post snapshot fully
+  // interactive for content that no longer exists (Step 34).
+  const [postDeleted, setPostDeleted] = useState(false);
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -95,8 +100,15 @@ export default function PostDetailScreen() {
             setSavedByMe(saved.has(freshPost.id));
             setInterestedByMe(interested.has(freshPost.id));
           }
-        } catch {
-          // ignored — comments effect below still loads independently
+        } catch (err) {
+          // PGRST116 = PostgREST's ".single() found zero rows" — the post was
+          // deleted since this screen was opened (a stale Feed item, an old
+          // notification, a deep link). Distinct from a transient network
+          // error, which should leave the last-known post showing rather than
+          // punish the user for a temporary hiccup (Step 34).
+          if ((err as { code?: string } | null)?.code === 'PGRST116') {
+            setPostDeleted(true);
+          }
         }
       })();
     }, [route.params.post.id, user])
@@ -375,17 +387,27 @@ export default function PostDetailScreen() {
           <Ionicons name="arrow-back" size={20} color={colors.primary} />
           <Text style={styles.backText}>Back</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.menuButton}
-          onPress={() => setMenuVisible(true)}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          accessibilityRole="button"
-          accessibilityLabel="Open post menu"
-        >
-          <Ionicons name="ellipsis-horizontal" size={20} color={colors.textMid} />
-        </TouchableOpacity>
+        {!postDeleted && (
+          <TouchableOpacity
+            style={styles.menuButton}
+            onPress={() => setMenuVisible(true)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel="Open post menu"
+          >
+            <Ionicons name="ellipsis-horizontal" size={20} color={colors.textMid} />
+          </TouchableOpacity>
+        )}
       </View>
 
+      {postDeleted ? (
+        <EmptyState
+          icon="alert-circle-outline"
+          title="This post is no longer available"
+          subtitle="It may have been deleted."
+        />
+      ) : (
+      <>
       <FlatList
         data={comments}
         keyExtractor={(item) => item.id}
@@ -442,7 +464,14 @@ export default function PostDetailScreen() {
                 interested count in EventDetails above stays visible either way. */}
             {post.category === 'Event' && !isEventPast(post) && (
               <View style={styles.interestRow}>
-                <InterestButton postId={post.id} initialInterested={interestedByMe} />
+                <InterestButton
+                  postId={post.id}
+                  initialInterested={interestedByMe}
+                  onToggle={(next) => {
+                    const delta = next ? 1 : -1;
+                    setPost((prev) => ({ ...prev, interested_count: Math.max(0, prev.interested_count + delta) }));
+                  }}
+                />
               </View>
             )}
 
@@ -594,6 +623,8 @@ export default function PostDetailScreen() {
           {sending ? <ActivityIndicator color="#fff" /> : <Ionicons name="send" size={18} color="#fff" />}
         </TouchableOpacity>
       </View>
+      </>
+      )}
 
       <ActionSheet visible={menuVisible} onClose={() => setMenuVisible(false)} actions={menuActions} />
       <ReportSheet target={reportTarget} reporterId={user?.id} onClose={() => setReportTarget(null)} />

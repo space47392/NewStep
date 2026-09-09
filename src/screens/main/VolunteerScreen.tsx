@@ -4,7 +4,7 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../contexts/AuthContext';
 import { fetchProfileById } from '../../lib/profile';
-import { fetchSchoolContributors, fetchSchoolContributorsById } from '../../lib/schools';
+import { fetchSchoolContributors, fetchSchoolContributorsById, fetchSchoolById } from '../../lib/schools';
 import { fetchHelpStats } from '../../lib/points';
 import { fetchBlockedUserIds } from '../../lib/blocks';
 import Avatar from '../../components/Avatar';
@@ -31,6 +31,12 @@ export default function VolunteerScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
   const { user } = useAuth();
   const [schoolName, setSchoolName] = useState<string | null>(null);
+  // Tracked separately from schoolName's display text — a school_id is what
+  // actually determines "does this user have a school", independent of
+  // whether the directory name lookup below happens to succeed. Mirrors
+  // HelpScreen's existing hasSchool pattern, so a transient name-lookup
+  // failure can never make the empty state wrongly claim no school is set.
+  const [hasSchool, setHasSchool] = useState(true);
   const [contributors, setContributors] = useState<ContributorRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -39,19 +45,28 @@ export default function VolunteerScreen() {
     if (!user) return;
     try {
       const profile = await fetchProfileById(user.id);
-      setSchoolName(profile.school_name);
+      const schoolId = profile.school_id;
 
-      if (!profile.school_id && !profile.school_name) {
+      if (!schoolId && !profile.school_name) {
+        setHasSchool(false);
+        setSchoolName(null);
         setContributors([]);
         return;
       }
+      setHasSchool(true);
 
-      const [rawContributors, blockedIds] = await Promise.all([
-        profile.school_id
-          ? fetchSchoolContributorsById(profile.school_id, CONTRIBUTOR_LIMIT)
+      // Picking a school via ChooseSchoolScreen's directory only ever writes
+      // school_id, never school_name (see setMySchool()) — so a directory-
+      // picked profile needs its real name resolved from the schools table,
+      // the same way FeedScreen's loadSchoolBanner already does (Step 34).
+      const [rawContributors, blockedIds, directorySchool] = await Promise.all([
+        schoolId
+          ? fetchSchoolContributorsById(schoolId, CONTRIBUTOR_LIMIT)
           : fetchSchoolContributors(profile.school_name!, CONTRIBUTOR_LIMIT),
         fetchBlockedUserIds(user.id).catch(() => new Set<string>()),
+        schoolId ? fetchSchoolById(schoolId).catch(() => null) : Promise.resolve(null),
       ]);
+      setSchoolName(schoolId ? directorySchool?.name ?? profile.school_name : profile.school_name);
 
       // UX filtering only, not a security boundary — see blocks.ts.
       const visible = rawContributors.filter((c) => !blockedIds.has(c.id));
@@ -105,9 +120,9 @@ export default function VolunteerScreen() {
       ListEmptyComponent={
         <EmptyState
           icon="star-outline"
-          title={schoolName ? 'No community contributions yet' : 'Add your school to see contributors'}
+          title={hasSchool ? 'No community contributors yet' : 'Add your school to see contributors'}
           subtitle={
-            schoolName
+            hasSchool
               ? 'Be the first to help someone at your school and get recognized here.'
               : 'Set your school from your profile to see students who have helped others there.'
           }

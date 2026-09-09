@@ -3,11 +3,13 @@ import { View, Text, FlatList, RefreshControl, StyleSheet } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/ToastContext';
 import { fetchProfileById } from '../../lib/profile';
 import { fetchPostsBySchool, fetchPostsBySchoolId } from '../../lib/posts';
 import { fetchBlockedUserIds } from '../../lib/blocks';
 import PostPreviewCard from '../../components/PostPreviewCard';
 import EmptyState from '../../components/EmptyState';
+import ErrorState from '../../components/ErrorState';
 import PrimaryButton from '../../components/PrimaryButton';
 import { PostCardSkeleton } from '../../components/Skeleton';
 import FadeInView from '../../components/FadeInView';
@@ -26,11 +28,18 @@ const HELP_LIMIT = 20;
 export default function HelpScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
   const { user } = useAuth();
+  const { showToast } = useToast();
 
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [hasSchool, setHasSchool] = useState(true);
+  // True only after a load attempt that never previously succeeded fails —
+  // a background refresh failure after posts have ever loaded shows a toast
+  // instead and keeps the existing list (Step 36).
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [retrying, setRetrying] = useState(false);
+  const hasEverLoadedRef = useRef(false);
   // Guards against a rapid double-tap pushing PostDetail twice — reset on
   // focus below, same minimal pattern as FeedScreen (Step 34).
   const openingPostRef = useRef(false);
@@ -47,6 +56,8 @@ export default function HelpScreen() {
       if (!profile.school_id && !profile.school_name) {
         setHasSchool(false);
         setPosts([]);
+        setLoadFailed(false);
+        hasEverLoadedRef.current = true;
         return;
       }
       setHasSchool(true);
@@ -60,10 +71,16 @@ export default function HelpScreen() {
 
       // UX filtering only, not a security boundary — see blocks.ts.
       setPosts(data.filter((p) => !blockedIds.has(p.author_id)));
+      setLoadFailed(false);
+      hasEverLoadedRef.current = true;
     } catch {
-      setPosts([]);
+      if (hasEverLoadedRef.current) {
+        showToast("Couldn't refresh help requests");
+      } else {
+        setLoadFailed(true);
+      }
     }
-  }, [user]);
+  }, [user, showToast]);
 
   // Refetch on every focus (not just once) — returning here after
   // volunteering elsewhere, or after a request gets accepted, should drop it
@@ -82,6 +99,13 @@ export default function HelpScreen() {
     setRefreshing(true);
     await loadHelpPosts();
     setRefreshing(false);
+  };
+
+  const handleRetry = async () => {
+    if (retrying) return;
+    setRetrying(true);
+    await loadHelpPosts();
+    setRetrying(false);
   };
 
   if (loading) {
@@ -114,26 +138,30 @@ export default function HelpScreen() {
           </View>
         }
         ListEmptyComponent={
-          <View>
-            <EmptyState
-              icon="hand-left-outline"
-              title={hasSchool ? '🤝 No open requests right now' : 'Add your school to see help requests'}
-              subtitle={
-                hasSchool
-                  ? "Your school community doesn't have any active help requests."
-                  : 'Set your school from your profile to see requests from your community.'
-              }
-            />
-            {hasSchool && (
-              <PrimaryButton
-                title="Post a Need Help Request"
-                icon="add-circle-outline"
-                variant="outline"
-                onPress={() => navigation.navigate('CreatePost', { prefillCategory: 'Need Help' })}
-                style={styles.emptyActionButton}
+          loadFailed ? (
+            <ErrorState onRetry={handleRetry} retrying={retrying} />
+          ) : (
+            <View>
+              <EmptyState
+                icon="hand-left-outline"
+                title={hasSchool ? '🤝 No open requests right now' : 'Add your school to see help requests'}
+                subtitle={
+                  hasSchool
+                    ? "Your school community doesn't have any active help requests."
+                    : 'Set your school from your profile to see requests from your community.'
+                }
               />
-            )}
-          </View>
+              {hasSchool && (
+                <PrimaryButton
+                  title="Post a Need Help Request"
+                  icon="add-circle-outline"
+                  variant="outline"
+                  onPress={() => navigation.navigate('CreatePost', { prefillCategory: 'Need Help' })}
+                  style={styles.emptyActionButton}
+                />
+              )}
+            </View>
+          )
         }
         renderItem={({ item, index }) => (
           <FadeInView delay={Math.min(index, 6) * 30}>

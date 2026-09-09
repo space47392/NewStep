@@ -24,6 +24,7 @@ import { useToast } from '../../contexts/ToastContext';
 import IconInput from '../../components/IconInput';
 import Avatar from '../../components/Avatar';
 import EmptyState from '../../components/EmptyState';
+import ErrorState from '../../components/ErrorState';
 import FadeInView from '../../components/FadeInView';
 import PostPreviewCard from '../../components/PostPreviewCard';
 import PrimaryButton from '../../components/PrimaryButton';
@@ -103,6 +104,12 @@ export default function SearchScreen() {
   const [upcomingEvents, setUpcomingEvents] = useState<Post[]>([]);
   const [schoolStories, setSchoolStories] = useState<Story[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  // True only after a Discovery load attempt that never previously succeeded
+  // fails — a background refresh failure after Discovery has ever loaded
+  // shows a toast instead and keeps whatever's already displayed (Step 36).
+  const [discoveryLoadFailed, setDiscoveryLoadFailed] = useState(false);
+  const [retryingDiscovery, setRetryingDiscovery] = useState(false);
+  const hasEverLoadedDiscoveryRef = useRef(false);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Guards against a rapid double-tap pushing PostDetail twice — reset on
@@ -127,6 +134,8 @@ export default function SearchScreen() {
         setNeedHelpPosts([]);
         setUpcomingEvents([]);
         setSchoolStories([]);
+        setDiscoveryLoadFailed(false);
+        hasEverLoadedDiscoveryRef.current = true;
         return;
       }
 
@@ -189,10 +198,26 @@ export default function SearchScreen() {
       setNeedHelpPosts(needHelp.filter((p) => !blockedIds.has(p.author_id)));
       setUpcomingEvents(events.filter((p) => !blockedIds.has(p.author_id)));
       setSchoolStories(stories.filter((s) => !blockedIds.has(s.author_id)));
+      setDiscoveryLoadFailed(false);
+      hasEverLoadedDiscoveryRef.current = true;
     } catch {
-      // Discovery is a bonus surface, not the primary flow — fail quietly.
+      // Only a genuinely first-ever failure (Discovery has never successfully
+      // loaded) shows the blocking ErrorState — a failed background refresh
+      // keeps whatever's already on screen and just says so (Step 36).
+      if (hasEverLoadedDiscoveryRef.current) {
+        showToast("Couldn't refresh Discovery");
+      } else {
+        setDiscoveryLoadFailed(true);
+      }
     }
-  }, [user]);
+  }, [user, showToast]);
+
+  const handleRetryDiscovery = async () => {
+    if (retryingDiscovery) return;
+    setRetryingDiscovery(true);
+    await loadDiscovery();
+    setRetryingDiscovery(false);
+  };
 
   // One-way — suggested people are, by construction, never someone already
   // followed, so there's no toggle/unfollow state to track here. Removes the
@@ -513,17 +538,21 @@ export default function SearchScreen() {
             </View>
           )}
 
-          {recentSearches.length === 0 &&
+          {discoveryLoadFailed ? (
+            <ErrorState onRetry={handleRetryDiscovery} retrying={retryingDiscovery} />
+          ) : (
+            recentSearches.length === 0 &&
             suggestedPeople.length === 0 &&
             contributors.length === 0 &&
             recentQuestions.length === 0 &&
             needHelpPosts.length === 0 &&
             upcomingEvents.length === 0 && (
-            <EmptyState
-              icon="search-outline"
-              title="Search for students, posts, or schools"
-              subtitle="Find classmates by name, username, school, or interest."
-            />
+              <EmptyState
+                icon="search-outline"
+                title="Search for students, posts, or schools"
+                subtitle="Find classmates by name, username, school, or interest."
+              />
+            )
           )}
         </ScrollView>
       ) : searching ? (

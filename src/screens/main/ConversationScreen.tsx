@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -30,6 +30,7 @@ import {
 import { formatRelativeTime, formatDayLabel, isSameDay } from '../../lib/time';
 import Avatar from '../../components/Avatar';
 import EmptyState from '../../components/EmptyState';
+import ErrorState from '../../components/ErrorState';
 import { MessageSkeleton } from '../../components/Skeleton';
 import TypingIndicator from '../../components/TypingIndicator';
 import ActionSheet, { ActionSheetAction } from '../../components/ActionSheet';
@@ -48,6 +49,13 @@ export default function ConversationScreen() {
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
+  // True only after a load attempt that never previously succeeded fails —
+  // a later failure (after messages have ever loaded once) shows a toast
+  // instead and leaves the existing messages as-is (Step 36).
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [retrying, setRetrying] = useState(false);
+  const hasEverLoadedRef = useRef(false);
+  const isMountedRef = useRef(true);
   // Never auto-sent — just starts the composer with a draft already typed
   // (e.g. StoryViewer's "Say Hi"); the user still has to review and hit Send.
   const [text, setText] = useState(route.params.prefillText ?? '');
@@ -77,22 +85,46 @@ export default function ConversationScreen() {
   }, [messages, user?.id]);
 
   useEffect(() => {
-    let isMounted = true;
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
-    (async () => {
-      try {
-        const data = await fetchMessages(conversationId, PAGE_SIZE);
-        if (isMounted) {
-          setMessages(data);
-          setHasMoreOlder(data.length === PAGE_SIZE);
-        }
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Could not load messages.';
-        Alert.alert('Error', message);
-      } finally {
-        if (isMounted) setLoading(false);
+  // Reusable so a failed initial load can be retried in place (ErrorState's
+  // button) without re-running the subscription setup below a second time.
+  const loadMessages = useCallback(async () => {
+    try {
+      const data = await fetchMessages(conversationId, PAGE_SIZE);
+      if (!isMountedRef.current) return;
+      setMessages(data);
+      setHasMoreOlder(data.length === PAGE_SIZE);
+      setLoadFailed(false);
+      hasEverLoadedRef.current = true;
+    } catch {
+      if (!isMountedRef.current) return;
+      // Only a genuinely first-ever failure (no messages have ever
+      // successfully loaded) shows the blocking ErrorState — a later
+      // failure keeps the existing messages and just says so (Step 36).
+      if (hasEverLoadedRef.current) {
+        showToast("Couldn't load messages");
+      } else {
+        setLoadFailed(true);
       }
-    })();
+    } finally {
+      if (isMountedRef.current) setLoading(false);
+    }
+  }, [conversationId, showToast]);
+
+  const handleRetry = async () => {
+    if (retrying) return;
+    setRetrying(true);
+    await loadMessages();
+    setRetrying(false);
+  };
+
+  useEffect(() => {
+    loadMessages();
 
     if (user) {
       markMessagesAsRead(conversationId, user.id).catch(() => {});
@@ -116,10 +148,9 @@ export default function ConversationScreen() {
     });
 
     return () => {
-      isMounted = false;
       unsubscribe();
     };
-  }, [conversationId, user]);
+  }, [conversationId, user, loadMessages]);
 
   // Ephemeral broadcast channel — no table, no history, just relayed to whoever
   // else is subscribed to this conversation's typing topic right now.
@@ -300,6 +331,10 @@ export default function ConversationScreen() {
           <MessageSkeleton mine />
           <MessageSkeleton />
           <MessageSkeleton mine />
+        </View>
+      ) : loadFailed ? (
+        <View style={styles.list}>
+          <ErrorState onRetry={handleRetry} retrying={retrying} />
         </View>
       ) : (
         <FlatList

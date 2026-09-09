@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -19,6 +19,7 @@ import { fetchPostById } from '../../lib/posts';
 import { formatRelativeTime } from '../../lib/time';
 import Avatar from '../../components/Avatar';
 import EmptyState from '../../components/EmptyState';
+import ErrorState from '../../components/ErrorState';
 import LoadingScreen from '../../components/LoadingScreen';
 import FadeInView from '../../components/FadeInView';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
@@ -36,6 +37,13 @@ export default function NotificationsScreen() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [openingId, setOpeningId] = useState<string | null>(null);
+  // True only after a load attempt that never previously succeeded fails —
+  // a background refresh failure after notifications have ever loaded just
+  // leaves the list as-is (already the existing behavior below), it doesn't
+  // need a toast since nothing visible changes (Step 36).
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [retrying, setRetrying] = useState(false);
+  const hasEverLoadedRef = useRef(false);
 
   // Purely a display transform — groupNotifications() never mutates or drops
   // the underlying rows, so pagination/mark-as-read below still operate on
@@ -48,12 +56,26 @@ export default function NotificationsScreen() {
       const data = await fetchNotifications(user.id, PAGE_SIZE, 0);
       setNotifications(data);
       setHasMore(data.length === PAGE_SIZE);
+      setLoadFailed(false);
+      hasEverLoadedRef.current = true;
     } catch {
-      // leave whatever was already loaded
+      // Only a genuinely first-ever failure (nothing has ever successfully
+      // loaded) shows the blocking ErrorState — a failed background refresh
+      // just leaves the existing list as-is (Step 36).
+      if (!hasEverLoadedRef.current) {
+        setLoadFailed(true);
+      }
     } finally {
       setLoading(false);
     }
   }, [user]);
+
+  const handleRetry = async () => {
+    if (retrying) return;
+    setRetrying(true);
+    await loadFirstPage();
+    setRetrying(false);
+  };
 
   // Refetches on every focus (e.g. returning from a notification's
   // destination) — but does NOT mark anything read just from opening the
@@ -147,11 +169,15 @@ export default function NotificationsScreen() {
         contentContainerStyle={styles.list}
         ListHeaderComponent={<Text style={styles.title}>Notifications</Text>}
         ListEmptyComponent={
-          <EmptyState
-            icon="notifications-outline"
-            title="No notifications yet"
-            subtitle="Likes, comments, and messages from other students will show up here."
-          />
+          loadFailed ? (
+            <ErrorState onRetry={handleRetry} retrying={retrying} />
+          ) : (
+            <EmptyState
+              icon="notifications-outline"
+              title="You're all caught up"
+              subtitle="No new activity yet."
+            />
+          )
         }
         renderItem={({ item, index }) => {
           const unread = !item.read_at;

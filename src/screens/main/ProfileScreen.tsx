@@ -1,9 +1,10 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, Image, ScrollView, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/ToastContext';
 import { supabase } from '../../lib/supabase';
 import { PUBLIC_PROFILE_FIELDS, PublicProfile } from '../../lib/profile';
 import { fetchHelpStats, fetchPointsHistory, formatPointReason } from '../../lib/points';
@@ -15,6 +16,7 @@ import { deleteMyAccount } from '../../lib/account';
 import { formatRelativeTime } from '../../lib/time';
 import PostPreviewCard from '../../components/PostPreviewCard';
 import EmptyState from '../../components/EmptyState';
+import ErrorState from '../../components/ErrorState';
 import LoadingScreen from '../../components/LoadingScreen';
 import FadeInView from '../../components/FadeInView';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
@@ -27,10 +29,17 @@ import { MainStackParamList, PointsHistoryEntry, AchievementProgress, School, Po
 export default function ProfileScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
   const { user, signOut } = useAuth();
+  const { showToast } = useToast();
 
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [loggingOut, setLoggingOut] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
+  // True only after a load attempt that never previously succeeded fails —
+  // a background refresh failure after the profile has ever loaded shows a
+  // toast instead and keeps the profile exactly as last displayed (Step 36).
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [retrying, setRetrying] = useState(false);
+  const hasEverLoadedRef = useRef(false);
 
   const [fullName, setFullName] = useState<string | null>(null);
   const [grade, setGrade] = useState<string | null>(null);
@@ -49,56 +58,75 @@ export default function ProfileScreen() {
   // Refetches every time this tab regains focus — not just once — so
   // returning from EditProfileScreen (or posting something new) shows up
   // immediately without needing a manual refresh.
+  const loadProfile = useCallback(async () => {
+    if (!user) return;
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select(PUBLIC_PROFILE_FIELDS)
+        .eq('id', user.id)
+        .maybeSingle<PublicProfile>();
+
+      if (error) throw error;
+      if (data) {
+        setFullName(data.full_name);
+        setGrade(data.grade);
+        setInterests(data.interests ?? []);
+        setAvatarUrl(data.avatar_url);
+        setPoints(data.points);
+        setThanksReceived(data.thanks_received_count);
+        setUsername(data.username);
+        setSelectedSchool(data.school_id ? await fetchSchoolById(data.school_id).catch(() => null) : null);
+      }
+
+      // Best-effort — a hiccup here shouldn't block the identity fields
+      // above from showing.
+      try {
+        const [helpStats, history, achievementProgress, counts, postList] = await Promise.all([
+          fetchHelpStats(user.id),
+          fetchPointsHistory(user.id),
+          fetchAchievementProgress(user.id),
+          fetchFollowCounts(user.id),
+          fetchPostsByAuthor(user.id),
+        ]);
+        setStudentsHelped(helpStats.studentsHelped);
+        setPointHistory(history);
+        setAchievements(achievementProgress);
+        setFollowCounts(counts);
+        setPosts(postList);
+      } catch {
+        // leave stats/history/achievements/followCounts/posts at their defaults
+      }
+      setLoadFailed(false);
+      hasEverLoadedRef.current = true;
+    } catch {
+      // Only a genuinely first-ever failure (the profile has never
+      // successfully loaded) shows the blocking ErrorState — a background
+      // refresh failure (e.g. returning from another tab) keeps the profile
+      // exactly as last displayed and just says so, instead of a jarring
+      // Alert popping up over an otherwise-fine screen (Step 36).
+      if (hasEverLoadedRef.current) {
+        showToast("Couldn't refresh your profile");
+      } else {
+        setLoadFailed(true);
+      }
+    } finally {
+      setLoadingProfile(false);
+    }
+  }, [user, showToast]);
+
   useFocusEffect(
     useCallback(() => {
-      if (!user) return;
-      (async () => {
-        try {
-          const { data, error } = await supabase
-            .from('profiles')
-            .select(PUBLIC_PROFILE_FIELDS)
-            .eq('id', user.id)
-            .maybeSingle<PublicProfile>();
-
-          if (error) throw error;
-          if (data) {
-            setFullName(data.full_name);
-            setGrade(data.grade);
-            setInterests(data.interests ?? []);
-            setAvatarUrl(data.avatar_url);
-            setPoints(data.points);
-            setThanksReceived(data.thanks_received_count);
-            setUsername(data.username);
-            setSelectedSchool(data.school_id ? await fetchSchoolById(data.school_id).catch(() => null) : null);
-          }
-
-          // Best-effort — a hiccup here shouldn't block the identity fields
-          // above from showing.
-          try {
-            const [helpStats, history, achievementProgress, counts, postList] = await Promise.all([
-              fetchHelpStats(user.id),
-              fetchPointsHistory(user.id),
-              fetchAchievementProgress(user.id),
-              fetchFollowCounts(user.id),
-              fetchPostsByAuthor(user.id),
-            ]);
-            setStudentsHelped(helpStats.studentsHelped);
-            setPointHistory(history);
-            setAchievements(achievementProgress);
-            setFollowCounts(counts);
-            setPosts(postList);
-          } catch {
-            // leave stats/history/achievements/followCounts/posts at their defaults
-          }
-        } catch (err) {
-          const message = err instanceof Error ? err.message : 'Could not load profile.';
-          Alert.alert('Could not load profile', message);
-        } finally {
-          setLoadingProfile(false);
-        }
-      })();
-    }, [user])
+      loadProfile();
+    }, [loadProfile])
   );
+
+  const handleRetry = async () => {
+    if (retrying) return;
+    setRetrying(true);
+    await loadProfile();
+    setRetrying(false);
+  };
 
   const handleLogout = () => {
     Alert.alert('Log out', 'Are you sure you want to log out?', [
@@ -182,6 +210,10 @@ export default function ProfileScreen() {
 
   if (loadingProfile) {
     return <LoadingScreen />;
+  }
+
+  if (loadFailed) {
+    return <ErrorState onRetry={handleRetry} retrying={retrying} />;
   }
 
   return (

@@ -27,8 +27,10 @@ import { getSeenStoryIds } from '../../lib/storyPrefs';
 import { fetchProfileById } from '../../lib/profile';
 import { fetchBlockedUserIds } from '../../lib/blocks';
 import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/ToastContext';
 import Avatar from '../../components/Avatar';
 import EmptyState from '../../components/EmptyState';
+import ErrorState from '../../components/ErrorState';
 import { Skeleton, PostCardSkeleton } from '../../components/Skeleton';
 import FadeInView from '../../components/FadeInView';
 import PostPreviewCard from '../../components/PostPreviewCard';
@@ -76,10 +78,19 @@ export default function SchoolScreen() {
   const route = useRoute<RouteProp<MainStackParamList, 'School'>>();
   const { schoolId, schoolName } = route.params;
   const { user } = useAuth();
+  const { showToast } = useToast();
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
+  // True only after a load attempt that never previously succeeded fails —
+  // distinct from hasLoadedOnce above (which just tracks "have we shown the
+  // skeleton already"). A background refresh failure after real data has
+  // ever loaded shows a toast instead and keeps whatever's already displayed
+  // (Step 36).
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [retrying, setRetrying] = useState(false);
+  const hasEverLoadedRef = useRef(false);
   const [directorySchool, setDirectorySchool] = useState<School | null>(null);
   const [studentCount, setStudentCount] = useState(0);
   const [contributors, setContributors] = useState<SchoolContributor[]>([]);
@@ -200,10 +211,26 @@ export default function SchoolScreen() {
         setGradeMates([]);
         setInterestMates([]);
       }
+      setLoadFailed(false);
+      hasEverLoadedRef.current = true;
     } catch {
-      // leave everything at its default (empty) — sections below handle that gracefully
+      // Only a genuinely first-ever failure (nothing has ever successfully
+      // loaded) shows the blocking ErrorState — a failed background refresh
+      // keeps whatever's already on screen and just says so (Step 36).
+      if (hasEverLoadedRef.current) {
+        showToast("Couldn't refresh this page");
+      } else {
+        setLoadFailed(true);
+      }
     }
-  }, [schoolId, schoolName, user]);
+  }, [schoolId, schoolName, user, showToast]);
+
+  const handleRetry = async () => {
+    if (retrying) return;
+    setRetrying(true);
+    await loadSchoolData();
+    setRetrying(false);
+  };
 
   // Refetch every time this page gains focus, but only show the full skeleton
   // the very first time — same "quiet refresh after that" pattern FeedScreen
@@ -375,7 +402,10 @@ export default function SchoolScreen() {
         </FadeInView>
       )}
 
-      {schoolStories.length === 0 &&
+      {loadFailed ? (
+        <ErrorState onRetry={handleRetry} retrying={retrying} />
+      ) : (
+        schoolStories.length === 0 &&
         recentPosts.length === 0 &&
         upcomingEvents.length === 0 &&
         openHelpPosts.length === 0 &&
@@ -386,7 +416,8 @@ export default function SchoolScreen() {
             title="Nothing here yet"
             subtitle={`Be the first to post something for ${directorySchool?.name ?? schoolName}!`}
           />
-        )}
+        )
+      )}
 
       {contributors.length > 0 && (
         <FadeInView style={styles.section} delay={60}>

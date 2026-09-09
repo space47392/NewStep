@@ -1,12 +1,14 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Text, FlatList, RefreshControl, TouchableOpacity, View, StyleSheet } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/ToastContext';
 import { fetchConversations } from '../../lib/chat';
 import { formatRelativeTime } from '../../lib/time';
 import Avatar from '../../components/Avatar';
 import EmptyState from '../../components/EmptyState';
+import ErrorState from '../../components/ErrorState';
 import { ConversationRowSkeleton } from '../../components/Skeleton';
 import FadeInView from '../../components/FadeInView';
 import { Conversation, MainStackParamList } from '../../types';
@@ -15,22 +17,40 @@ import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../con
 export default function ChatScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
   const { user } = useAuth();
+  const { showToast } = useToast();
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // True only after a load attempt that never previously succeeded fails —
+  // a background refresh failure after conversations have ever loaded shows
+  // a toast instead and keeps the existing list (Step 36).
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [retrying, setRetrying] = useState(false);
+  const hasEverLoadedRef = useRef(false);
 
   const loadConversations = useCallback(async () => {
     if (!user) return;
     try {
       const data = await fetchConversations(user.id);
       setConversations(data);
-      setErrorMessage(null);
-    } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Could not load chats.');
+      setLoadFailed(false);
+      hasEverLoadedRef.current = true;
+    } catch {
+      if (hasEverLoadedRef.current) {
+        showToast("Couldn't refresh your chats");
+      } else {
+        setLoadFailed(true);
+      }
     }
-  }, [user]);
+  }, [user, showToast]);
+
+  const handleRetry = async () => {
+    if (retrying) return;
+    setRetrying(true);
+    await loadConversations();
+    setRetrying(false);
+  };
 
   // Refetch every time this tab gains focus, so unread badges/previews update
   // after returning from a conversation (not just on first mount).
@@ -69,11 +89,15 @@ export default function ChatScreen() {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />}
       ListHeaderComponent={<Text style={styles.title}>Messages 💬</Text>}
       ListEmptyComponent={
-        <EmptyState
-          icon="chatbubbles-outline"
-          title="No conversations yet"
-          subtitle={errorMessage ?? 'Volunteer to help someone, or get help, to start one!'}
-        />
+        loadFailed ? (
+          <ErrorState onRetry={handleRetry} retrying={retrying} />
+        ) : (
+          <EmptyState
+            icon="chatbubbles-outline"
+            title="No conversations yet"
+            subtitle="Volunteer to help someone, or get help, to start one!"
+          />
+        )
       }
       renderItem={({ item, index }) => (
         <FadeInView delay={Math.min(index, 6) * 40}>

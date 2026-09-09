@@ -30,6 +30,7 @@ import { fetchBlockedUserIds } from '../../lib/blocks';
 import { formatRelativeTime } from '../../lib/time';
 import Avatar from '../../components/Avatar';
 import EmptyState from '../../components/EmptyState';
+import ErrorState from '../../components/ErrorState';
 import { PostCardSkeleton } from '../../components/Skeleton';
 import FadeInView from '../../components/FadeInView';
 import PrimaryButton from '../../components/PrimaryButton';
@@ -55,7 +56,16 @@ export default function FeedScreen() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // True only after a load attempt that never previously succeeded fails —
+  // distinct from hasLoadedOnce below (which just tracks "have we shown the
+  // skeleton already"). A background refresh failure after real data has
+  // ever loaded shows a toast instead and keeps the existing posts (Step 36).
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [retryingForYou, setRetryingForYou] = useState(false);
+  const hasEverLoadedPostsRef = useRef(false);
+  const [followingLoadFailed, setFollowingLoadFailed] = useState(false);
+  const [retryingFollowing, setRetryingFollowing] = useState(false);
+  const hasEverLoadedFollowingRef = useRef(false);
   const [menuPost, setMenuPost] = useState<Post | null>(null);
   const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
   const [likedPostIds, setLikedPostIds] = useState<Set<string>>(new Set());
@@ -155,7 +165,8 @@ export default function FeedScreen() {
       const visible = data.filter((p) => !blockedIds.has(p.author_id));
       setPosts(visible);
       setForYouHasMore(data.length === PAGE_SIZE);
-      setErrorMessage(null);
+      setLoadFailed(false);
+      hasEverLoadedPostsRef.current = true;
       if (user) {
         const [liked, saved, interested] = await Promise.all([
           fetchLikedPostIds(user.id, visible.map((p) => p.id)),
@@ -166,10 +177,24 @@ export default function FeedScreen() {
         setSavedPostIds(saved);
         setInterestedPostIds(interested);
       }
-    } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Could not load posts.');
+    } catch {
+      // Only a genuinely first-ever failure (no posts have ever successfully
+      // loaded) shows the blocking ErrorState — a failed background refresh
+      // keeps whatever's already on screen and just says so (Step 36).
+      if (hasEverLoadedPostsRef.current) {
+        showToast("Couldn't refresh your feed");
+      } else {
+        setLoadFailed(true);
+      }
     }
-  }, [user]);
+  }, [user, showToast]);
+
+  const handleRetryForYou = async () => {
+    if (retryingForYou) return;
+    setRetryingForYou(true);
+    await loadPosts();
+    setRetryingForYou(false);
+  };
 
   // "For You" pagination — reuses the blocked-ids cache from the last full
   // load rather than re-fetching it on every tap of "Load more".
@@ -230,13 +255,27 @@ export default function FeedScreen() {
         setSavedPostIds((prev) => new Set([...prev, ...saved]));
         setInterestedPostIds((prev) => new Set([...prev, ...interested]));
       }
+      setFollowingLoadFailed(false);
+      hasEverLoadedFollowingRef.current = true;
     } catch {
-      setFollowingPosts([]);
+      if (hasEverLoadedFollowingRef.current) {
+        showToast("Couldn't refresh your Following feed");
+      } else {
+        setFollowingLoadFailed(true);
+        setFollowingPosts([]);
+      }
     } finally {
       setFollowingLoading(false);
       setFollowingLoaded(true);
     }
-  }, [user]);
+  }, [user, showToast]);
+
+  const handleRetryFollowing = async () => {
+    if (retryingFollowing) return;
+    setRetryingFollowing(true);
+    await loadFollowingFeed();
+    setRetryingFollowing(false);
+  };
 
   const handleLoadMoreFollowing = async () => {
     if (!user || followingLoading || !followingHasMore) return;
@@ -670,6 +709,8 @@ export default function FeedScreen() {
               <PostCardSkeleton />
               <PostCardSkeleton />
             </>
+          ) : feedMode === 'following' && followingLoadFailed ? (
+            <ErrorState onRetry={handleRetryFollowing} retrying={retryingFollowing} />
           ) : feedMode === 'following' ? (
             <View>
               <EmptyState
@@ -695,12 +736,14 @@ export default function FeedScreen() {
                 )}
               </View>
             </View>
+          ) : loadFailed ? (
+            <ErrorState onRetry={handleRetryForYou} retrying={retryingForYou} />
           ) : (
             <View>
               <EmptyState
                 icon="newspaper-outline"
                 title="No posts yet"
-                subtitle={errorMessage ?? "Be the first to share something — or explore what's already happening nearby."}
+                subtitle="Be the first to share something — or explore what's already happening nearby."
               />
               <View style={styles.emptyActions}>
                 <PrimaryButton

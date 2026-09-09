@@ -1,14 +1,16 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { View, Text, FlatList, RefreshControl, TouchableOpacity, StyleSheet } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/ToastContext';
 import { fetchProfileById } from '../../lib/profile';
 import { fetchSchoolContributors, fetchSchoolContributorsById, fetchSchoolById } from '../../lib/schools';
 import { fetchHelpStats } from '../../lib/points';
 import { fetchBlockedUserIds } from '../../lib/blocks';
 import Avatar from '../../components/Avatar';
 import EmptyState from '../../components/EmptyState';
+import ErrorState from '../../components/ErrorState';
 import LoadingScreen from '../../components/LoadingScreen';
 import FadeInView from '../../components/FadeInView';
 import { MainStackParamList, SchoolContributor } from '../../types';
@@ -30,6 +32,7 @@ type ContributorRow = SchoolContributor & { studentsHelped: number };
 export default function VolunteerScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
   const { user } = useAuth();
+  const { showToast } = useToast();
   const [schoolName, setSchoolName] = useState<string | null>(null);
   // Tracked separately from schoolName's display text — a school_id is what
   // actually determines "does this user have a school", independent of
@@ -40,6 +43,12 @@ export default function VolunteerScreen() {
   const [contributors, setContributors] = useState<ContributorRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  // True only after a load attempt that never previously succeeded fails —
+  // a background refresh failure after contributors have ever loaded shows
+  // a toast instead and keeps the existing list (Step 36).
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [retrying, setRetrying] = useState(false);
+  const hasEverLoadedRef = useRef(false);
 
   const loadContributors = useCallback(async () => {
     if (!user) return;
@@ -51,6 +60,8 @@ export default function VolunteerScreen() {
         setHasSchool(false);
         setSchoolName(null);
         setContributors([]);
+        setLoadFailed(false);
+        hasEverLoadedRef.current = true;
         return;
       }
       setHasSchool(true);
@@ -77,10 +88,16 @@ export default function VolunteerScreen() {
         }))
       );
       setContributors(withHelpStats);
+      setLoadFailed(false);
+      hasEverLoadedRef.current = true;
     } catch {
-      setContributors([]);
+      if (hasEverLoadedRef.current) {
+        showToast("Couldn't refresh contributors");
+      } else {
+        setLoadFailed(true);
+      }
     }
-  }, [user]);
+  }, [user, showToast]);
 
   useFocusEffect(
     useCallback(() => {
@@ -97,8 +114,19 @@ export default function VolunteerScreen() {
     setRefreshing(false);
   };
 
+  const handleRetry = async () => {
+    if (retrying) return;
+    setRetrying(true);
+    await loadContributors();
+    setRetrying(false);
+  };
+
   if (loading) {
     return <LoadingScreen />;
+  }
+
+  if (loadFailed) {
+    return <ErrorState onRetry={handleRetry} retrying={retrying} />;
   }
 
   return (

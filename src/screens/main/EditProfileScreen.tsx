@@ -37,7 +37,12 @@ export default function EditProfileScreen() {
   const [fullName, setFullName] = useState('');
   const [grade, setGrade] = useState('');
   const [interests, setInterests] = useState<string[]>([]);
+  // The committed avatar URL — only ever changes after handleSave() actually
+  // succeeds (initial load, or a successful save). A picked-but-not-yet-saved
+  // photo lives entirely in `pendingAvatar` below instead, so nothing in
+  // Storage changes until Save actually commits (Step 42).
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [pendingAvatar, setPendingAvatar] = useState<{ uri: string; mimeType?: string } | null>(null);
   const [isNewStudent, setIsNewStudent] = useState<boolean | null>(null);
   const [schoolId, setSchoolId] = useState<string | null>(null);
   const [selectedSchool, setSelectedSchool] = useState<School | null>(null);
@@ -49,10 +54,14 @@ export default function EditProfileScreen() {
   // itself, not by this screen's Save; including it here would falsely flag
   // "unsaved changes" for someone who only picked a new school and touched
   // nothing else. null until the initial load completes, so the dirty check
-  // never fires against empty placeholder state.
+  // never fires against empty placeholder state. pendingAvatar's local uri is
+  // included (not avatarUrl, which no longer changes on pick) so picking a
+  // new photo and leaving without saving still correctly triggers the
+  // discard-changes prompt.
   const initialSnapshotRef = useRef<string | null>(null);
   const isDirtyRef = useRef(false);
-  const buildSnapshot = () => JSON.stringify({ fullName, grade, interests, avatarUrl, isNewStudent });
+  const buildSnapshot = () =>
+    JSON.stringify({ fullName, grade, interests, avatarUrl, pendingAvatarUri: pendingAvatar?.uri ?? null, isNewStudent });
 
   useEffect(() => {
     if (!user) return;
@@ -86,6 +95,7 @@ export default function EditProfileScreen() {
           grade: data.grade ?? '',
           interests: data.interests ?? [],
           avatarUrl: data.avatar_url ?? null,
+          pendingAvatarUri: null,
           isNewStudent: data.is_new_student,
         });
       }
@@ -98,7 +108,7 @@ export default function EditProfileScreen() {
     if (initialSnapshotRef.current === null) return;
     isDirtyRef.current = buildSnapshot() !== initialSnapshotRef.current;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fullName, grade, interests, avatarUrl, isNewStudent]);
+  }, [fullName, grade, interests, avatarUrl, pendingAvatar, isNewStudent]);
 
   // Registered once — reads isDirtyRef fresh at fire time; fires the same way
   // for the header Back button, swipe-back, and Android hardware back.
@@ -135,6 +145,9 @@ export default function EditProfileScreen() {
     }, [user])
   );
 
+  // Only stores the local pick as a preview — no Storage write here. That's
+  // deferred to handleSave() below, so picking a new photo and then choosing
+  // "Discard changes?" never touches the existing avatar file (Step 42).
   const handlePickAvatar = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
@@ -151,44 +164,59 @@ export default function EditProfileScreen() {
 
     if (result.canceled || !result.assets?.length || !user) return;
 
-    setUploadingAvatar(true);
-    try {
-      const asset = result.assets[0];
-      const file = new File(asset.uri);
-      const bytes = await file.bytes();
-      const path = `${user.id}/avatar.jpg`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(path, bytes, {
-          contentType: asset.mimeType ?? 'image/jpeg',
-          upsert: true,
-        });
-      if (uploadError) throw uploadError;
-
-      const { data } = supabase.storage.from('avatars').getPublicUrl(path);
-      // The upload path is fixed per user (upsert overwrite), so the public URL
-      // is identical every time — bust it here, before it's saved, so every
-      // screen that renders this avatar from the DB (not just this preview)
-      // picks up the new photo instead of a stale cached one.
-      setAvatarUrl(`${data.publicUrl}?v=${Date.now()}`);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Something went wrong.';
-      Alert.alert('Upload failed', message);
-    } finally {
-      setUploadingAvatar(false);
-    }
+    const asset = result.assets[0];
+    setPendingAvatar({ uri: asset.uri, mimeType: asset.mimeType });
   };
 
   const handleSave = async () => {
     if (!user) return;
     setSaving(true);
+
+    // Still the same fixed path/upsert-overwrite avatars bucket as before —
+    // only the timing moved (now inside Save, not inside Pick), so a picked
+    // photo the user never saves never reaches Storage at all, and the
+    // previously-saved avatar stays exactly as it was until this succeeds.
+    let nextAvatarUrl = avatarUrl;
+    if (pendingAvatar) {
+      setUploadingAvatar(true);
+      try {
+        const path = `${user.id}/avatar.jpg`;
+        const file = new File(pendingAvatar.uri);
+        const bytes = await file.bytes();
+
+        const { error: uploadError } = await supabase.storage
+          .from('avatars')
+          .upload(path, bytes, {
+            contentType: pendingAvatar.mimeType ?? 'image/jpeg',
+            upsert: true,
+          });
+        if (uploadError) throw uploadError;
+
+        const { data } = supabase.storage.from('avatars').getPublicUrl(path);
+        // The upload path is fixed per user (upsert overwrite), so the public
+        // URL is identical every time — bust it here so every screen that
+        // renders this avatar from the DB picks up the new photo instead of
+        // a stale cached one.
+        nextAvatarUrl = `${data.publicUrl}?v=${Date.now()}`;
+      } catch (err) {
+        // Nothing else about the profile is saved either — the existing
+        // avatar (if any) is left exactly as it was, matching what
+        // "Discard changes?" already implies elsewhere on this screen.
+        setUploadingAvatar(false);
+        setSaving(false);
+        const message = err instanceof Error ? err.message : 'Something went wrong.';
+        Alert.alert('Upload failed', message);
+        return;
+      }
+      setUploadingAvatar(false);
+    }
+
     const { error } = await supabase.from('profiles').upsert({
       id: user.id,
       full_name: fullName,
       grade,
       interests,
-      avatar_url: avatarUrl,
+      avatar_url: nextAvatarUrl,
       is_new_student: isNewStudent,
       updated_at: new Date().toISOString(),
     });
@@ -197,6 +225,8 @@ export default function EditProfileScreen() {
     if (error) {
       Alert.alert('Save failed', error.message);
     } else {
+      setAvatarUrl(nextAvatarUrl);
+      setPendingAvatar(null);
       // Successful save is an intentional exit — the upcoming goBack()
       // should never trigger the discard-changes prompt.
       isDirtyRef.current = false;
@@ -221,8 +251,10 @@ export default function EditProfileScreen() {
 
       <FadeInView style={styles.form} delay={40}>
         <TouchableOpacity style={styles.avatarWrapper} onPress={handlePickAvatar} disabled={uploadingAvatar}>
-          {avatarUrl ? (
-            <Image source={{ uri: avatarUrl }} style={styles.avatar} />
+          {/* A picked-but-not-yet-saved photo previews from its local uri —
+              Storage/avatarUrl only change once Save actually succeeds. */}
+          {(pendingAvatar?.uri ?? avatarUrl) ? (
+            <Image source={{ uri: (pendingAvatar?.uri ?? avatarUrl) as string }} style={styles.avatar} />
           ) : (
             <View style={[styles.avatar, styles.avatarPlaceholder]}>
               <Ionicons name="person" size={40} color={colors.primary} />

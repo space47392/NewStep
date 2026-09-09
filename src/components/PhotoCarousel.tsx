@@ -10,6 +10,7 @@ import {
   NativeScrollEvent,
   StyleSheet,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { colors, radius, spacing, fontSize, fontFamily } from '../constants/theme';
 import { Skeleton } from './Skeleton';
 
@@ -30,12 +31,31 @@ function CarouselPhoto({
   onPress: (e: GestureResponderEvent) => void;
 }) {
   const [loaded, setLoaded] = useState(false);
+  // Without onError, a request that fails outright (deleted file, network
+  // error) never fires onLoad, leaving `loaded` false and the Skeleton
+  // spinning forever. Treated as "done loading" either way — `failed` just
+  // decides what's shown in place of the image (Step 42).
+  const [failed, setFailed] = useState(false);
 
   return (
     <TouchableOpacity activeOpacity={0.9} onPress={onPress}>
       <View style={{ width: size, height: size, borderRadius: radius.md, overflow: 'hidden' }}>
         {!loaded && <Skeleton width={size} height={size} radius={0} style={StyleSheet.absoluteFill} />}
-        <Image source={{ uri }} style={{ width: size, height: size }} onLoad={() => setLoaded(true)} />
+        {failed ? (
+          <View style={[styles.broken, { width: size, height: size }]}>
+            <Ionicons name="image-outline" size={size * 0.3} color={colors.textLight} />
+          </View>
+        ) : (
+          <Image
+            source={{ uri }}
+            style={{ width: size, height: size }}
+            onLoad={() => setLoaded(true)}
+            onError={() => {
+              setFailed(true);
+              setLoaded(true);
+            }}
+          />
+        )}
       </View>
     </TouchableOpacity>
   );
@@ -97,6 +117,11 @@ export default function PhotoCarousel({ photoUrls, onPressPhoto }: Props) {
 }
 
 const styles = StyleSheet.create({
+  broken: {
+    backgroundColor: colors.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   dots: {
     flexDirection: 'row',
     justifyContent: 'center',

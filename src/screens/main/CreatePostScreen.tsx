@@ -21,7 +21,7 @@ import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/dat
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { createPost, editPost } from '../../lib/posts';
-import { uploadPostPhoto } from '../../lib/postPhotos';
+import { uploadPostPhoto, removePostPhotos } from '../../lib/postPhotos';
 import PrimaryButton from '../../components/PrimaryButton';
 import FadeInView from '../../components/FadeInView';
 import { colors, spacing, radius, fontSize, fontFamily } from '../../constants/theme';
@@ -109,18 +109,37 @@ export default function CreatePostScreen() {
     });
   const initialSnapshotRef = useRef(buildSnapshot());
   const isDirtyRef = useRef(false);
+  // Mirrors `posting` via a ref so the beforeRemove listener below (registered
+  // once, not re-subscribed on every render) always reads its current value
+  // instead of whatever it was when the listener was first attached (Step 42).
+  const postingRef = useRef(false);
 
   useEffect(() => {
     isDirtyRef.current = buildSnapshot() !== initialSnapshotRef.current;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [content, category, existingPhotoUrls, newPhotos, eventDate, eventStartTime, eventEndTime, showEndTimeField, eventLocation]);
 
-  // Registered once — reads isDirtyRef fresh at fire time, so it doesn't need
-  // to re-subscribe on every keystroke. Fires identically for the header
-  // close button, iOS swipe-back, and Android hardware back, since all three
-  // go through the same navigation event.
+  useEffect(() => {
+    postingRef.current = posting;
+  }, [posting]);
+
+  // Registered once — reads isDirtyRef/postingRef fresh at fire time, so it
+  // doesn't need to re-subscribe on every keystroke or state change. Fires
+  // identically for the header close button, iOS swipe-back, and Android
+  // hardware back, since all three go through the same navigation event.
   useEffect(() => {
     const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      // A submit already in flight can't actually be cancelled (no abort
+      // support in uploadPostPhoto/createPost/editPost) — letting the user
+      // "discard" here would just let it keep running unattended in the
+      // background and still create/save the post despite them explicitly
+      // choosing not to. Block leaving instead of pretending to cancel it
+      // (Step 42).
+      if (postingRef.current) {
+        e.preventDefault();
+        Alert.alert('Please wait', 'Your post is still uploading.');
+        return;
+      }
       if (!isDirtyRef.current) return;
       e.preventDefault();
       Alert.alert('Discard changes?', 'Your changes will be lost.', [
@@ -201,18 +220,31 @@ export default function CreatePostScreen() {
     }
 
     setPosting(true);
+    // Tracks exactly which of this attempt's new photos actually finished
+    // uploading, so a failure anywhere below (another photo in the same
+    // batch, or the create/edit step itself) can clean up only what THIS
+    // attempt uploaded — never existingPhotoUrls, never a previous attempt's
+    // already-cleaned-up files (Step 42).
+    let uploadedUrls: string[] = [];
     try {
+      const postId = editingPost ? editingPost.id : Crypto.randomUUID();
+
+      // Promise.all would reject on the very first failure without ever
+      // saying whether the OTHER photos in the batch still succeeded —
+      // Promise.allSettled lets us find out, so those aren't left as
+      // orphaned Storage files with nothing referencing them.
+      const results = await Promise.allSettled(
+        newPhotos.map((asset) =>
+          uploadPostPhoto({ userId: user.id, postId, localUri: asset.uri, mimeType: asset.mimeType })
+        )
+      );
+      uploadedUrls = results
+        .filter((r): r is PromiseFulfilledResult<string> => r.status === 'fulfilled')
+        .map((r) => r.value);
+      const firstFailure = results.find((r): r is PromiseRejectedResult => r.status === 'rejected');
+      if (firstFailure) throw firstFailure.reason;
+
       if (editingPost) {
-        const uploadedUrls = await Promise.all(
-          newPhotos.map((asset) =>
-            uploadPostPhoto({
-              userId: user.id,
-              postId: editingPost.id,
-              localUri: asset.uri,
-              mimeType: asset.mimeType,
-            })
-          )
-        );
         const removedPhotoUrls = editingPost.photo_urls.filter((url) => !existingPhotoUrls.includes(url));
 
         await editPost({
@@ -227,13 +259,6 @@ export default function CreatePostScreen() {
         });
         showToast('Post updated');
       } else {
-        const postId = Crypto.randomUUID();
-        const uploadedUrls = await Promise.all(
-          newPhotos.map((asset) =>
-            uploadPostPhoto({ userId: user.id, postId, localUri: asset.uri, mimeType: asset.mimeType })
-          )
-        );
-
         await createPost({
           postId,
           authorId: user.id,
@@ -251,6 +276,15 @@ export default function CreatePostScreen() {
       isDirtyRef.current = false;
       navigation.goBack();
     } catch (err) {
+      // Best-effort cleanup of whatever this attempt DID manage to upload —
+      // whether the failure was another photo in the same batch or the
+      // create/edit step afterward — so a failed attempt never leaves
+      // Storage waste that retrying would only add to. removePostPhotos()
+      // already swallows its own errors, so a cleanup failure here can never
+      // replace the real error below with a raw Storage one.
+      if (uploadedUrls.length > 0) {
+        await removePostPhotos(uploadedUrls).catch(() => {});
+      }
       const message = err instanceof Error ? err.message : 'Something went wrong.';
       Alert.alert(editingPost ? 'Could not save changes' : 'Could not post', message);
     } finally {
@@ -264,6 +298,7 @@ export default function CreatePostScreen() {
         <TouchableOpacity
           onPress={() => navigation.goBack()}
           style={styles.closeButton}
+          disabled={posting}
           accessibilityRole="button"
           accessibilityLabel="Close"
         >

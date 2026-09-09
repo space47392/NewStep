@@ -41,6 +41,11 @@ export default function PhotoViewerScreen() {
           style={{ width, height }}
           resizeMode="contain"
           onLoad={() => setLoaded(true)}
+          // Without this, a request that fails outright (deleted file,
+          // network error) never fires onLoad, leaving the spinner below
+          // running forever — same fix as StoryViewerScreen's existing
+          // pattern (Step 42).
+          onError={() => setLoaded(true)}
         />
       </ScrollView>
 

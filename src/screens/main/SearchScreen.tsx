@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, ScrollView, FlatList, RefreshControl, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, FlatList, RefreshControl, TouchableOpacity, ActivityIndicator, Keyboard, StyleSheet } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -29,6 +29,7 @@ import FadeInView from '../../components/FadeInView';
 import PostPreviewCard from '../../components/PostPreviewCard';
 import PrimaryButton from '../../components/PrimaryButton';
 import SectionHeader from '../../components/SectionHeader';
+import { PostCardSkeleton } from '../../components/Skeleton';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
 import { getInterestIcon } from '../../constants/interests';
 import {
@@ -87,7 +88,11 @@ export default function SearchScreen() {
   const [query, setQuery] = useState('');
   const [postCategory, setPostCategory] = useState<PostCategory | undefined>(undefined);
   const [searching, setSearching] = useState(false);
-  const [searchError, setSearchError] = useState<string | null>(null);
+  // True only when the most recent search request actually failed — kept
+  // separate from "zero matches," so a failure never renders identically to
+  // a genuine empty result (Step 38).
+  const [searchFailed, setSearchFailed] = useState(false);
+  const [retryingSearch, setRetryingSearch] = useState(false);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
 
   const [people, setPeople] = useState<PersonSearchResult[]>([]);
@@ -110,8 +115,20 @@ export default function SearchScreen() {
   const [discoveryLoadFailed, setDiscoveryLoadFailed] = useState(false);
   const [retryingDiscovery, setRetryingDiscovery] = useState(false);
   const hasEverLoadedDiscoveryRef = useRef(false);
+  // True only until the very first Discovery load (success or failure)
+  // settles — distinct from discoveryLoadFailed/refreshing, so the screen
+  // never flashes the "Search for students..." EmptyState before that first
+  // fetch has actually had a chance to resolve (Step 38).
+  const [loadingDiscovery, setLoadingDiscovery] = useState(true);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Bumped on every dispatched search and every query-clear — a response (or
+  // error) is only applied if it still matches the current value when it
+  // arrives, so a slow, superseded request can never overwrite a newer
+  // query's results (Step 38).
+  const searchRequestIdRef = useRef(0);
+  // The last actually-dispatched search params — what "Retry" re-runs.
+  const lastSearchRef = useRef<{ term: string; category: PostCategory | undefined } | null>(null);
   // Guards against a rapid double-tap pushing PostDetail twice — reset on
   // focus above, same minimal pattern as FeedScreen (Step 34).
   const openingPostRef = useRef(false);
@@ -244,7 +261,10 @@ export default function SearchScreen() {
     useCallback(() => {
       openingPostRef.current = false;
       getRecentSearches().then(setRecentSearches);
-      loadDiscovery();
+      (async () => {
+        await loadDiscovery();
+        setLoadingDiscovery(false);
+      })();
     }, [loadDiscovery])
   );
 
@@ -254,47 +274,77 @@ export default function SearchScreen() {
     setRefreshing(false);
   };
 
+  // Shared by the debounce effect below and handleRetrySearch — takes an
+  // explicit requestId (rather than reading a ref internally) so a caller
+  // can mint it right before dispatch and compare it after every await;
+  // whichever call is still current when its response (or error) arrives is
+  // the only one allowed to touch state (Step 38).
+  const runSearch = useCallback(
+    async (term: string, category: PostCategory | undefined, requestId: number) => {
+      lastSearchRef.current = { term, category };
+      try {
+        const [peopleResults, postResults, schoolResults, blockedIds] = await Promise.all([
+          searchUsers(term, mySchoolName),
+          searchPosts(term, category),
+          searchSchools(term),
+          user ? fetchBlockedUserIds(user.id).catch(() => new Set<string>()) : Promise.resolve(new Set<string>()),
+        ]);
+        if (searchRequestIdRef.current !== requestId) return; // superseded by a newer search — ignore
+        // UX filtering only, not a security boundary — see blocks.ts.
+        setPeople(peopleResults.filter((p) => !blockedIds.has(p.id)));
+        setPosts(postResults.filter((p) => !blockedIds.has(p.author_id)));
+        setSchools(schoolResults);
+        setSearchFailed(false);
+      } catch {
+        if (searchRequestIdRef.current !== requestId) return; // stale error — ignore
+        // Never surface the raw error text — ErrorState's fixed copy covers
+        // this, same as every other screen's failure state.
+        setPeople([]);
+        setPosts([]);
+        setSchools([]);
+        setSearchFailed(true);
+      } finally {
+        if (searchRequestIdRef.current === requestId) setSearching(false);
+      }
+    },
+    [user, mySchoolName]
+  );
+
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
     const trimmed = query.trim();
     if (!trimmed) {
+      // Invalidate any still-in-flight request from before the query was
+      // cleared, so it can't land afterward and repopulate results.
+      searchRequestIdRef.current += 1;
       setPeople([]);
       setPosts([]);
       setSchools([]);
       setSearching(false);
-      setSearchError(null);
+      setSearchFailed(false);
       return;
     }
 
     setSearching(true);
-    debounceRef.current = setTimeout(async () => {
-      try {
-        const [peopleResults, postResults, schoolResults, blockedIds] = await Promise.all([
-          searchUsers(trimmed, mySchoolName),
-          searchPosts(trimmed, postCategory),
-          searchSchools(trimmed),
-          user ? fetchBlockedUserIds(user.id).catch(() => new Set<string>()) : Promise.resolve(new Set<string>()),
-        ]);
-        // UX filtering only, not a security boundary — see blocks.ts.
-        setPeople(peopleResults.filter((p) => !blockedIds.has(p.id)));
-        setPosts(postResults.filter((p) => !blockedIds.has(p.author_id)));
-        setSchools(schoolResults);
-        setSearchError(null);
-      } catch (err) {
-        setPeople([]);
-        setPosts([]);
-        setSchools([]);
-        setSearchError(err instanceof Error ? err.message : 'Could not search right now.');
-      } finally {
-        setSearching(false);
-      }
+    setSearchFailed(false);
+    debounceRef.current = setTimeout(() => {
+      const requestId = ++searchRequestIdRef.current;
+      runSearch(trimmed, postCategory, requestId);
     }, DEBOUNCE_MS);
 
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [query, postCategory, user, mySchoolName]);
+  }, [query, postCategory, runSearch]);
+
+  const handleRetrySearch = async () => {
+    if (retryingSearch || !lastSearchRef.current) return;
+    setRetryingSearch(true);
+    const requestId = ++searchRequestIdRef.current;
+    await runSearch(lastSearchRef.current.term, lastSearchRef.current.category, requestId);
+    setRetryingSearch(false);
+  };
 
   const recordSearch = async () => {
     const updated = await addRecentSearch(query.trim());
@@ -362,12 +412,17 @@ export default function SearchScreen() {
           onChangeText={setQuery}
           autoCapitalize="none"
           autoCorrect={false}
+          returnKeyType="search"
+          onSubmitEditing={() => Keyboard.dismiss()}
+          accessibilityLabel="Search students, posts, or schools"
         />
         {query.length > 0 && (
           <TouchableOpacity
             style={styles.clearButton}
             onPress={() => setQuery('')}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel="Clear search"
           >
             <Ionicons name="close-circle" size={18} color={colors.textLight} />
           </TouchableOpacity>
@@ -375,23 +430,38 @@ export default function SearchScreen() {
       </View>
 
       {!showRecent && (
-        <View style={styles.chipRow}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={styles.chipRow}
+        >
           {CATEGORY_FILTERS.map((f) => (
             <TouchableOpacity
               key={f.label}
               style={[styles.chip, postCategory === f.value && styles.chipSelected]}
               onPress={() => setPostCategory(f.value)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: postCategory === f.value }}
             >
               <Text style={[styles.chipText, postCategory === f.value && styles.chipTextSelected]}>{f.label}</Text>
             </TouchableOpacity>
           ))}
-        </View>
+        </ScrollView>
       )}
 
       {showRecent ? (
+        loadingDiscovery ? (
+          <View style={styles.list}>
+            <PostCardSkeleton />
+            <PostCardSkeleton />
+            <PostCardSkeleton />
+          </View>
+        ) : (
         <ScrollView
           contentContainerStyle={styles.list}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />}
         >
           {recentSearches.length > 0 && (
@@ -409,6 +479,8 @@ export default function SearchScreen() {
                   <TouchableOpacity
                     onPress={(e) => handleRemoveRecent(e, term)}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Remove recent search for ${term}`}
                   >
                     <Ionicons name="close" size={16} color={colors.textLight} />
                   </TouchableOpacity>
@@ -555,17 +627,29 @@ export default function SearchScreen() {
             )
           )}
         </ScrollView>
+        )
       ) : searching ? (
         <View style={styles.center}>
           <ActivityIndicator color={colors.primary} />
         </View>
+      ) : searchFailed ? (
+        <ErrorState
+          title="Couldn't load search results"
+          subtitle="Check your connection and try again."
+          onRetry={handleRetrySearch}
+          retrying={retryingSearch}
+        />
       ) : (
-        <ScrollView contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          contentContainerStyle={styles.list}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+        >
           {!hasAnyResults ? (
             <EmptyState
               icon="search-outline"
               title="No results found"
-              subtitle={searchError ?? `No matches for "${query.trim()}"`}
+              subtitle={`No matches for "${query.trim()}"`}
             />
           ) : (
             <>
@@ -648,9 +732,9 @@ const styles = StyleSheet.create({
   },
   chipRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: spacing.xs,
     marginTop: spacing.sm,
+    paddingRight: spacing.lg,
   },
   chip: {
     paddingHorizontal: spacing.md,

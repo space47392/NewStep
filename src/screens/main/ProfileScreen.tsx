@@ -136,7 +136,19 @@ export default function ProfileScreen() {
         style: 'destructive',
         onPress: async () => {
           setLoggingOut(true);
-          await signOut();
+          try {
+            await signOut();
+          } catch {
+            // Never surface the raw Supabase error — the session very likely
+            // never changed, so it's safe to just let them try again rather
+            // than leave the button stuck spinning forever (Step 40).
+            showToast("Couldn't log out — check your connection and try again");
+          } finally {
+            // Harmless no-op if this already unmounted because the logout
+            // actually succeeded (session cleared → AppNavigator swaps this
+            // whole screen out) — only visibly matters on the failure path.
+            setLoggingOut(false);
+          }
         },
       },
     ]);
@@ -156,7 +168,13 @@ export default function ProfileScreen() {
           style: 'destructive',
           onPress: async () => {
             setLoggingOut(true);
-            await supabase.auth.signOut({ scope: 'global' });
+            try {
+              await signOut({ scope: 'global' });
+            } catch {
+              showToast("Couldn't log out — check your connection and try again");
+            } finally {
+              setLoggingOut(false);
+            }
           },
         },
       ]

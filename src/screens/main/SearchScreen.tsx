@@ -260,12 +260,13 @@ export default function SearchScreen() {
   useFocusEffect(
     useCallback(() => {
       openingPostRef.current = false;
-      getRecentSearches().then(setRecentSearches);
+      if (user) getRecentSearches(user.id).then(setRecentSearches);
+      else setRecentSearches([]);
       (async () => {
         await loadDiscovery();
         setLoadingDiscovery(false);
       })();
-    }, [loadDiscovery])
+    }, [loadDiscovery, user])
   );
 
   const handleRefresh = async () => {
@@ -347,7 +348,8 @@ export default function SearchScreen() {
   };
 
   const recordSearch = async () => {
-    const updated = await addRecentSearch(query.trim());
+    if (!user) return;
+    const updated = await addRecentSearch(user.id, query.trim());
     setRecentSearches(updated);
   };
 
@@ -382,12 +384,14 @@ export default function SearchScreen() {
 
   const handleRemoveRecent = async (e: { stopPropagation: () => void }, term: string) => {
     e.stopPropagation();
-    const updated = await removeRecentSearch(term);
+    if (!user) return;
+    const updated = await removeRecentSearch(user.id, term);
     setRecentSearches(updated);
   };
 
   const handleClearRecent = async () => {
-    await clearRecentSearches();
+    if (!user) return;
+    await clearRecentSearches(user.id);
     setRecentSearches([]);
   };
 

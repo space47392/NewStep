@@ -36,7 +36,17 @@ export async function fetchSavedPostIds(userId: string, postIds: string[]): Prom
 // the relevant ids, then hydrate full Post objects the same way every other
 // post list does. fetchPostsByIds also naturally drops any saved post that
 // was since deleted, with no error.
-export async function fetchSavedPosts(userId: string, limit = 20, offset = 0): Promise<Post[]> {
+//
+// rawCount is the number of post_saves rows this page actually consumed
+// (before hydration/deletion drops any), not posts.length — the caller needs
+// it to compute the next page's offset. Using posts.length instead would
+// under-count whenever a saved post has since been deleted, re-requesting
+// rows already consumed and duplicating posts on "Load more" (Step 37).
+export async function fetchSavedPosts(
+  userId: string,
+  limit = 20,
+  offset = 0
+): Promise<{ posts: Post[]; rawCount: number }> {
   const { data, error } = await supabase
     .from('post_saves')
     .select('post_id')
@@ -47,6 +57,7 @@ export async function fetchSavedPosts(userId: string, limit = 20, offset = 0): P
   if (error) throw error;
 
   const ids = (data ?? []).map((row) => row.post_id as string);
-  if (ids.length === 0) return [];
-  return fetchPostsByIds(ids);
+  if (ids.length === 0) return { posts: [], rawCount: 0 };
+  const posts = await fetchPostsByIds(ids);
+  return { posts, rawCount: ids.length };
 }

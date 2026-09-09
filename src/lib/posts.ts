@@ -24,13 +24,17 @@ export const POST_SELECT = `
     id,
     full_name,
     school_name,
-    avatar_url
+    school_id,
+    avatar_url,
+    school:school_id ( name )
   ),
   helper:helper_id (
     id,
     full_name,
     school_name,
-    avatar_url
+    school_id,
+    avatar_url,
+    school:school_id ( name )
   )
 `;
 

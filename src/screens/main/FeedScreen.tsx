@@ -22,7 +22,7 @@ import { sharePost } from '../../lib/share';
 import { fetchActiveStories, uploadStory } from '../../lib/stories';
 import { getSeenStoryIds, pruneSeenStoryIds } from '../../lib/storyPrefs';
 import { fetchProfileById } from '../../lib/profile';
-import { fetchSchoolStudentCount, fetchSchoolStudentCountById, fetchSchoolById } from '../../lib/schools';
+import { fetchSchoolStudentCount, fetchSchoolStudentCountById, fetchSchoolById, resolveSchoolName } from '../../lib/schools';
 import { fetchFollowingIds } from '../../lib/follows';
 import { isWelcomeBannerDismissed, dismissWelcomeBanner } from '../../lib/newStudentPrefs';
 import { fetchUnreadNotificationCount } from '../../lib/notifications';
@@ -758,8 +758,8 @@ export default function FeedScreen() {
                     <Avatar uri={item.profiles?.avatar_url} size={42} />
                     <View style={styles.cardHeaderText}>
                       <Text style={styles.name}>{item.profiles?.full_name ?? 'Unknown'}</Text>
-                      {item.profiles?.school_name ? (
-                        <Text style={styles.school}>{item.profiles.school_name}</Text>
+                      {item.profiles && resolveSchoolName(item.profiles) ? (
+                        <Text style={styles.school}>{resolveSchoolName(item.profiles)}</Text>
                       ) : null}
                     </View>
                   </TouchableOpacity>

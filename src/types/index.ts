@@ -209,12 +209,20 @@ export type Post = {
     id: string;
     full_name: string | null;
     school_name: string | null;
+    school_id: string | null;
+    // PostgREST embedded relation via profiles.school_id's FK to schools —
+    // the canonical directory name, resolved in the same query. Use
+    // resolveSchoolName() (lib/schools.ts) rather than reading school_name
+    // directly; see Step 35.
+    school: { name: string } | null;
     avatar_url: string | null;
   } | null;
   helper: {
     id: string;
     full_name: string | null;
     school_name: string | null;
+    school_id: string | null;
+    school: { name: string } | null;
     avatar_url: string | null;
   } | null;
 };
@@ -298,5 +306,7 @@ export type Story = {
     full_name: string | null;
     avatar_url: string | null;
     school_name: string | null;
+    school_id: string | null;
+    school: { name: string } | null;
   } | null;
 };

@@ -1,6 +1,19 @@
 import { supabase } from './supabase';
 import { SchoolMember, School, SchoolContributor } from '../types';
 
+// Resolves the display name for any profile-shaped object that carries the
+// embedded `school` relation (see POST_SELECT/STORY_SELECT — profiles.school_id
+// is joined to schools via PostgREST directly in the same query, so this is a
+// pure null-coalesce, never a separate lookup). Directory-selected profiles
+// have school_id set but school_name NULL (setMySchool() only ever writes
+// school_id — see schools_directory_schema.sql), so preferring the embedded
+// school.name here is what actually fixes their identity disappearing;
+// school_name stays the fallback for legacy profiles and for a school_id
+// whose directory row can't be resolved (deleted, or the join simply failed).
+export function resolveSchoolName(profile: { school_name: string | null; school?: { name: string } | null }): string | null {
+  return profile.school?.name ?? profile.school_name;
+}
+
 // head: true skips fetching any rows at all — just the count header — so this
 // never pulls whole profile records just to display a number.
 export async function fetchSchoolStudentCount(schoolName: string): Promise<number> {

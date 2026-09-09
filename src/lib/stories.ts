@@ -12,7 +12,9 @@ const STORY_SELECT = `
     id,
     full_name,
     avatar_url,
-    school_name
+    school_name,
+    school_id,
+    school:school_id ( name )
   )
 `;
 

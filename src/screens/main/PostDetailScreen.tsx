@@ -27,6 +27,7 @@ import { fetchInterestedPostIds } from '../../lib/eventInterests';
 import { sharePost } from '../../lib/share';
 import { fetchHelpStats, thankHelper } from '../../lib/points';
 import { fetchProfileById } from '../../lib/profile';
+import { resolveSchoolName } from '../../lib/schools';
 import { formatRelativeTime } from '../../lib/time';
 import Avatar from '../../components/Avatar';
 import EmptyState from '../../components/EmptyState';
@@ -428,8 +429,8 @@ export default function PostDetailScreen() {
                 <Avatar uri={post.profiles?.avatar_url} size={44} />
                 <View style={styles.postHeaderText}>
                   <Text style={styles.name}>{post.profiles?.full_name ?? 'Unknown'}</Text>
-                  {post.profiles?.school_name ? (
-                    <Text style={styles.school}>{post.profiles.school_name}</Text>
+                  {post.profiles && resolveSchoolName(post.profiles) ? (
+                    <Text style={styles.school}>{resolveSchoolName(post.profiles)}</Text>
                   ) : null}
                 </View>
               </TouchableOpacity>
@@ -513,8 +514,8 @@ export default function PostDetailScreen() {
                   <Avatar uri={post.helper.avatar_url} size={36} />
                   <View style={styles.helperTextWrap}>
                     <Text style={styles.helperName}>{post.helper.full_name ?? 'Unknown'}</Text>
-                    {post.helper.school_name ? (
-                      <Text style={styles.helperSchool}>{post.helper.school_name}</Text>
+                    {resolveSchoolName(post.helper) ? (
+                      <Text style={styles.helperSchool}>{resolveSchoolName(post.helper)}</Text>
                     ) : null}
                   </View>
                 </TouchableOpacity>

@@ -10,6 +10,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { deleteStory, recordStoryView, fetchStoryViewers, sayHiToStory } from '../../lib/stories';
 import { markStorySeen } from '../../lib/storyPrefs';
 import { getOrCreateConversation } from '../../lib/chat';
+import { resolveSchoolName } from '../../lib/schools';
 import { formatRelativeTime } from '../../lib/time';
 import Avatar from '../../components/Avatar';
 import ActionSheet, { ActionSheetAction } from '../../components/ActionSheet';
@@ -302,7 +303,7 @@ export default function StoryViewerScreen() {
             <Text style={styles.name}>{story.profiles?.full_name ?? 'Unknown'}</Text>
             <Text style={styles.time} numberOfLines={1}>
               {formatRelativeTime(story.created_at)}
-              {story.profiles?.school_name ? ` · ${story.profiles.school_name}` : ''}
+              {story.profiles && resolveSchoolName(story.profiles) ? ` · ${resolveSchoolName(story.profiles)}` : ''}
             </Text>
           </View>
         </TouchableOpacity>

@@ -91,6 +91,13 @@ export default function SchoolScreen() {
   const [loadFailed, setLoadFailed] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const hasEverLoadedRef = useRef(false);
+  // Bumped at the start of every loadSchoolData() call — a response (or
+  // error) is only applied if it still matches the current value when it
+  // arrives, so a slower, superseded request (e.g. this same route entry's
+  // params changing to a different school before the first fetch finishes)
+  // can never overwrite a newer school's freshly-applied state, and can
+  // never mix its own results in partially either (Step 47).
+  const requestIdRef = useRef(0);
   const [directorySchool, setDirectorySchool] = useState<School | null>(null);
   const [studentCount, setStudentCount] = useState(0);
   const [contributors, setContributors] = useState<SchoolContributor[]>([]);
@@ -117,6 +124,7 @@ export default function SchoolScreen() {
   };
 
   const loadSchoolData = useCallback(async () => {
+    const requestId = ++requestIdRef.current;
     try {
       // Prefer the stable school_id once this page was reached with one;
       // school_name stays the fallback for every link that only ever had a
@@ -157,6 +165,11 @@ export default function SchoolScreen() {
           user ? fetchProfileById(user.id) : Promise.resolve(null),
           user ? fetchBlockedUserIds(user.id).catch(() => new Set<string>()) : Promise.resolve(new Set<string>()),
         ]);
+
+      // Superseded by a newer school's load while this was in flight — never
+      // apply any of this request's results, not even partially (Step 47).
+      if (requestIdRef.current !== requestId) return;
+
       // UX filtering only, not a security boundary — see blocks.ts.
       setStudentCount(count);
       setContributors(contributorList.filter((c) => !blockedIds.has(c.id)));
@@ -204,6 +217,12 @@ export default function SchoolScreen() {
                 ? fetchSchoolMembersByInterests(schoolName, myProfile!.interests, user.id, DISCOVERY_LIMIT)
                 : Promise.resolve([]),
             ]);
+
+        // Checked again — a newer school's load could have started during
+        // this second, conditional round-trip even though the first check
+        // above already passed (Step 47).
+        if (requestIdRef.current !== requestId) return;
+
         setGradeMates(byGrade.filter((m) => !blockedIds.has(m.id)));
         setInterestMates(byInterests.filter((m) => !blockedIds.has(m.id)));
       } else {
@@ -214,6 +233,10 @@ export default function SchoolScreen() {
       setLoadFailed(false);
       hasEverLoadedRef.current = true;
     } catch {
+      // A stale request's own failure shouldn't blank out (or toast over) a
+      // newer request that's still in flight or has already succeeded
+      // (Step 47).
+      if (requestIdRef.current !== requestId) return;
       // Only a genuinely first-ever failure (nothing has ever successfully
       // loaded) shows the blocking ErrorState — a failed background refresh
       // keeps whatever's already on screen and just says so (Step 36).

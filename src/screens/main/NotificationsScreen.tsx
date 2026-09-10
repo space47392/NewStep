@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, FlatList, RefreshControl, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -34,6 +34,7 @@ export default function NotificationsScreen() {
 
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [openingId, setOpeningId] = useState<string | null>(null);
@@ -75,6 +76,19 @@ export default function NotificationsScreen() {
     setRetrying(true);
     await loadFirstPage();
     setRetrying(false);
+  };
+
+  // Pull-to-refresh — reuses loadFirstPage() exactly as-is (same fetch, same
+  // pagination reset, same success/failure handling), so a fresh pull always
+  // reflects the current server state (unread/read included) without a
+  // second fetch implementation. Guarded the same way handleRetry already is
+  // above, so a fast repeated pull can't dispatch overlapping requests. Does
+  // NOT mark anything read — same as opening the screen itself (Step 44).
+  const handleRefresh = async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    await loadFirstPage();
+    setRefreshing(false);
   };
 
   // Refetches on every focus (e.g. returning from a notification's
@@ -167,6 +181,7 @@ export default function NotificationsScreen() {
         data={grouped}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />}
         ListHeaderComponent={<Text style={styles.title}>Notifications</Text>}
         ListEmptyComponent={
           loadFailed ? (

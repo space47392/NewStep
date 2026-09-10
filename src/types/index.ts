@@ -118,10 +118,23 @@ export type SchoolMember = Pick<Profile, 'id' | 'full_name' | 'username' | 'avat
 // Public-safe subset of Profile for people search — see search.ts's
 // searchUsers(). Same fields SchoolMember exposes, plus school_name (search
 // results span schools, unlike a single school's member list).
+//
+// school_id/school are optional (not just nullable) — searchUsers() selects
+// both, but follows.ts's fetchFollowers()/fetchFollowing() reuse this same
+// type without selecting them (see FOLLOW_PERSON_FIELDS), so a caller must
+// not assume they're always present. Where they are present, `school` is the
+// same PostgREST embedded relation via school_id's FK to schools that
+// Post.profiles/Post.helper already use — resolve display names with
+// resolveSchoolName() (lib/schools.ts), never school_name directly, so a
+// directory-based (school_id-only) person's school shows up correctly
+// (Step 43).
 export type PersonSearchResult = Pick<
   Profile,
   'id' | 'username' | 'full_name' | 'avatar_url' | 'school_name' | 'grade' | 'interests'
->;
+> & {
+  school_id?: string | null;
+  school?: { name: string } | null;
+};
 
 // Public-safe subset of Profile for "Community Contributors" — ranked by
 // real contribution signals only (thanks_received_count), never

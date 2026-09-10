@@ -15,6 +15,7 @@ import {
   fetchSchoolContributors,
   fetchSchoolContributorsById,
   fetchSchoolById,
+  resolveSchoolName,
 } from '../../lib/schools';
 import { getRecentSearches, addRecentSearch, removeRecentSearch, clearRecentSearches } from '../../lib/recentSearches';
 import { fetchBlockedUserIds } from '../../lib/blocks';
@@ -100,6 +101,12 @@ export default function SearchScreen() {
   const [schools, setSchools] = useState<SchoolSearchResult[]>([]);
 
   const [mySchoolName, setMySchoolName] = useState<string | null>(null);
+  // Directory-based school identity — separate from mySchoolName (which is
+  // already resolved to a display name and used for the "same school"
+  // tiebreak's legacy fallback). Passed to searchUsers() so two
+  // directory-based (school_id-only) students can be recognized as the same
+  // school even though their school_name is always null (Step 43).
+  const [mySchoolId, setMySchoolId] = useState<string | null>(null);
   const [myInterests, setMyInterests] = useState<string[]>([]);
   const [suggestedPeople, setSuggestedPeople] = useState<SchoolMember[]>([]);
   const [pendingFollowIds, setPendingFollowIds] = useState<Set<string>>(new Set());
@@ -143,6 +150,7 @@ export default function SearchScreen() {
       const myProfile = await fetchProfileById(user.id);
       setMyInterests(myProfile.interests ?? []);
       const schoolId = myProfile.school_id;
+      setMySchoolId(schoolId);
       if (!schoolId && !myProfile.school_name) {
         setMySchoolName(null);
         setSuggestedPeople([]);
@@ -285,7 +293,7 @@ export default function SearchScreen() {
       lastSearchRef.current = { term, category };
       try {
         const [peopleResults, postResults, schoolResults, blockedIds] = await Promise.all([
-          searchUsers(term, mySchoolName),
+          searchUsers(term, mySchoolName, mySchoolId),
           searchPosts(term, category),
           searchSchools(term),
           user ? fetchBlockedUserIds(user.id).catch(() => new Set<string>()) : Promise.resolve(new Set<string>()),
@@ -308,7 +316,7 @@ export default function SearchScreen() {
         if (searchRequestIdRef.current === requestId) setSearching(false);
       }
     },
-    [user, mySchoolName]
+    [user, mySchoolName, mySchoolId]
   );
 
   useEffect(() => {
@@ -667,7 +675,9 @@ export default function SearchScreen() {
                         <View style={styles.resultText}>
                           <Text style={styles.resultName}>{person.full_name ?? 'Unknown'}</Text>
                           {person.username ? <Text style={styles.resultMeta}>@{person.username}</Text> : null}
-                          {person.school_name ? <Text style={styles.resultMeta}>{person.school_name}</Text> : null}
+                          {resolveSchoolName(person) ? (
+                            <Text style={styles.resultMeta}>{resolveSchoolName(person)}</Text>
+                          ) : null}
                         </View>
                       </TouchableOpacity>
                     </FadeInView>

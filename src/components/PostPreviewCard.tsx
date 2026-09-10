@@ -1,6 +1,7 @@
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Avatar from './Avatar';
+import HelpStatusBadge from './HelpStatusBadge';
 import { formatRelativeTime } from '../lib/time';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../constants/theme';
 import { CATEGORY_STYLES } from '../constants/categoryStyles';
@@ -37,6 +38,17 @@ export default function PostPreviewCard({ post, onPress, showCategory = true }: 
           </View>
         )}
       </View>
+      {/* A "Need Help" result found via search may already be resolved — the
+          same status pill Feed/PostDetail already use, so a search hit never
+          looks indistinguishable from a still-open request (Step 43). Shown
+          regardless of showCategory: even where the category label itself is
+          hidden (already-known-category sections), the status is still new
+          information worth showing. */}
+      {post.category === 'Need Help' && (
+        <View style={styles.statusRow}>
+          <HelpStatusBadge status={post.status} />
+        </View>
+      )}
       <Text style={styles.content} numberOfLines={2}>
         {post.content}
       </Text>
@@ -79,6 +91,9 @@ const styles = StyleSheet.create({
     borderRadius: radius.full,
     paddingHorizontal: spacing.sm,
     paddingVertical: 3,
+  },
+  statusRow: {
+    marginBottom: spacing.xs,
   },
   categoryText: {
     fontFamily: fontFamily.bold,

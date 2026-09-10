@@ -18,7 +18,14 @@ export function buildPrefixQuery(term: string): string | null {
   return words.map((w) => `${w}:*`).join(' & ');
 }
 
-const PERSON_SEARCH_FIELDS = 'id, username, full_name, avatar_url, school_name, grade, interests';
+// school:school_id ( name ) — same PostgREST embedded-relation pattern
+// POST_SELECT already uses (posts.ts), resolved in this one query rather
+// than a per-result lookup. Needed so a directory-based (school_id-only)
+// person's real school name is available for both the "same school" ranking
+// tiebreak below and SearchScreen's result display via resolveSchoolName()
+// (Step 43).
+const PERSON_SEARCH_FIELDS =
+  'id, username, full_name, avatar_url, school_name, school_id, grade, interests, school:school_id ( name )';
 // Fetch a wider candidate pool than we display, so client-side ranking has
 // enough to work with before trimming to the final result size.
 const CANDIDATE_POOL = 30;
@@ -37,10 +44,32 @@ function personMatchTier(person: PersonSearchResult, lowerTerm: string): number 
   return 3;
 }
 
-// `viewerSchoolName` is optional and only ever used as a same-tier tiebreaker
-// (people from your own school sort first within an equal match quality) —
-// it never changes WHICH results come back, only their order.
-export async function searchUsers(term: string, viewerSchoolName?: string | null): Promise<PersonSearchResult[]> {
+// Prefers the stable school_id once both sides have one (a directory-based
+// match is definitive — if the ids differ, they're different schools, full
+// stop); only falls back to comparing the legacy free-text school_name when
+// either side hasn't picked a school from the directory. Fixes two
+// directory-based (school_id-only) students never tying as "same school"
+// before this, since their school_name is always null (Step 43).
+function isSameSchool(
+  person: PersonSearchResult,
+  viewerSchoolId: string | null | undefined,
+  viewerSchoolName: string | null | undefined
+): boolean {
+  if (viewerSchoolId && person.school_id) {
+    return viewerSchoolId === person.school_id;
+  }
+  return !!viewerSchoolName && person.school_name === viewerSchoolName;
+}
+
+// `viewerSchoolName`/`viewerSchoolId` are optional and only ever used as a
+// same-tier tiebreaker (people from your own school sort first within an
+// equal match quality) — they never change WHICH results come back, only
+// their order.
+export async function searchUsers(
+  term: string,
+  viewerSchoolName?: string | null,
+  viewerSchoolId?: string | null
+): Promise<PersonSearchResult[]> {
   const tsQuery = buildPrefixQuery(term);
   if (!tsQuery) return [];
 
@@ -53,11 +82,11 @@ export async function searchUsers(term: string, viewerSchoolName?: string | null
   if (error) throw error;
 
   const lowerTerm = term.trim().toLowerCase();
-  return ((data ?? []) as PersonSearchResult[])
+  return ((data ?? []) as unknown as PersonSearchResult[])
     .map((person) => ({
       person,
       tier: personMatchTier(person, lowerTerm),
-      sameSchool: viewerSchoolName != null && person.school_name === viewerSchoolName,
+      sameSchool: isSameSchool(person, viewerSchoolId, viewerSchoolName),
     }))
     .sort((a, b) => {
       if (a.tier !== b.tier) return a.tier - b.tier;

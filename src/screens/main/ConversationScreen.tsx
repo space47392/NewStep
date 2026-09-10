@@ -74,6 +74,13 @@ export default function ConversationScreen() {
   // prepended — without this, loading history would immediately yank the
   // view back down to the newest message instead of staying put.
   const isLoadingOlderRef = useRef(false);
+  // Set when a realtime message arrives while isLoadingOlderRef is true —
+  // its own scrollToEnd() gets suppressed along with the older-page
+  // prepend's, so this catches it up once the suppression window ends
+  // instead of silently dropping that one auto-scroll. Never triggers a
+  // scroll just because Load Earlier finished — only when a genuinely new
+  // message actually arrived during it (Step 45).
+  const pendingScrollToEndRef = useRef(false);
 
   // Only the very last bubble I sent ever shows a read receipt — matching how
   // iMessage/Instagram DMs do it, instead of stamping every message.
@@ -140,6 +147,12 @@ export default function ConversationScreen() {
     const unsubscribe = subscribeToMessages(conversationId, ({ type, message }) => {
       if (type === 'insert') {
         setMessages((prev) => [...prev, message]);
+        // onContentSizeChange's own auto-scroll is suppressed while Load
+        // Earlier is in flight — flag that one got missed so it can be
+        // caught up once that suppression window ends (Step 45).
+        if (isLoadingOlderRef.current) {
+          pendingScrollToEndRef.current = true;
+        }
         // If the other person's message arrives while this screen is open, mark it read immediately.
         if (user && message.sender_id !== user.id) {
           markMessagesAsRead(conversationId, user.id).catch(() => {});
@@ -162,7 +175,14 @@ export default function ConversationScreen() {
   // Ephemeral broadcast channel — no table, no history, just relayed to whoever
   // else is subscribed to this conversation's typing topic right now.
   useEffect(() => {
-    const typing = subscribeToTyping(conversationId, () => {
+    const typing = subscribeToTyping(conversationId, (userId) => {
+      // subscribeToTyping's own `self: false` config only excludes the exact
+      // same client instance's own broadcast — it doesn't know about a
+      // second session of the SAME account (e.g. the same conversation open
+      // on another device). Without this check, that would show up here as
+      // "the other person is typing" when it's actually this account typing
+      // somewhere else (Step 45).
+      if (userId === user?.id) return;
       setOtherTyping(true);
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
       // Auto-clears if no further keystrokes arrive — the other side never sends
@@ -175,7 +195,7 @@ export default function ConversationScreen() {
       typing.unsubscribe();
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     };
-  }, [conversationId]);
+  }, [conversationId, user?.id]);
 
   const handleLoadOlder = async () => {
     if (loadingOlder || !hasMoreOlder || messages.length === 0) return;
@@ -193,6 +213,14 @@ export default function ConversationScreen() {
       // auto-scroll is allowed to react to content-size changes again.
       setTimeout(() => {
         isLoadingOlderRef.current = false;
+        // Catch up exactly one suppressed auto-scroll if a new message
+        // genuinely arrived while this was loading — never fires just
+        // because Load Earlier itself finished, so it doesn't yank the user
+        // away from the older messages they just asked to see (Step 45).
+        if (pendingScrollToEndRef.current) {
+          pendingScrollToEndRef.current = false;
+          listRef.current?.scrollToEnd({ animated: true });
+        }
       }, 0);
     }
   };

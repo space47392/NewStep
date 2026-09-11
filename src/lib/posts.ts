@@ -39,16 +39,22 @@ export const POST_SELECT = `
 `;
 
 // Paginated — "For You" previously fetched every post in the table on every
-// load with no limit at all. Ordering is unchanged (pure recency); this only
-// bounds how much comes back per page, same .range() shape Following/
-// Notifications/FollowList already use.
-export async function fetchPosts(limit = 20, offset = 0): Promise<Post[]> {
-  const { data, error } = await supabase
-    .from('posts')
-    .select(POST_SELECT)
-    .order('created_at', { ascending: false })
-    .range(offset, offset + limit - 1);
+// load with no limit at all, then a numeric .range() offset. Cursor-based
+// now instead (Step 48): omit beforeCreatedAt for the first/most-recent page,
+// or pass the oldest already-loaded post's created_at to page further back.
+// A numeric offset drifts whenever a post is created between pages (DESC
+// order shifts under it, duplicating or skipping rows) — a created_at cursor
+// doesn't, since "older than the last one I saw" stays correct regardless of
+// how many new posts appeared above it in the meantime. Same pattern
+// ConversationScreen's fetchMessages() already uses for message history.
+export async function fetchPosts(limit = 20, beforeCreatedAt?: string): Promise<Post[]> {
+  let query = supabase.from('posts').select(POST_SELECT).order('created_at', { ascending: false }).limit(limit);
 
+  if (beforeCreatedAt) {
+    query = query.lt('created_at', beforeCreatedAt);
+  }
+
+  const { data, error } = await query;
   if (error) throw error;
   return (data ?? []) as unknown as Post[];
 }
@@ -56,17 +62,26 @@ export async function fetchPosts(limit = 20, offset = 0): Promise<Post[]> {
 // Powers FeedScreen's "Following" mode — same POST_SELECT shape as every
 // other post query, just filtered to a caller-supplied set of author ids
 // (from follows.ts's fetchFollowingIds()) instead of everyone or one school.
-// Paginated the same way NotificationsScreen already is.
-export async function fetchFollowingFeed(followingIds: string[], limit = 20, offset = 0): Promise<Post[]> {
+// Cursor-based pagination, same reasoning and shape as fetchPosts() above.
+export async function fetchFollowingFeed(
+  followingIds: string[],
+  limit = 20,
+  beforeCreatedAt?: string
+): Promise<Post[]> {
   if (followingIds.length === 0) return [];
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('posts')
     .select(POST_SELECT)
     .in('author_id', followingIds)
     .order('created_at', { ascending: false })
-    .range(offset, offset + limit - 1);
+    .limit(limit);
 
+  if (beforeCreatedAt) {
+    query = query.lt('created_at', beforeCreatedAt);
+  }
+
+  const { data, error } = await query;
   if (error) throw error;
   return (data ?? []) as unknown as Post[];
 }

@@ -64,6 +64,18 @@ function reconcileIdSet(prev: Set<string>, coveredIds: string[], freshIds: Set<s
   return next;
 }
 
+// Appends only the ids `prev` doesn't already have — defensive backstop for
+// "Load more" specifically: cursor pagination (created_at < the oldest
+// loaded post) doesn't drift the way numeric-offset pagination did, but two
+// posts sharing the exact same created_at (same microsecond) could still
+// each appear once too often across adjacent pages, so this guarantees no
+// duplicate id ever lands in the list regardless (Step 48).
+function dedupeAppend(prev: Post[], additions: Post[]): Post[] {
+  const existingIds = new Set(prev.map((p) => p.id));
+  const uniqueAdditions = additions.filter((p) => !existingIds.has(p.id));
+  return [...prev, ...uniqueAdditions];
+}
+
 export default function FeedScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
   const { user } = useAuth();
@@ -78,9 +90,20 @@ export default function FeedScreen() {
   const [loadFailed, setLoadFailed] = useState(false);
   const [retryingForYou, setRetryingForYou] = useState(false);
   const hasEverLoadedPostsRef = useRef(false);
+  // Bumped every time For You is fully replaced (first load, pull-to-refresh,
+  // retry) — never on a plain 'merge' revalidation, which preserves the
+  // list's tail and so never invalidates an in-flight "Load more". A
+  // "Load more" call captures this value before its fetch and only applies
+  // its result if it's still current when the fetch resolves, so a stale
+  // Load More response can never land on top of a freshly-replaced list
+  // (Step 48).
+  const forYouLoadTokenRef = useRef(0);
   const [followingLoadFailed, setFollowingLoadFailed] = useState(false);
   const [retryingFollowing, setRetryingFollowing] = useState(false);
   const hasEverLoadedFollowingRef = useRef(false);
+  // Same idea as forYouLoadTokenRef, for Following — loadFollowingFeed() is
+  // always a full replace (it has no merge mode), so every call bumps this.
+  const followingLoadTokenRef = useRef(0);
   const [menuPost, setMenuPost] = useState<Post | null>(null);
   const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
   const [likedPostIds, setLikedPostIds] = useState<Set<string>>(new Set());
@@ -212,8 +235,15 @@ export default function FeedScreen() {
   // which previously threw away everything loaded via "Load more" (Step 39).
   const loadPosts = useCallback(
     async (mode: 'replace' | 'merge' = 'replace') => {
+      // Only a full replace invalidates an in-flight "Load more" — merge
+      // preserves the list's tail (it only touches/prepends page-0 items),
+      // so a cursor captured before a concurrent merge is still correct
+      // once it finishes (Step 48).
+      if (mode === 'replace') {
+        forYouLoadTokenRef.current += 1;
+      }
       try {
-        const data = await fetchPosts(PAGE_SIZE, 0);
+        const data = await fetchPosts(PAGE_SIZE);
         // UX filtering only, not a security boundary — posts stay publicly
         // queryable at the RLS layer either way (see blocks.ts).
         const blockedIds = user ? await fetchBlockedUserIds(user.id).catch(() => new Set<string>()) : new Set<string>();
@@ -227,10 +257,10 @@ export default function FeedScreen() {
             const existingIds = new Set(prev.map((p) => p.id));
             // Anything on the fresh page 0 that isn't already loaded is a
             // genuinely new post (from someone else) — added at the top, in
-            // the same newest-first order fetchPosts() already returns. This
-            // also keeps the next "Load more" offset (based on posts.length)
-            // correct: new posts pushed the rest of the feed down by exactly
-            // this many rows server-side too.
+            // the same newest-first order fetchPosts() already returns.
+            // "Load more"'s cursor (the current last item's created_at,
+            // computed fresh each time it's called) is unaffected by this —
+            // prepending here never changes what the list's last item is.
             const newOnes = visible.filter((p) => !existingIds.has(p.id));
             const merged = prev.map((p) => freshById.get(p.id) ?? p);
             return [...newOnes, ...merged];
@@ -279,14 +309,24 @@ export default function FeedScreen() {
   };
 
   // "For You" pagination — reuses the blocked-ids cache from the last full
-  // load rather than re-fetching it on every tap of "Load more".
+  // load rather than re-fetching it on every tap of "Load more". Cursor-based
+  // (Step 48): the oldest currently-loaded post's created_at is read fresh
+  // from `posts` right now rather than stored separately, so it can never
+  // drift out of sync with the actual list.
   const handleLoadMoreForYou = async () => {
     if (!user || loadingMoreForYou || !forYouHasMore) return;
+    const tokenAtStart = forYouLoadTokenRef.current;
+    const cursor = posts[posts.length - 1]?.created_at;
     setLoadingMoreForYou(true);
     try {
-      const data = await fetchPosts(PAGE_SIZE, posts.length);
+      const data = await fetchPosts(PAGE_SIZE, cursor);
+      // A pull-to-refresh (or retry) fully replaced the list while this was
+      // in flight — that response describes a list that no longer exists,
+      // so none of it (not the posts, not hasMore, not liked/saved/interested)
+      // may be applied on top of the fresh one (Step 48).
+      if (forYouLoadTokenRef.current !== tokenAtStart) return;
       const visible = data.filter((p) => !blockedIdsCache.has(p.author_id));
-      setPosts((prev) => [...prev, ...visible]);
+      setPosts((prev) => dedupeAppend(prev, visible));
       setForYouHasMore(data.length === PAGE_SIZE);
       if (visible.length > 0) {
         const [liked, saved, interested] = await Promise.all([
@@ -294,12 +334,13 @@ export default function FeedScreen() {
           fetchSavedPostIds(user.id, visible.map((p) => p.id)),
           fetchInterestedPostIds(user.id, visible.map((p) => p.id)),
         ]);
+        if (forYouLoadTokenRef.current !== tokenAtStart) return;
         setLikedPostIds((prev) => new Set([...prev, ...liked]));
         setSavedPostIds((prev) => new Set([...prev, ...saved]));
         setInterestedPostIds((prev) => new Set([...prev, ...interested]));
       }
     } catch {
-      setForYouHasMore(false);
+      if (forYouLoadTokenRef.current === tokenAtStart) setForYouHasMore(false);
     } finally {
       setLoadingMoreForYou(false);
     }
@@ -316,6 +357,11 @@ export default function FeedScreen() {
   const loadFollowingFeed = useCallback(async () => {
     if (!user || followingLoadingRef.current) return;
     followingLoadingRef.current = true;
+    // Always a full replace (this function has no merge mode) — bumped
+    // whenever it actually runs, so an in-flight "Load more" that started
+    // before this can tell its own response is now stale once this finishes
+    // (Step 48).
+    followingLoadTokenRef.current += 1;
     setFollowingLoading(true);
     try {
       const [followingIds, blockedIds] = await Promise.all([
@@ -326,7 +372,7 @@ export default function FeedScreen() {
       setBlockedIdsCache(blockedIds);
       // UX filtering only, not a security boundary — see blocks.ts.
       const eligibleIds = followingIds.filter((id) => !blockedIds.has(id));
-      const data = await fetchFollowingFeed(eligibleIds, PAGE_SIZE, 0);
+      const data = await fetchFollowingFeed(eligibleIds, PAGE_SIZE);
       setFollowingPosts(data);
       setFollowingHasMore(data.length === PAGE_SIZE);
       // Bug fix: this feed's like/save state was never fetched before, so
@@ -367,13 +413,19 @@ export default function FeedScreen() {
 
   const handleLoadMoreFollowing = async () => {
     if (!user || followingLoading || !followingHasMore) return;
+    const tokenAtStart = followingLoadTokenRef.current;
+    const cursor = followingPosts[followingPosts.length - 1]?.created_at;
     setFollowingLoading(true);
     try {
       // Reuses the follow/block lists cached by the initial load — neither
       // is expected to change between pagination clicks in the same session.
       const eligibleIds = followingIdsCache.filter((id) => !blockedIdsCache.has(id));
-      const more = await fetchFollowingFeed(eligibleIds, PAGE_SIZE, followingPosts.length);
-      setFollowingPosts((prev) => [...prev, ...more]);
+      const more = await fetchFollowingFeed(eligibleIds, PAGE_SIZE, cursor);
+      // A refresh/retry fully replaced the list while this was in flight —
+      // that response describes a list that no longer exists, so it must
+      // never be appended on top of the fresh one (Step 48).
+      if (followingLoadTokenRef.current !== tokenAtStart) return;
+      setFollowingPosts((prev) => dedupeAppend(prev, more));
       setFollowingHasMore(more.length === PAGE_SIZE);
       if (more.length > 0) {
         const [liked, saved, interested] = await Promise.all([
@@ -381,12 +433,13 @@ export default function FeedScreen() {
           fetchSavedPostIds(user.id, more.map((p) => p.id)),
           fetchInterestedPostIds(user.id, more.map((p) => p.id)),
         ]);
+        if (followingLoadTokenRef.current !== tokenAtStart) return;
         setLikedPostIds((prev) => new Set([...prev, ...liked]));
         setSavedPostIds((prev) => new Set([...prev, ...saved]));
         setInterestedPostIds((prev) => new Set([...prev, ...interested]));
       }
     } catch {
-      setFollowingHasMore(false);
+      if (followingLoadTokenRef.current === tokenAtStart) setFollowingHasMore(false);
     } finally {
       setFollowingLoading(false);
     }

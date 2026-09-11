@@ -3,8 +3,9 @@ import { View, Text, FlatList, RefreshControl, TouchableOpacity, ActivityIndicat
 import { useFocusEffect, useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
-import { fetchFollowers, fetchFollowing, fetchFollowingIds, followUser, unfollowUser } from '../../lib/follows';
+import { fetchFollowers, fetchFollowing, fetchFollowingIds, followUser, unfollowUser, FollowPage } from '../../lib/follows';
 import { fetchBlockedUserIds } from '../../lib/blocks';
+import { resolveSchoolName } from '../../lib/schools';
 import { useAuth } from '../../contexts/AuthContext';
 import Avatar from '../../components/Avatar';
 import EmptyState from '../../components/EmptyState';
@@ -16,6 +17,16 @@ import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../con
 import { MainStackParamList, PersonSearchResult } from '../../types';
 
 const PAGE_SIZE = 30;
+
+// Defensive backstop for "Load more" appends — same principle as Feed's
+// dedupeAppend() (Step 48), reimplemented locally here rather than shared,
+// since this list's rows are PersonSearchResult, not Post. Filters out any
+// addition whose id is already in the list before appending; covers the rare
+// case of a follow row landing exactly on a page boundary during pagination.
+function dedupeAppendPeople(prev: PersonSearchResult[], additions: PersonSearchResult[]): PersonSearchResult[] {
+  const existingIds = new Set(prev.map((p) => p.id));
+  return [...prev, ...additions.filter((p) => !existingIds.has(p.id))];
+}
 
 // One screen for both directions — followers and following are the exact
 // same card shape and interaction, just a different underlying query. No
@@ -38,12 +49,21 @@ export default function FollowListScreen() {
   const [loadFailed, setLoadFailed] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const hasEverLoadedRef = useRef(false);
-  // Tracks how many raw rows have actually been consumed so far — deliberately
-  // NOT people.length, since blocked users are filtered out client-side after
-  // the fetch and would otherwise shrink the offset below what's already been
-  // fetched, duplicating people on the next "Load more" (Step 37).
-  const rawOffsetRef = useRef(0);
+  // Cursor-based pagination (Step 49, P1 #5) — the raw (pre blocked-filter)
+  // follows.created_at of the last row fetched so far, or null once there's
+  // nothing more to page through. Replaces the old numeric offset, which
+  // drifted (duplicating/skipping people on "Load more") whenever a follow
+  // was created or removed while this list was being paged — the same class
+  // of bug Step 48 fixed for the Feed. A value cursor doesn't drift the way a
+  // position count does, regardless of how many blocked rows are filtered out
+  // client-side on top of it.
+  const cursorRef = useRef<string | null>(null);
   const blockedIdsRef = useRef<Set<string>>(new Set());
+  // Bumped only on a full replace (first load / pull-to-refresh / retry),
+  // never on "Load more" — a Load More in flight when a replace starts is
+  // stale by the time it resolves and must not be appended on top of the
+  // fresh replacement (Step 49, P1 #5, mirroring Step 48's *LoadTokenRef).
+  const loadTokenRef = useRef(0);
 
   // The ids the CURRENT viewer (not the profile being looked at) follows —
   // powers each row's own Follow/Following button, independent of whose
@@ -51,25 +71,33 @@ export default function FollowListScreen() {
   const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
   const [pendingFollowIds, setPendingFollowIds] = useState<Set<string>>(new Set());
 
-  const fetchPage = mode === 'followers' ? fetchFollowers : fetchFollowing;
+  const fetchPage: (userId: string, limit: number, beforeCreatedAt?: string) => Promise<FollowPage> =
+    mode === 'followers' ? fetchFollowers : fetchFollowing;
 
   const loadFirstPage = useCallback(async () => {
+    const tokenAtStart = ++loadTokenRef.current;
     try {
-      const [data, blockedIds, myFollowingIds] = await Promise.all([
-        fetchPage(userId, PAGE_SIZE, 0),
+      const [page, blockedIds, myFollowingIds] = await Promise.all([
+        fetchPage(userId, PAGE_SIZE),
         user ? fetchBlockedUserIds(user.id).catch(() => new Set<string>()) : Promise.resolve(new Set<string>()),
         user ? fetchFollowingIds(user.id).catch(() => [] as string[]) : Promise.resolve([] as string[]),
       ]);
+      // A newer replace (another refresh/retry) already started after this
+      // one — its result is the one that should stick, not this now-stale
+      // response.
+      if (loadTokenRef.current !== tokenAtStart) return;
+
       blockedIdsRef.current = blockedIds;
       // UX filtering only, not a security boundary — see blocks.ts.
-      const visible = data.filter((p) => !blockedIds.has(p.id));
+      const visible = page.people.filter((p) => !blockedIds.has(p.id));
       setPeople(visible);
       setFollowingIds(new Set(myFollowingIds));
-      rawOffsetRef.current = data.length;
-      setHasMore(data.length === PAGE_SIZE);
+      cursorRef.current = page.nextCursor;
+      setHasMore(page.people.length === PAGE_SIZE);
       setLoadFailed(false);
       hasEverLoadedRef.current = true;
     } catch {
+      if (loadTokenRef.current !== tokenAtStart) return;
       // Only a genuinely first-ever failure (nothing has ever successfully
       // loaded) shows the blocking ErrorState — a failed background refresh
       // just leaves the existing list as-is (Step 36/37).
@@ -103,16 +131,29 @@ export default function FollowListScreen() {
   };
 
   const handleLoadMore = async () => {
-    if (loadingMore || !hasMore) return;
+    if (loadingMore || !hasMore || !cursorRef.current) return;
+    const tokenAtStart = loadTokenRef.current;
     setLoadingMore(true);
     try {
-      const more = await fetchPage(userId, PAGE_SIZE, rawOffsetRef.current);
-      setPeople((prev) => [...prev, ...more.filter((p) => !blockedIdsRef.current.has(p.id))]);
-      rawOffsetRef.current += more.length;
-      setHasMore(more.length === PAGE_SIZE);
+      const more = await fetchPage(userId, PAGE_SIZE, cursorRef.current);
+      // A refresh/retry fully replaced the list while this was in flight —
+      // that response describes a list that no longer exists, so it must
+      // never be appended on top of the fresh one (Step 49, P1 #5, mirroring
+      // Step 48's Scenario A guard).
+      if (loadTokenRef.current !== tokenAtStart) return;
+
+      setPeople((prev) => dedupeAppendPeople(prev, more.people.filter((p) => !blockedIdsRef.current.has(p.id))));
+      cursorRef.current = more.nextCursor;
+      setHasMore(more.people.length === PAGE_SIZE);
     } catch {
-      setHasMore(false);
+      if (loadTokenRef.current === tokenAtStart) {
+        setHasMore(false);
+      }
     } finally {
+      // Always cleared, even for a discarded stale response — this is just
+      // this button's own spinner, not part of the list data a stale
+      // response could corrupt; leaving it stuck true after a concurrent
+      // refresh would freeze "Load more" forever.
       setLoadingMore(false);
     }
   };
@@ -252,6 +293,7 @@ export default function FollowListScreen() {
           const isSelf = user?.id === item.id;
           const pending = pendingFollowIds.has(item.id);
           const following = followingIds.has(item.id);
+          const itemSchoolName = resolveSchoolName(item);
           return (
             <FadeInView delay={Math.min(index, 6) * 30}>
               <View style={styles.row}>
@@ -270,9 +312,9 @@ export default function FollowListScreen() {
                   <View style={styles.rowText}>
                     <Text style={styles.name}>{item.full_name ?? 'Unknown'}</Text>
                     {item.username ? <Text style={styles.username}>@{item.username}</Text> : null}
-                    {item.school_name ? (
+                    {itemSchoolName ? (
                       <Text style={styles.meta}>
-                        {item.school_name}
+                        {itemSchoolName}
                         {item.grade ? ` · Grade ${item.grade}` : ''}
                       </Text>
                     ) : null}

@@ -17,6 +17,14 @@ import { MainStackParamList, Post } from '../../types';
 
 const PAGE_SIZE = 20;
 
+// Defensive backstop for "Load more" appends — same principle as Feed's
+// dedupeAppend() (Step 48), reimplemented locally here rather than shared.
+// Filters out any addition whose id is already in the list before appending.
+function dedupeAppendPosts(prev: Post[], additions: Post[]): Post[] {
+  const existingIds = new Set(prev.map((p) => p.id));
+  return [...prev, ...additions.filter((p) => !existingIds.has(p.id))];
+}
+
 // Reachable only from the user's own Profile — saved posts are private
 // regardless (post_saves' RLS scopes every read to auth.uid()), this screen
 // just never gives anyone a reason to try viewing someone else's.
@@ -36,32 +44,44 @@ export default function SavedPostsScreen() {
   const [loadFailed, setLoadFailed] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const hasEverLoadedRef = useRef(false);
-  // Tracks how many post_saves rows have actually been consumed so far —
-  // deliberately NOT posts.length, since a deleted saved post is dropped
-  // during hydration and would otherwise shrink the offset below what's
-  // already been fetched, duplicating posts on the next "Load more" (Step 37).
-  const rawOffsetRef = useRef(0);
+  // Cursor-based pagination (Step 49, P1 #5) — the post_saves.created_at
+  // (when the save happened, not when the post was made — see
+  // fetchSavedPosts()) of the last raw row fetched so far, or null once
+  // there's nothing more. Replaces the old numeric offset, which drifted
+  // (duplicating/skipping posts on "Load more") whenever a new post was
+  // saved while this list was being paged — the same class of bug Step 48
+  // fixed for the Feed.
+  const cursorRef = useRef<string | null>(null);
   // Fetched once per load (not once per "Load more" page) and reused for
   // pagination below — refetching it on every page would be a needless
   // repeated query for data that doesn't change mid-session (Step 37).
   const blockedIdsRef = useRef<Set<string>>(new Set());
+  // Bumped only on a full replace (first load / pull-to-refresh / retry),
+  // never on "Load more" — mirrors FollowListScreen/Step 48's *LoadTokenRef.
+  const loadTokenRef = useRef(0);
 
   const loadFirstPage = useCallback(async () => {
     if (!user) return;
+    const tokenAtStart = ++loadTokenRef.current;
     try {
-      const [{ posts: data, rawCount }, blockedIds] = await Promise.all([
-        fetchSavedPosts(user.id, PAGE_SIZE, 0),
+      const [{ posts: data, rawCount, nextCursor }, blockedIds] = await Promise.all([
+        fetchSavedPosts(user.id, PAGE_SIZE),
         fetchBlockedUserIds(user.id).catch(() => new Set<string>()),
       ]);
+      // A newer replace (another refresh/retry) already started after this
+      // one — let its result stick instead of this now-stale response.
+      if (loadTokenRef.current !== tokenAtStart) return;
+
       blockedIdsRef.current = blockedIds;
       // UX filtering only, not a security boundary — see blocks.ts.
       const visible = data.filter((p) => !blockedIds.has(p.author_id));
       setPosts(visible);
-      rawOffsetRef.current = rawCount;
+      cursorRef.current = nextCursor;
       setHasMore(rawCount === PAGE_SIZE);
       setLoadFailed(false);
       hasEverLoadedRef.current = true;
     } catch {
+      if (loadTokenRef.current !== tokenAtStart) return;
       // Only a genuinely first-ever failure (no saved posts have ever
       // successfully loaded) shows the blocking ErrorState — a failed
       // background refresh keeps the existing list and just says so (Step 36).
@@ -96,16 +116,28 @@ export default function SavedPostsScreen() {
   };
 
   const handleLoadMore = async () => {
-    if (!user || loadingMore || !hasMore) return;
+    if (!user || loadingMore || !hasMore || !cursorRef.current) return;
+    const tokenAtStart = loadTokenRef.current;
     setLoadingMore(true);
     try {
-      const { posts: more, rawCount } = await fetchSavedPosts(user.id, PAGE_SIZE, rawOffsetRef.current);
-      setPosts((prev) => [...prev, ...more.filter((p) => !blockedIdsRef.current.has(p.author_id))]);
-      rawOffsetRef.current += rawCount;
+      const { posts: more, rawCount, nextCursor } = await fetchSavedPosts(user.id, PAGE_SIZE, cursorRef.current);
+      // A refresh/retry fully replaced the list while this was in flight —
+      // that response describes a list that no longer exists, so it must
+      // never be appended on top of the fresh one (Step 49, P1 #5, mirroring
+      // Step 48's Scenario A guard).
+      if (loadTokenRef.current !== tokenAtStart) return;
+
+      setPosts((prev) => dedupeAppendPosts(prev, more.filter((p) => !blockedIdsRef.current.has(p.author_id))));
+      cursorRef.current = nextCursor;
       setHasMore(rawCount === PAGE_SIZE);
     } catch {
-      setHasMore(false);
+      if (loadTokenRef.current === tokenAtStart) {
+        setHasMore(false);
+      }
     } finally {
+      // Always cleared, even for a discarded stale response — this is just
+      // this button's own spinner, not part of the list data a stale
+      // response could corrupt.
       setLoadingMore(false);
     }
   };

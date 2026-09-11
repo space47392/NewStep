@@ -10,6 +10,7 @@ import { PUBLIC_PROFILE_FIELDS, PublicProfile } from '../../lib/profile';
 import { fetchHelpStats, fetchPointsHistory, formatPointReason } from '../../lib/points';
 import { fetchAchievementProgress } from '../../lib/achievements';
 import { fetchFollowCounts } from '../../lib/follows';
+import { fetchBlockedUserIds } from '../../lib/blocks';
 import { fetchSchoolById } from '../../lib/schools';
 import { fetchPostsByAuthor } from '../../lib/posts';
 import { deleteMyAccount } from '../../lib/account';
@@ -82,13 +83,18 @@ export default function ProfileScreen() {
       // Best-effort — a hiccup here shouldn't block the identity fields
       // above from showing.
       try {
-        const [helpStats, history, achievementProgress, counts, postList] = await Promise.all([
+        const [helpStats, history, achievementProgress, postList, viewerBlockedIds] = await Promise.all([
           fetchHelpStats(user.id),
           fetchPointsHistory(user.id),
           fetchAchievementProgress(user.id),
-          fetchFollowCounts(user.id),
           fetchPostsByAuthor(user.id),
+          fetchBlockedUserIds(user.id).catch(() => new Set<string>()),
         ]);
+        // Excludes people I've blocked from my own follower/following counts —
+        // the same rows FollowListScreen already hides from the list itself,
+        // so the number here and what tapping into it shows can't disagree
+        // (Step 49, P1 #3).
+        const counts = await fetchFollowCounts(user.id, viewerBlockedIds);
         setStudentsHelped(helpStats.studentsHelped);
         setPointHistory(history);
         setAchievements(achievementProgress);

@@ -37,27 +37,44 @@ export async function fetchSavedPostIds(userId: string, postIds: string[]): Prom
 // post list does. fetchPostsByIds also naturally drops any saved post that
 // was since deleted, with no error.
 //
+// Cursor-based pagination (Step 49, P1 #5) — `beforeCreatedAt` filters on
+// post_saves.created_at (when the SAVE happened), not posts.created_at (when
+// the POST was made) — this list is ordered by "most recently saved," so the
+// cursor has to be the same column the ordering and the WHERE clause both
+// use, or it wouldn't actually exclude what's already been seen. The old
+// numeric offset drifted the same way Feed's did (Step 48): a new save
+// landing on top while paging shifts every later row down by one, duplicating
+// or skipping posts on "Load more."
+//
 // rawCount is the number of post_saves rows this page actually consumed
 // (before hydration/deletion drops any), not posts.length — the caller needs
-// it to compute the next page's offset. Using posts.length instead would
-// under-count whenever a saved post has since been deleted, re-requesting
-// rows already consumed and duplicating posts on "Load more" (Step 37).
+// it for hasMore. Using posts.length instead would under-count whenever a
+// saved post has since been deleted or its author blocked, showing "no more"
+// too early (Step 37). nextCursor is that same page's last raw row's
+// created_at — null once a page comes back with nothing left to page through.
 export async function fetchSavedPosts(
   userId: string,
   limit = 20,
-  offset = 0
-): Promise<{ posts: Post[]; rawCount: number }> {
-  const { data, error } = await supabase
+  beforeCreatedAt?: string
+): Promise<{ posts: Post[]; rawCount: number; nextCursor: string | null }> {
+  let query = supabase
     .from('post_saves')
-    .select('post_id')
+    .select('post_id, created_at')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
-    .range(offset, offset + limit - 1);
+    .limit(limit);
 
+  if (beforeCreatedAt) {
+    query = query.lt('created_at', beforeCreatedAt);
+  }
+
+  const { data, error } = await query;
   if (error) throw error;
 
-  const ids = (data ?? []).map((row) => row.post_id as string);
-  if (ids.length === 0) return { posts: [], rawCount: 0 };
+  const rows = data ?? [];
+  if (rows.length === 0) return { posts: [], rawCount: 0, nextCursor: null };
+
+  const ids = rows.map((row) => row.post_id as string);
   const posts = await fetchPostsByIds(ids);
-  return { posts, rawCount: ids.length };
+  return { posts, rawCount: rows.length, nextCursor: rows[rows.length - 1].created_at as string };
 }

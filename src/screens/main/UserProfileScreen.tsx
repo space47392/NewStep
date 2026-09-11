@@ -13,6 +13,7 @@ import { fetchAchievementProgress } from '../../lib/achievements';
 import { getOrCreateConversation } from '../../lib/chat';
 import { fetchBlockedUserIds, blockUser, unblockUser } from '../../lib/blocks';
 import { fetchFollowCounts, isFollowing, followUser, unfollowUser } from '../../lib/follows';
+import { resolveSchoolName } from '../../lib/schools';
 import Avatar from '../../components/Avatar';
 import EmptyState from '../../components/EmptyState';
 import LoadingScreen from '../../components/LoadingScreen';
@@ -53,13 +54,31 @@ export default function UserProfileScreen() {
     useCallback(() => {
       (async () => {
         try {
-          const [profileData, postsData, helpStats, achievementProgress, counts] = await Promise.all([
+          // Fetched alongside everything else (not after) so the extra
+          // lookup here doesn't add a second sequential round-trip on top of
+          // what this screen already did. Only meaningful when looking at
+          // someone else's profile — own-profile view has nothing to block.
+          const viewerBlockedIdsPromise =
+            user && user.id !== userId
+              ? fetchBlockedUserIds(user.id).catch(() => new Set<string>())
+              : Promise.resolve(new Set<string>());
+
+          const [profileData, postsData, helpStats, achievementProgress, viewerBlockedIds] = await Promise.all([
             fetchProfileById(userId),
             fetchPostsByAuthor(userId),
             fetchHelpStats(userId),
             fetchAchievementProgress(userId),
-            fetchFollowCounts(userId),
+            viewerBlockedIdsPromise,
           ]);
+
+          // Depends on viewerBlockedIds, so this one query has to wait for it —
+          // everything above it still ran in parallel. Excludes exactly the
+          // same rows FollowListScreen already hides from its own list (people
+          // the CURRENT viewer has blocked), so the number here and the rows
+          // shown after tapping into Followers/Following can't disagree
+          // (Step 49, P1 #3).
+          const counts = await fetchFollowCounts(userId, viewerBlockedIds);
+
           setProfile(profileData);
           setPosts(postsData);
           setStudentsHelped(helpStats.studentsHelped);
@@ -69,8 +88,7 @@ export default function UserProfileScreen() {
           if (user && user.id !== userId) {
             // UX-only check — see blocks.ts. The real enforcement (can't
             // message, no notifications) happens server-side regardless.
-            const blockedIds = await fetchBlockedUserIds(user.id).catch(() => new Set<string>());
-            setIsBlocked(blockedIds.has(userId));
+            setIsBlocked(viewerBlockedIds.has(userId));
             setIsFollowingUser(await isFollowing(user.id, userId).catch(() => false));
           }
         } catch {
@@ -224,6 +242,12 @@ export default function UserProfileScreen() {
     );
   }
 
+  // Resolves via the embedded school:school_id(name) relation first, falling
+  // back to the raw school_name column only for legacy profiles — same rule
+  // Feed/PostDetail/Search/Stories already apply (Step 49, P1 #1). Computed
+  // once here rather than inline at each usage below.
+  const schoolName = resolveSchoolName(profile);
+
   return (
     <>
     <FlatList
@@ -256,16 +280,14 @@ export default function UserProfileScreen() {
             <Text style={styles.name}>{profile.full_name ?? 'Unknown'}</Text>
             {profile.username ? <Text style={styles.username}>@{profile.username}</Text> : null}
 
-            {profile.school_name ? (
+            {schoolName ? (
               <TouchableOpacity
                 style={styles.metaRow}
-                onPress={() =>
-                  navigation.navigate('School', { schoolId: profile.school_id ?? undefined, schoolName: profile.school_name! })
-                }
+                onPress={() => navigation.navigate('School', { schoolId: profile.school_id ?? undefined, schoolName })}
               >
                 <Ionicons name="school-outline" size={14} color={colors.textMid} />
                 <Text style={styles.metaText}>
-                  {profile.school_name}
+                  {schoolName}
                   {profile.grade ? ` · Grade ${profile.grade}` : ''}
                 </Text>
               </TouchableOpacity>

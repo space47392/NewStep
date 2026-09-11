@@ -14,8 +14,16 @@ import { Profile } from '../types';
 // See Step 29's audit — profiles' RLS SELECT policy is public (posts_schema.sql's
 // "Profiles are viewable by everyone"), so `select('*')` was the actual leak,
 // not RLS; this list is the fix, not an RLS change.
+//
+// school:school_id ( name ) — same embedded relation POST_SELECT/
+// PERSON_SEARCH_FIELDS already join (Step 49, P1 #1). Without it, every
+// reader of PublicProfile (UserProfileScreen in particular) could only see
+// the raw school_name column, which setMySchool() never writes — a
+// directory-based profile (school_id set, school_name left NULL) showed no
+// school at all. Always resolve display names via resolveSchoolName()
+// (lib/schools.ts), never school_name directly.
 export const PUBLIC_PROFILE_FIELDS =
-  'id, username, full_name, school_name, school_id, grade, interests, avatar_url, points, thanks_received_count, is_new_student';
+  'id, username, full_name, school_name, school_id, school:school_id ( name ), grade, interests, avatar_url, points, thanks_received_count, is_new_student';
 
 export type PublicProfile = Pick<
   Profile,
@@ -30,7 +38,12 @@ export type PublicProfile = Pick<
   | 'points'
   | 'thanks_received_count'
   | 'is_new_student'
->;
+> & {
+  // Optional, not just nullable — same convention as PersonSearchResult
+  // (types/index.ts): most PUBLIC_PROFILE_FIELDS readers now select it, but
+  // the type itself doesn't force every future caller to.
+  school?: { name: string } | null;
+};
 
 export async function fetchProfileById(userId: string): Promise<PublicProfile> {
   const { data, error } = await supabase

@@ -1,24 +1,30 @@
 import { supabase } from './supabase';
 import { PointsHistoryEntry } from '../types';
 
-// "Help requests completed" and "students helped" are derived from the existing
-// posts table (helper_id + status), not duplicated into any new column — posts
-// are already fully public-read, so this needs no new RLS. "Students helped" is
-// a distinct-author count rather than a raw row count, since helping the same
-// student twice should read as one relationship, not two — a more honest
-// reputation signal than just re-showing the points total.
+// "Help requests completed" and "students helped" — read from help_history
+// (Step 54), a dedicated, append-only record written once per completion by
+// handle_post_completed() (see help_history_schema.sql), not re-derived from
+// the live `posts` table. The old implementation counted `posts` directly,
+// which meant a helper's own stats could retroactively shrink whenever a
+// post they'd completed disappeared — most notably when the STUDENT (the
+// post's author) later deleted their account (posts.author_id is `on delete
+// cascade`). help_history.student_id is `on delete set null` instead, so the
+// row — and this count — survives that.
+//
+// studentsHelped counts `is_new_student` rather than re-deriving "distinct
+// student" from student_id at query time: is_new_student is computed once,
+// at completion time, and never recomputed — so it stays correct even after
+// student_id has been nulled out by a since-deleted student, instead of
+// several old completions for the same (now-anonymized) student suddenly
+// starting to count as several different students.
 export async function fetchHelpStats(userId: string): Promise<{ completedCount: number; studentsHelped: number }> {
-  const { data, error } = await supabase
-    .from('posts')
-    .select('author_id')
-    .eq('helper_id', userId)
-    .eq('status', 'completed');
+  const { data, error } = await supabase.from('help_history').select('is_new_student').eq('helper_id', userId);
 
   if (error) throw error;
   const rows = data ?? [];
   return {
     completedCount: rows.length,
-    studentsHelped: new Set(rows.map((r) => r.author_id)).size,
+    studentsHelped: rows.filter((r) => r.is_new_student).length,
   };
 }
 

@@ -209,9 +209,10 @@ export default function ProfileScreen() {
                   text: 'Delete My Account',
                   style: 'destructive',
                   onPress: async () => {
+                    if (!user) return;
                     setDeletingAccount(true);
                     try {
-                      await deleteMyAccount();
+                      await deleteMyAccount(user.id);
                       // The account (and its session server-side) is already
                       // gone at this point — this just clears the local
                       // cached session so AppNavigator's gate redirects to

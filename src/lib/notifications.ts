@@ -173,7 +173,14 @@ const POST_TYPES = new Set(['like', 'comment', 'volunteer', 'help_completed', 't
 
 export type NotificationTarget =
   | { screen: 'PostDetail'; postId: string }
-  | { screen: 'Conversation'; conversationId: string; actorId: string }
+  // actorId is nullable (Step 56E) — a message notification's actor_id is
+  // `on delete set null` (see notifications_schema.sql), so a still-usable
+  // conversation_id can outlive the actor's own account. A null actorId
+  // means "open the conversation anyway; it's preserved, the other
+  // participant has since deleted their account" (Step 56C's ChatScreen/
+  // ConversationScreen already render that as "Deleted User" for a null
+  // otherUser) — never means "don't navigate."
+  | { screen: 'Conversation'; conversationId: string; actorId: string | null }
   | { screen: 'UserProfile'; userId: string }
   | { screen: 'ProfileTab' };
 
@@ -189,9 +196,13 @@ export function resolveNotificationTarget(fields: {
     return post_id ? { screen: 'PostDetail', postId: post_id } : null;
   }
   if (type === 'message') {
-    return conversation_id && actor_id
-      ? { screen: 'Conversation', conversationId: conversation_id, actorId: actor_id }
-      : null;
+    // Only conversation_id is required now (Step 56E) — actor_id being null
+    // no longer means "there's nowhere to go." conversation_id itself is
+    // `on delete cascade` (notifications_schema.sql) — if the conversation
+    // row is truly gone, this notification is deleted right along with it,
+    // so a message notification that still exists always has a real,
+    // still-existing conversation_id to navigate to.
+    return conversation_id ? { screen: 'Conversation', conversationId: conversation_id, actorId: actor_id ?? null } : null;
   }
   if (type === 'follow' || type === 'story_wave') {
     return actor_id ? { screen: 'UserProfile', userId: actor_id } : null;

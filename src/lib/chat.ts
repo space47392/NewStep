@@ -14,13 +14,15 @@ export async function getOrCreateConversation(otherUserId: string): Promise<stri
 
 type ConversationRow = {
   id: string;
-  user1_id: string;
-  user2_id: string;
+  // Null when that participant has since deleted their account
+  // (conversations.user1_id/user2_id are ON DELETE SET NULL — Step 56).
+  user1_id: string | null;
+  user2_id: string | null;
   last_message: string | null;
   last_message_at: string | null;
   created_at: string;
-  user1: ChatProfile;
-  user2: ChatProfile;
+  user1: ChatProfile | null;
+  user2: ChatProfile | null;
 };
 
 export async function fetchConversations(currentUserId: string): Promise<Conversation[]> {
@@ -50,6 +52,12 @@ export async function fetchConversations(currentUserId: string): Promise<Convers
     last_message: row.last_message,
     last_message_at: row.last_message_at,
     created_at: row.created_at,
+    // Still correct as-is with a nullable user1_id/user2_id (Step 56): RLS
+    // guarantees the caller is one of the two real participants, so
+    // `row.user1_id === currentUserId` only ever matches the caller's OWN
+    // (always-live) column — the other branch naturally yields whichever
+    // side is the actual other participant, null included if they've since
+    // deleted their account.
     otherUser: row.user1_id === currentUserId ? row.user2 : row.user1,
     unreadCount: unreadCounts[row.id] ?? 0,
   }));
@@ -57,6 +65,18 @@ export async function fetchConversations(currentUserId: string): Promise<Convers
 
 // PostgREST has no GROUP BY through the table API, so we pull the (lightweight)
 // unread rows and tally counts per conversation client-side.
+//
+// `.or('sender_id.neq.<id>,sender_id.is.null')` rather than plain
+// `.neq('sender_id', currentUserId)` (Step 56D): SQL's `<>` evaluates to NULL
+// — not true — when either side is NULL, so a plain `.neq()` silently
+// excludes every message whose sender has since deleted their account
+// (messages.sender_id is ON DELETE SET NULL — Step 56) from ever being
+// counted as unread, no matter how long it sits with read_at still null. A
+// message from a deleted sender is still a genuine incoming message for the
+// surviving participant (it just isn't from *me*), so it belongs in this
+// count exactly like any other unread incoming message — this only widens
+// which of THIS conversation's own rows qualify as "not sent by me", never
+// which conversations or which other users' data this query touches.
 async function fetchUnreadCounts(
   conversationIds: string[],
   currentUserId: string
@@ -68,7 +88,7 @@ async function fetchUnreadCounts(
     .select('conversation_id')
     .in('conversation_id', conversationIds)
     .is('read_at', null)
-    .neq('sender_id', currentUserId);
+    .or(`sender_id.neq.${currentUserId},sender_id.is.null`);
 
   if (error) throw error;
 
@@ -126,11 +146,16 @@ export async function sendMessage(params: {
 }
 
 export async function markMessagesAsRead(conversationId: string, currentUserId: string): Promise<void> {
+  // Same `.or()` widening as fetchUnreadCounts() above, for the same reason:
+  // a plain `.neq('sender_id', currentUserId)` would never select a message
+  // whose sender_id is NULL (a deleted account's old message), so it could
+  // never actually be marked read here even though the RLS policy (Step 56B:
+  // `sender_id is distinct from auth.uid()`) already permits it.
   const { error } = await supabase
     .from('messages')
     .update({ read_at: new Date().toISOString() })
     .eq('conversation_id', conversationId)
-    .neq('sender_id', currentUserId)
+    .or(`sender_id.neq.${currentUserId},sender_id.is.null`)
     .is('read_at', null);
 
   if (error) throw error;

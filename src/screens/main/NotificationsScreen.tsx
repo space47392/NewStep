@@ -136,10 +136,13 @@ export default function NotificationsScreen() {
         const post = await fetchPostById(target.postId);
         navigation.navigate('PostDetail', { post });
       } else if (target.screen === 'Conversation') {
-        if (!group.actor) {
-          showToast('This conversation is no longer available');
-          return;
-        }
+        // group.actor may be null — the other participant has since deleted
+        // their account (Step 56E). The conversation itself is preserved
+        // (resolveNotificationTarget() only requires conversation_id now,
+        // not actor_id), so this still opens it rather than showing "no
+        // longer available": ConversationScreen already renders a null
+        // otherUser as "Deleted User" with historical messages intact and
+        // no profile navigation (Step 56C).
         navigation.navigate('Conversation', { conversationId: target.conversationId, otherUser: group.actor });
       } else if (target.screen === 'UserProfile') {
         navigation.navigate('UserProfile', { userId: target.userId });

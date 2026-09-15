@@ -68,15 +68,23 @@ export default function App() {
           const post = await fetchPostById(target.postId);
           navigateToMainStack('PostDetail', { post });
         } else if (target.screen === 'Conversation') {
-          // Participant-scoped by RLS — throws for a conversation the
-          // current session isn't actually part of, which is exactly what
-          // stops a stale notification from a previous account routing the
-          // current one into someone else's conversation.
-          const actor = await fetchProfileById(target.actorId);
-          navigateToMainStack('Conversation', {
-            conversationId: target.conversationId,
-            otherUser: { id: actor.id, full_name: actor.full_name, avatar_url: actor.avatar_url },
-          });
+          if (target.actorId) {
+            // Participant-scoped by RLS — throws for a conversation the
+            // current session isn't actually part of, which is exactly what
+            // stops a stale notification from a previous account routing the
+            // current one into someone else's conversation.
+            const actor = await fetchProfileById(target.actorId);
+            navigateToMainStack('Conversation', {
+              conversationId: target.conversationId,
+              otherUser: { id: actor.id, full_name: actor.full_name, avatar_url: actor.avatar_url },
+            });
+          } else {
+            // No actor to resolve — the other participant has since deleted
+            // their account (Step 56E), not a reason to fail closed. The
+            // conversation itself is preserved; ConversationScreen already
+            // renders a null otherUser as "Deleted User" with history intact.
+            navigateToMainStack('Conversation', { conversationId: target.conversationId, otherUser: null });
+          }
         } else if (target.screen === 'UserProfile') {
           // Resolved first, same as the other two — an id that no longer
           // resolves to anything never becomes a navigation.

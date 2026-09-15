@@ -61,7 +61,13 @@ export type MainStackParamList = {
   // prefillText: same idea as CreatePost's prefillContent, for a caller (e.g.
   // StoryViewer's "Say Hi") that wants to start the composer with a friendly
   // draft already typed — never sent automatically, the user still has to hit Send.
-  Conversation: { conversationId: string; otherUser: ChatProfile; prefillText?: string };
+  // otherUser is null when the conversation's other participant has since
+  // deleted their account — every navigator to this screen (ChatScreen's
+  // list, UserProfileScreen/StoryViewerScreen's "Message" — both of which
+  // only ever construct a live, non-null otherUser at navigation time) keeps
+  // working unchanged; only ChatScreen's re-navigation into an already-
+  // preserved historical conversation can pass null (Step 56).
+  Conversation: { conversationId: string; otherUser: ChatProfile | null; prefillText?: string };
   UserProfile: { userId: string };
   // schoolId is optional — every existing caller only had a free-text name to
   // pass, and still does; this screen falls back to schoolName wherever
@@ -263,14 +269,23 @@ export type Conversation = {
   last_message: string | null;
   last_message_at: string | null;
   created_at: string;
-  otherUser: ChatProfile;
+  // Null when this conversation's other participant has since deleted their
+  // account (conversations.user1_id/user2_id are now ON DELETE SET NULL,
+  // not CASCADE — Step 56) — the conversation and its history are preserved,
+  // only the identity is gone. Render as "Deleted User" wherever this is null.
+  otherUser: ChatProfile | null;
   unreadCount: number;
 };
 
 export type Message = {
   id: string;
   conversation_id: string;
-  sender_id: string;
+  // Null when the original sender has since deleted their account
+  // (messages.sender_id is ON DELETE SET NULL — Step 56). The message
+  // content itself is preserved; only the sender's identity is gone. In a
+  // 1:1 conversation this always means "the other participant," never the
+  // current viewer (a live session can't have had its own id nulled out).
+  sender_id: string | null;
   content: string;
   created_at: string;
   read_at: string | null;

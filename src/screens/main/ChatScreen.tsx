@@ -99,48 +99,47 @@ export default function ChatScreen() {
           />
         )
       }
-      renderItem={({ item, index }) => (
-        <FadeInView delay={Math.min(index, 6) * 40}>
-          <TouchableOpacity
-            style={styles.row}
-            activeOpacity={0.85}
-            onPress={() => navigation.navigate('Conversation', { conversationId: item.id, otherUser: item.otherUser })}
-          >
+      renderItem={({ item, index }) => {
+        // Null when this conversation's other participant has since deleted
+        // their account (Step 56) — the row/history is preserved, but there's
+        // no profile left to open and no name/avatar left to show.
+        const isDeletedOther = item.otherUser === null;
+        const goToOtherProfile = (e: { stopPropagation: () => void }) => {
+          e.stopPropagation();
+          if (item.otherUser) navigation.navigate('UserProfile', { userId: item.otherUser.id });
+        };
+        return (
+          <FadeInView delay={Math.min(index, 6) * 40}>
             <TouchableOpacity
-              onPress={(e) => {
-                e.stopPropagation();
-                navigation.navigate('UserProfile', { userId: item.otherUser.id });
-              }}
+              style={styles.row}
+              activeOpacity={0.85}
+              onPress={() => navigation.navigate('Conversation', { conversationId: item.id, otherUser: item.otherUser })}
             >
-              <Avatar uri={item.otherUser.avatar_url} size={50} />
-            </TouchableOpacity>
-            <View style={styles.rowText}>
-              <TouchableOpacity
-                style={styles.nameTouchable}
-                onPress={(e) => {
-                  e.stopPropagation();
-                  navigation.navigate('UserProfile', { userId: item.otherUser.id });
-                }}
-              >
-                <Text style={styles.name}>{item.otherUser.full_name ?? 'Unknown'}</Text>
+              <TouchableOpacity onPress={goToOtherProfile} disabled={isDeletedOther}>
+                <Avatar uri={item.otherUser?.avatar_url ?? null} size={50} />
               </TouchableOpacity>
-              <Text style={[styles.lastMessage, item.unreadCount > 0 && styles.lastMessageUnread]} numberOfLines={1}>
-                {item.last_message ?? 'Say hello!'}
-              </Text>
-            </View>
-            <View style={styles.rowRight}>
-              {item.last_message_at ? (
-                <Text style={styles.timestamp}>{formatRelativeTime(item.last_message_at)}</Text>
-              ) : null}
-              {item.unreadCount > 0 ? (
-                <View style={styles.unreadBadge}>
-                  <Text style={styles.unreadBadgeText}>{item.unreadCount}</Text>
-                </View>
-              ) : null}
-            </View>
-          </TouchableOpacity>
-        </FadeInView>
-      )}
+              <View style={styles.rowText}>
+                <TouchableOpacity style={styles.nameTouchable} onPress={goToOtherProfile} disabled={isDeletedOther}>
+                  <Text style={styles.name}>{isDeletedOther ? 'Deleted User' : (item.otherUser!.full_name ?? 'Unknown')}</Text>
+                </TouchableOpacity>
+                <Text style={[styles.lastMessage, item.unreadCount > 0 && styles.lastMessageUnread]} numberOfLines={1}>
+                  {item.last_message ?? 'Say hello!'}
+                </Text>
+              </View>
+              <View style={styles.rowRight}>
+                {item.last_message_at ? (
+                  <Text style={styles.timestamp}>{formatRelativeTime(item.last_message_at)}</Text>
+                ) : null}
+                {item.unreadCount > 0 ? (
+                  <View style={styles.unreadBadge}>
+                    <Text style={styles.unreadBadgeText}>{item.unreadCount}</Text>
+                  </View>
+                ) : null}
+              </View>
+            </TouchableOpacity>
+          </FadeInView>
+        );
+      }}
     />
   );
 }

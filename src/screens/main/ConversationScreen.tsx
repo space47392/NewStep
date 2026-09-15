@@ -247,7 +247,13 @@ export default function ConversationScreen() {
 
   const handleSend = async () => {
     const trimmed = text.trim();
-    if (!trimmed || !user) return;
+    // otherUser null means the other participant has deleted their account
+    // (Step 56) — this is a preserved, historical conversation only; the
+    // composer that would call this is already hidden in that state, but
+    // this guard keeps the same rule true even if reached some other way.
+    // The real, unbypassable boundary is the messages INSERT RLS policy
+    // (requires BOTH conversation participants to still be non-null).
+    if (!trimmed || !user || !otherUser) return;
 
     setSending(true);
     try {
@@ -323,11 +329,22 @@ export default function ConversationScreen() {
   const isMenuMessageMine = menuMessage?.sender_id === user?.id;
   const menuActions: ActionSheetAction[] = menuMessage
     ? [
-        { label: 'Reply', icon: 'arrow-undo-outline', onPress: () => handleReplyMessage(menuMessage) },
+        // Reply requires the composer, which is hidden entirely once
+        // otherUser is null (Step 56) — omitted here rather than left as a
+        // dead action that would silently do nothing when tapped.
+        ...(otherUser
+          ? ([{ label: 'Reply', icon: 'arrow-undo-outline', onPress: () => handleReplyMessage(menuMessage) }] as ActionSheetAction[])
+          : []),
         { label: 'Copy', icon: 'copy-outline', onPress: () => handleCopyMessage(menuMessage) },
         ...(isMenuMessageMine
           ? ([
-              { label: 'Edit', icon: 'create-outline', onPress: () => handleEditMessage(menuMessage) },
+              // Edit also needs the composer (same as Reply above) — omitted
+              // in the preserved-conversation state for the same reason.
+              // Delete doesn't touch the composer at all (a direct RPC call
+              // behind a confirm dialog), so it stays available either way.
+              ...(otherUser
+                ? ([{ label: 'Edit', icon: 'create-outline', onPress: () => handleEditMessage(menuMessage) }] as ActionSheetAction[])
+                : []),
               {
                 label: 'Delete',
                 icon: 'trash-outline',
@@ -353,10 +370,11 @@ export default function ConversationScreen() {
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.headerUser}
-          onPress={() => navigation.navigate('UserProfile', { userId: otherUser.id })}
+          disabled={!otherUser}
+          onPress={() => otherUser && navigation.navigate('UserProfile', { userId: otherUser.id })}
         >
-          <Avatar uri={otherUser.avatar_url} size={36} />
-          <Text style={styles.headerName}>{otherUser.full_name ?? 'Unknown'}</Text>
+          <Avatar uri={otherUser?.avatar_url ?? null} size={36} />
+          <Text style={styles.headerName}>{otherUser ? (otherUser.full_name ?? 'Unknown') : 'Deleted User'}</Text>
         </TouchableOpacity>
       </View>
 
@@ -417,7 +435,11 @@ export default function ConversationScreen() {
                 <View style={[styles.bubbleRow, isMine ? styles.bubbleRowMine : styles.bubbleRowTheirs]}>
                   {!isMine && (
                     <View style={styles.avatarSlot}>
-                      {showAvatar ? <Avatar uri={otherUser.avatar_url} size={24} /> : null}
+                      {/* A 1:1 conversation only ever has two possible senders — "not
+                          mine" always means otherUser, whether or not THIS specific
+                          message's own sender_id happens to be null (Step 56); Avatar
+                          already renders its placeholder icon for a null uri. */}
+                      {showAvatar ? <Avatar uri={otherUser?.avatar_url ?? null} size={24} /> : null}
                     </View>
                   )}
                   <View style={[styles.bubbleCol, isMine ? styles.bubbleColMine : styles.bubbleColTheirs]}>
@@ -483,7 +505,7 @@ export default function ConversationScreen() {
             otherTyping ? (
               <View style={[styles.bubbleRow, styles.bubbleRowTheirs]}>
                 <View style={styles.avatarSlot}>
-                  <Avatar uri={otherUser.avatar_url} size={24} />
+                  <Avatar uri={otherUser?.avatar_url ?? null} size={24} />
                 </View>
                 <View style={[styles.bubble, styles.bubbleTheirs]}>
                   <TypingIndicator />
@@ -494,54 +516,70 @@ export default function ConversationScreen() {
         />
       )}
 
-      {editingMessage && (
-        <View style={styles.editingBanner}>
-          <Ionicons name="create-outline" size={14} color={colors.textMid} />
-          <Text style={styles.editingBannerText}>Editing message</Text>
-          <TouchableOpacity onPress={handleCancelEdit} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Ionicons name="close" size={16} color={colors.textMid} />
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {replyTarget && !editingMessage && (
-        <View style={styles.editingBanner}>
-          <Ionicons name="arrow-undo-outline" size={14} color={colors.textMid} />
-          <View style={styles.replyBannerText}>
-            <Text style={styles.editingBannerText} numberOfLines={1}>
-              Replying to {replyTarget.sender_id === user?.id ? 'yourself' : otherUser.full_name ?? 'them'}
-            </Text>
-            <Text style={styles.replyBannerPreview} numberOfLines={1}>
-              {replyTarget.deleted_at ? 'Message deleted' : replyTarget.content}
-            </Text>
-          </View>
-          <TouchableOpacity onPress={handleCancelReply} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Ionicons name="close" size={16} color={colors.textMid} />
-          </TouchableOpacity>
-        </View>
-      )}
-
-      <View style={styles.inputRow}>
-        <TextInput
-          style={styles.input}
-          placeholder="Message..."
-          placeholderTextColor={colors.textLight}
-          value={text}
-          onChangeText={handleChangeText}
-          multiline
-        />
-        <TouchableOpacity
-          style={[styles.sendButton, (sending || !text.trim()) && styles.buttonDisabled]}
-          onPress={handleSend}
-          disabled={sending || !text.trim()}
-        >
-          {sending ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Ionicons name={editingMessage ? 'checkmark' : 'send'} size={18} color="#fff" />
+      {otherUser ? (
+        <>
+          {editingMessage && (
+            <View style={styles.editingBanner}>
+              <Ionicons name="create-outline" size={14} color={colors.textMid} />
+              <Text style={styles.editingBannerText}>Editing message</Text>
+              <TouchableOpacity onPress={handleCancelEdit} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="close" size={16} color={colors.textMid} />
+              </TouchableOpacity>
+            </View>
           )}
-        </TouchableOpacity>
-      </View>
+
+          {replyTarget && !editingMessage && (
+            <View style={styles.editingBanner}>
+              <Ionicons name="arrow-undo-outline" size={14} color={colors.textMid} />
+              <View style={styles.replyBannerText}>
+                <Text style={styles.editingBannerText} numberOfLines={1}>
+                  Replying to {replyTarget.sender_id === user?.id ? 'yourself' : (otherUser.full_name ?? 'them')}
+                </Text>
+                <Text style={styles.replyBannerPreview} numberOfLines={1}>
+                  {replyTarget.deleted_at ? 'Message deleted' : replyTarget.content}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={handleCancelReply} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="close" size={16} color={colors.textMid} />
+              </TouchableOpacity>
+            </View>
+          )}
+
+          <View style={styles.inputRow}>
+            <TextInput
+              style={styles.input}
+              placeholder="Message..."
+              placeholderTextColor={colors.textLight}
+              value={text}
+              onChangeText={handleChangeText}
+              multiline
+            />
+            <TouchableOpacity
+              style={[styles.sendButton, (sending || !text.trim()) && styles.buttonDisabled]}
+              onPress={handleSend}
+              disabled={sending || !text.trim()}
+            >
+              {sending ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Ionicons name={editingMessage ? 'checkmark' : 'send'} size={18} color="#fff" />
+              )}
+            </TouchableOpacity>
+          </View>
+        </>
+      ) : (
+        // otherUser is null — this participant has deleted their account
+        // (Step 56). The conversation and its history stay fully readable
+        // above, but there is no one left to send a new message to: no
+        // composer, no editing, no replying, no starting a new conversation
+        // from here. The real boundary is the messages INSERT RLS policy
+        // (requires both participants to still be non-null) — this is just
+        // the matching, honest UI state on top of it.
+        <View style={styles.unavailableBanner}>
+          <Ionicons name="information-circle-outline" size={16} color={colors.textLight} />
+          <Text style={styles.unavailableText}>This user is no longer available.</Text>
+        </View>
+      )}
 
       <ActionSheet visible={menuMessage !== null} onClose={() => setMenuMessage(null)} actions={menuActions} />
       <ReportSheet target={reportTarget} reporterId={user?.id} onClose={() => setReportTarget(null)} />
@@ -763,5 +801,20 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.6,
+  },
+  unavailableBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    padding: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    backgroundColor: colors.cardBg,
+  },
+  unavailableText: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
+    color: colors.textLight,
   },
 });

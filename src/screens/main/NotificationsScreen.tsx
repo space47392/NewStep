@@ -27,6 +27,15 @@ import { AppNotification, MainStackParamList } from '../../types';
 
 const PAGE_SIZE = 20;
 
+// Defensive backstop for "Load more" appends — same principle as Feed's
+// dedupeAppend() (Step 48), reimplemented locally here rather than shared,
+// since this list's rows are AppNotification, not Post. Filters out any
+// addition whose id is already in the list before appending.
+function dedupeAppendNotifications(prev: AppNotification[], additions: AppNotification[]): AppNotification[] {
+  const existingIds = new Set(prev.map((n) => n.id));
+  return [...prev, ...additions.filter((n) => !existingIds.has(n.id))];
+}
+
 export default function NotificationsScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
   const { user } = useAuth();
@@ -45,6 +54,19 @@ export default function NotificationsScreen() {
   const [loadFailed, setLoadFailed] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const hasEverLoadedRef = useRef(false);
+  // Cursor-based pagination (Step 58) — the oldest RAW notification's
+  // created_at loaded so far, or null once there's nothing more. Derived
+  // from the raw `notifications` array, never from `grouped` — grouping is
+  // purely a display transform (fewer rendered rows than raw rows), so
+  // using its length/last entry as a cursor would desync pagination from
+  // what's actually been fetched.
+  const cursorRef = useRef<string | null>(null);
+  // Bumped only on a full replace (first load / pull-to-refresh / retry),
+  // never on "Load more" — a Load More in flight when a replace starts is
+  // stale by the time it resolves and must not be appended on top of the
+  // fresh replacement (same *LoadTokenRef pattern as Feed/FollowList/
+  // SavedPosts, Step 48/49).
+  const loadTokenRef = useRef(0);
 
   // Purely a display transform — groupNotifications() never mutates or drops
   // the underlying rows, so pagination/mark-as-read below still operate on
@@ -53,13 +75,20 @@ export default function NotificationsScreen() {
 
   const loadFirstPage = useCallback(async () => {
     if (!user) return;
+    const tokenAtStart = ++loadTokenRef.current;
     try {
-      const data = await fetchNotifications(user.id, PAGE_SIZE, 0);
+      const data = await fetchNotifications(user.id, PAGE_SIZE);
+      // A newer replace (another refresh/retry) already started after this
+      // one — let its result stick instead of this now-stale response.
+      if (loadTokenRef.current !== tokenAtStart) return;
+
       setNotifications(data);
+      cursorRef.current = data.length > 0 ? data[data.length - 1].created_at : null;
       setHasMore(data.length === PAGE_SIZE);
       setLoadFailed(false);
       hasEverLoadedRef.current = true;
     } catch {
+      if (loadTokenRef.current !== tokenAtStart) return;
       // Only a genuinely first-ever failure (nothing has ever successfully
       // loaded) shows the blocking ErrorState — a failed background refresh
       // just leaves the existing list as-is (Step 36).
@@ -67,7 +96,7 @@ export default function NotificationsScreen() {
         setLoadFailed(true);
       }
     } finally {
-      setLoading(false);
+      if (loadTokenRef.current === tokenAtStart) setLoading(false);
     }
   }, [user]);
 
@@ -101,15 +130,28 @@ export default function NotificationsScreen() {
   );
 
   const handleLoadMore = async () => {
-    if (!user || loadingMore || !hasMore) return;
+    if (!user || loadingMore || !hasMore || !cursorRef.current) return;
+    const tokenAtStart = loadTokenRef.current;
     setLoadingMore(true);
     try {
-      const more = await fetchNotifications(user.id, PAGE_SIZE, notifications.length);
-      setNotifications((prev) => [...prev, ...more]);
+      const more = await fetchNotifications(user.id, PAGE_SIZE, cursorRef.current);
+      // A refresh/retry fully replaced the list while this was in flight —
+      // that response describes a list that no longer exists, so it must
+      // never be appended on top of the fresh one (Step 48's Scenario A
+      // guard, reused here).
+      if (loadTokenRef.current !== tokenAtStart) return;
+
+      setNotifications((prev) => dedupeAppendNotifications(prev, more));
+      cursorRef.current = more.length > 0 ? more[more.length - 1].created_at : cursorRef.current;
       setHasMore(more.length === PAGE_SIZE);
     } catch {
-      setHasMore(false);
+      if (loadTokenRef.current === tokenAtStart) {
+        setHasMore(false);
+      }
     } finally {
+      // Always cleared, even for a discarded stale response — this is just
+      // this button's own spinner, not part of the list data a stale
+      // response could corrupt.
       setLoadingMore(false);
     }
   };

@@ -106,15 +106,29 @@ const NOTIFICATION_SELECT = `
   achievement:achievement_id (id, key, name, icon)
 `;
 
-// Newest first, paginated — never the full history in one call.
-export async function fetchNotifications(userId: string, limit = 20, offset = 0): Promise<AppNotification[]> {
-  const { data, error } = await supabase
+// Newest first, cursor-paginated (Step 58) — never the full history in one
+// call. Was offset-based (.range(offset, offset+limit-1)); converted for the
+// same reason Feed/FollowList/SavedPosts already were (Step 48/49): a
+// numeric offset drifts whenever a row is inserted above the page boundary
+// while paging, and notifications are exactly that kind of frequently-
+// inserted, live table (a like/comment/follow can land at any moment). Omit
+// beforeCreatedAt for the first/most-recent page; pass the oldest
+// currently-loaded notification's created_at to page further back.
+// notifications_user_id_idx (user_id, created_at desc) already indexes
+// exactly this access pattern — no schema change needed.
+export async function fetchNotifications(userId: string, limit = 20, beforeCreatedAt?: string): Promise<AppNotification[]> {
+  let query = supabase
     .from('notifications')
     .select(NOTIFICATION_SELECT)
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
-    .range(offset, offset + limit - 1);
+    .limit(limit);
 
+  if (beforeCreatedAt) {
+    query = query.lt('created_at', beforeCreatedAt);
+  }
+
+  const { data, error } = await query;
   if (error) throw error;
   return (data ?? []) as unknown as AppNotification[];
 }
@@ -232,6 +246,12 @@ export type NotificationGroup = {
   conversation_id: string | null;
   created_at: string;
   read_at: string | null;
+  // The representative actor shown/navigated-to for this group. Not
+  // necessarily the newest member's actor — see the fallback logic below
+  // (Step 58): if the newest member's actor has since deleted their
+  // account (actor_id set null), this falls back to the next most recent
+  // member's actor that's still live, from within this SAME group only.
+  // Stays null only if every member's actor is gone.
   actor: ChatProfile | null;
   achievement: AppNotification['achievement'];
   memberIds: string[];
@@ -254,6 +274,16 @@ export function groupNotifications(notifications: AppNotification[]): Notificati
       if (n.actor) {
         actorIdSets[lastIndex].add(n.actor.id);
         last.extraActorCount = actorIdSets[lastIndex].size - 1;
+        // Representative-actor fallback (Step 58): notifications arrive
+        // newest-first, so the first live actor encountered while walking
+        // forward through this group's own members is the most recent live
+        // actor in that same group — never one borrowed from another group,
+        // never fabricated. Only promotes once (while last.actor is still
+        // null); once a live actor is picked it stays, so it doesn't keep
+        // shifting as more members are folded in.
+        if (!last.actor) {
+          last.actor = n.actor;
+        }
       }
     } else {
       groups.push({

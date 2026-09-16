@@ -98,8 +98,22 @@ export async function fetchFollowCounts(
 // Just the ids — used by fetchFollowingFeed() (posts.ts) to build its
 // `.in('author_id', ids)` filter. Capped, not "every account this user
 // follows," for the pathological-follow-count case.
+//
+// Ordered by created_at desc (Step 60, P2 #4) so the 500 selected for
+// someone following more than that are a deterministic "most recently
+// followed 500," not whatever arbitrary subset Postgres happened to return
+// first — same rows every call, instead of a set that could silently shift
+// between one fetch and the next. Neither existing caller (FeedScreen's
+// Following-feed membership filter, FollowListScreen's own-following Set)
+// depends on any particular order, only on set membership, so this is a
+// pure improvement with no behavior to preserve on the "no order" side.
 export async function fetchFollowingIds(userId: string, limit = 500): Promise<string[]> {
-  const { data, error } = await supabase.from('follows').select('following_id').eq('follower_id', userId).limit(limit);
+  const { data, error } = await supabase
+    .from('follows')
+    .select('following_id')
+    .eq('follower_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(limit);
   if (error) throw error;
   return (data ?? []).map((row) => row.following_id as string);
 }

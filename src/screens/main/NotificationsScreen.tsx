@@ -170,7 +170,17 @@ export default function NotificationsScreen() {
       conversation_id: group.conversation_id,
       actor_id: group.actor?.id ?? null,
     });
-    if (!target) return;
+    // No usable destination — e.g. a follow/story_wave notification whose
+    // actor deleted their account and (Step 58) this group had no other
+    // live actor to fall back to. Never invents a destination; just says so
+    // instead of a silent, unexplained no-op tap (Step 60, P2 #2). Message
+    // notifications (Step 56E) and grouped-actor fallback (Step 58) already
+    // resolve to a real target whenever one exists, so this only fires when
+    // there genuinely is nowhere to go.
+    if (!target) {
+      showToast('This is no longer available');
+      return;
+    }
 
     setOpeningId(group.id);
     try {

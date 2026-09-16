@@ -307,13 +307,27 @@ export async function editPost(params: {
 // fetchPostsBySchool*() because those hardcode order-by-recency; events need
 // order-by-event_date instead. Same !inner-join select as every other
 // school-scoped query.
+//
+// "Not yet past" (Step 60, P2 #3) means the event's real end has not
+// happened yet — `event_end_time` when it's set, since an event with a
+// 2pm-5pm range is still very much "upcoming/current" at 3pm even though
+// `event_date` (its start) is already behind `now()`. Only falls back to
+// `event_date` when there's no event_end_time at all (it's nullable —
+// school_events_schema.sql). Both columns are `timestamptz`, so this
+// comparison is timezone-safe the same way `.gte('event_date', ...)` always
+// was — an absolute instant compared against another absolute instant,
+// never a wall-clock/local-time comparison.
+const UPCOMING_EVENT_FILTER = (nowIso: string) =>
+  `event_end_time.gte.${nowIso},and(event_end_time.is.null,event_date.gte.${nowIso})`;
+
 export async function fetchUpcomingEventsBySchool(schoolName: string, limit = 5): Promise<Post[]> {
+  const nowIso = new Date().toISOString();
   const { data, error } = await supabase
     .from('posts')
     .select(POST_SELECT_BY_SCHOOL)
     .eq('profiles.school_name', schoolName)
     .eq('category', 'Event')
-    .gte('event_date', new Date().toISOString())
+    .or(UPCOMING_EVENT_FILTER(nowIso))
     .order('event_date', { ascending: true })
     .limit(limit);
 
@@ -322,12 +336,13 @@ export async function fetchUpcomingEventsBySchool(schoolName: string, limit = 5)
 }
 
 export async function fetchUpcomingEventsBySchoolId(schoolId: string, limit = 5): Promise<Post[]> {
+  const nowIso = new Date().toISOString();
   const { data, error } = await supabase
     .from('posts')
     .select(POST_SELECT_BY_SCHOOL)
     .eq('profiles.school_id', schoolId)
     .eq('category', 'Event')
-    .gte('event_date', new Date().toISOString())
+    .or(UPCOMING_EVENT_FILTER(nowIso))
     .order('event_date', { ascending: true })
     .limit(limit);
 

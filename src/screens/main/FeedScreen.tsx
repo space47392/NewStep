@@ -693,6 +693,7 @@ export default function FeedScreen() {
         data={displayedPosts}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
+        maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />}
         ListHeaderComponent={
           <View>
@@ -848,12 +849,14 @@ export default function FeedScreen() {
               <TouchableOpacity
                 style={[styles.feedModeTab, feedMode === 'forYou' && styles.feedModeTabActive]}
                 onPress={() => setFeedMode('forYou')}
+                hitSlop={{ top: 8, bottom: 8 }}
               >
                 <Text style={[styles.feedModeText, feedMode === 'forYou' && styles.feedModeTextActive]}>For You</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.feedModeTab, feedMode === 'following' && styles.feedModeTabActive]}
                 onPress={() => setFeedMode('following')}
+                hitSlop={{ top: 8, bottom: 8 }}
               >
                 <Text style={[styles.feedModeText, feedMode === 'following' && styles.feedModeTextActive]}>
                   Following
@@ -988,7 +991,7 @@ export default function FeedScreen() {
                   {item.category === 'Need Help' && <HelpStatusBadge status={item.status} />}
                 </View>
 
-                <Text style={styles.content}>{item.content}</Text>
+                <Text style={styles.content} numberOfLines={2}>{item.content}</Text>
                 <EventDetails post={item} />
 
                 {item.photo_urls.length > 0 && (

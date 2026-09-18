@@ -6,10 +6,13 @@ import {
   TextInput,
   TouchableOpacity,
   KeyboardAvoidingView,
+  Keyboard,
   Platform,
   ActivityIndicator,
   Alert,
   StyleSheet,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -39,6 +42,10 @@ import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../con
 import { MainStackParamList, Message, ReportTargetType } from '../../types';
 
 const PAGE_SIZE = 50;
+// How close to the bottom (in px) counts as "near the bottom" for auto-scroll
+// purposes — a little slack so a few px of overscroll/momentum doesn't flip
+// this off right as someone reaches the newest message.
+const NEAR_BOTTOM_THRESHOLD = 120;
 
 export default function ConversationScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
@@ -81,6 +88,28 @@ export default function ConversationScreen() {
   // scroll just because Load Earlier finished — only when a genuinely new
   // message actually arrived during it (Step 45).
   const pendingScrollToEndRef = useRef(false);
+  // Tracks whether the user is currently scrolled near the newest message —
+  // updated on every scroll event. Auto-scroll-to-end (on new content, or on
+  // the keyboard opening) only fires while this is true, so a realtime
+  // message arriving while someone is scrolled up reading history doesn't
+  // yank them back down to the bottom. Starts true: opening a conversation
+  // should show the newest messages first.
+  const isNearBottomRef = useRef(true);
+  // Set by the keyboardDidShow listener when a keyboard-open scroll is
+  // warranted (near bottom) — the actual scroll doesn't happen there. It
+  // happens once the FlatList's own onLayout fires with a settled height
+  // (see handleListLayout below), since KeyboardAvoidingView's Android
+  // 'height' resize is itself animated: scrolling right on keyboardDidShow
+  // would race that animation and could land short of the real bottom.
+  const pendingKeyboardScrollRef = useRef(false);
+  const keyboardScrollDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The very first onContentSizeChange after opening a conversation (or
+  // returning to it) snaps to the bottom instantly instead of animating —
+  // an animated scroll-from-top-to-bottom right as the screen appears reads
+  // as an unwanted "jump," whereas the conversation should just already be
+  // open at the right place. Every later content-size change (a genuinely
+  // new message arriving) still scrolls smoothly as before.
+  const hasScrolledOnLoadRef = useRef(false);
 
   // Only the very last bubble I sent ever shows a read receipt — matching how
   // iMessage/Instagram DMs do it, instead of stamping every message.
@@ -146,6 +175,12 @@ export default function ConversationScreen() {
 
     const unsubscribe = subscribeToMessages(conversationId, ({ type, message }) => {
       if (type === 'insert') {
+        // A message I just sent should always bring the bottom into view,
+        // regardless of where I was scrolled — sending is an explicit
+        // action that implies wanting to see it land (Step 63 polish).
+        if (user && message.sender_id === user.id) {
+          isNearBottomRef.current = true;
+        }
         setMessages((prev) => [...prev, message]);
         // onContentSizeChange's own auto-scroll is suppressed while Load
         // Earlier is in flight — flag that one got missed so it can be
@@ -197,6 +232,54 @@ export default function ConversationScreen() {
     };
   }, [conversationId, user?.id]);
 
+  // Decides WHETHER a keyboard-open scroll is warranted — only if the user
+  // was already near the bottom, so the composer growing upward
+  // (KeyboardAvoidingView) never silently scrolls someone away from older
+  // messages they were reading. Doesn't scroll here itself: on Android,
+  // 'keyboardDidShow' fires as the keyboard finishes appearing, but
+  // KeyboardAvoidingView's own height-shrink animation is still running at
+  // that point (it reacts to the same event), so scrolling immediately here
+  // would race that resize and could settle short of the real bottom,
+  // leaving the newest message partly behind the composer. The flag set
+  // here is consumed by handleListLayout below, once the resize has
+  // actually landed.
+  useEffect(() => {
+    const sub = Keyboard.addListener('keyboardDidShow', () => {
+      if (isNearBottomRef.current) {
+        pendingKeyboardScrollRef.current = true;
+      }
+    });
+    return () => {
+      sub.remove();
+      if (keyboardScrollDebounceRef.current) clearTimeout(keyboardScrollDebounceRef.current);
+    };
+  }, []);
+
+  const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+    const distanceFromBottom = contentSize.height - contentOffset.y - layoutMeasurement.height;
+    isNearBottomRef.current = distanceFromBottom < NEAR_BOTTOM_THRESHOLD;
+  };
+
+  // Fires on every layout pass of the FlatList itself — including each frame
+  // of KeyboardAvoidingView's resize animation as it shrinks the space
+  // available to the list. Debounced rather than acted on immediately: while
+  // a pending keyboard-open scroll is armed, each call here means "the
+  // height just changed again, so it isn't settled yet" and pushes the
+  // actual scrollToEnd() a little further out; once layout calls stop
+  // arriving (the resize animation has actually finished), the debounced
+  // timer fires exactly once. This is what "after the layout has actually
+  // resized" means in practice — no separate onAnimationEnd-style signal
+  // exists for KeyboardAvoidingView to hook into instead.
+  const handleListLayout = () => {
+    if (!pendingKeyboardScrollRef.current) return;
+    if (keyboardScrollDebounceRef.current) clearTimeout(keyboardScrollDebounceRef.current);
+    keyboardScrollDebounceRef.current = setTimeout(() => {
+      pendingKeyboardScrollRef.current = false;
+      listRef.current?.scrollToEnd({ animated: true });
+    }, 60);
+  };
+
   const handleLoadOlder = async () => {
     if (loadingOlder || !hasMoreOlder || messages.length === 0) return;
     setLoadingOlder(true);
@@ -217,9 +300,17 @@ export default function ConversationScreen() {
         // genuinely arrived while this was loading — never fires just
         // because Load Earlier itself finished, so it doesn't yank the user
         // away from the older messages they just asked to see (Step 45).
+        // Also gated on isNearBottomRef (Step 63): clicking Load Earlier
+        // itself implies the user is reading history, so a realtime message
+        // arriving during that fetch shouldn't force them back down either
+        // — unless it was their own message (which already set the flag
+        // true above) or they'd scrolled back near the bottom in the
+        // meantime.
         if (pendingScrollToEndRef.current) {
           pendingScrollToEndRef.current = false;
-          listRef.current?.scrollToEnd({ animated: true });
+          if (isNearBottomRef.current) {
+            listRef.current?.scrollToEnd({ animated: true });
+          }
         }
       }, 0);
     }
@@ -363,9 +454,20 @@ export default function ConversationScreen() {
     : [];
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    // 'height' on Android (was `undefined`, Step 63): shrinks this View's own
+    // measured height using RN's Keyboard events, independent of whatever the
+    // OS's window-resize mode happens to do — the header/list/composer are
+    // all inside this same component, so the whole screen compresses as one
+    // unit rather than depending on Android's adjustResize propagating
+    // correctly through react-native-screens (a known source of "composer
+    // hidden behind the keyboard" bugs in Expo + React Navigation apps).
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.backButton}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
           <Ionicons name="arrow-back" size={20} color={colors.primary} />
         </TouchableOpacity>
         <TouchableOpacity
@@ -396,8 +498,24 @@ export default function ConversationScreen() {
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
           maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
+          onScroll={handleScroll}
+          scrollEventThrottle={100}
+          onLayout={handleListLayout}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
           onContentSizeChange={() => {
             if (isLoadingOlderRef.current) return;
+            // Only auto-scroll while already near the bottom (Step 63) — a
+            // message arriving while someone is scrolled up reading older
+            // history shouldn't yank them back down. Sending your own
+            // message already forces isNearBottomRef true above, so it
+            // still always scrolls into view.
+            if (!isNearBottomRef.current) return;
+            if (!hasScrolledOnLoadRef.current) {
+              hasScrolledOnLoadRef.current = true;
+              listRef.current?.scrollToEnd({ animated: false });
+              return;
+            }
             listRef.current?.scrollToEnd({ animated: true });
           }}
           ListHeaderComponent={
@@ -424,6 +542,16 @@ export default function ConversationScreen() {
             const isLastInGroup =
               !nextItem || nextItem.sender_id !== item.sender_id || !isSameDay(nextItem.created_at, item.created_at);
             const showAvatar = !isMine && isLastInGroup;
+            // First bubble of a new run (sender changed, or a new day) gets a
+            // little extra breathing room above it, on top of every row's own
+            // small marginBottom — consecutive messages from the same sender
+            // read as one visual group (tight spacing.xs gap), while a
+            // sender change reads as a clear break (spacing.xs + spacing.xs =
+            // the original spacing.sm gap, unchanged). Skipped when a day
+            // separator is already about to provide that same break, so the
+            // two don't stack.
+            const isFirstInGroup =
+              !prevItem || prevItem.sender_id !== item.sender_id || !isSameDay(prevItem.created_at, item.created_at);
 
             return (
               <View>
@@ -432,7 +560,13 @@ export default function ConversationScreen() {
                     <Text style={styles.daySeparatorText}>{formatDayLabel(item.created_at)}</Text>
                   </View>
                 )}
-                <View style={[styles.bubbleRow, isMine ? styles.bubbleRowMine : styles.bubbleRowTheirs]}>
+                <View
+                  style={[
+                    styles.bubbleRow,
+                    isMine ? styles.bubbleRowMine : styles.bubbleRowTheirs,
+                    isFirstInGroup && !showDaySeparator && styles.bubbleRowGroupStart,
+                  ]}
+                >
                   {!isMine && (
                     <View style={styles.avatarSlot}>
                       {/* A 1:1 conversation only ever has two possible senders — "not
@@ -666,7 +800,15 @@ const styles = StyleSheet.create({
   bubbleRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  // Extra top margin for the first bubble in a new run — combined with every
+  // row's own spacing.xs marginBottom, a sender change reads with the same
+  // total gap (spacing.xs + spacing.xs) the whole list used to have
+  // uniformly; consecutive same-sender bubbles now sit closer together
+  // (spacing.xs alone) instead.
+  bubbleRowGroupStart: {
+    marginTop: spacing.xs,
   },
   bubbleRowMine: {
     justifyContent: 'flex-end',
@@ -790,6 +932,11 @@ const styles = StyleSheet.create({
     color: colors.textDark,
     maxHeight: 100,
     marginRight: spacing.sm,
+    // Android defaults a multiline TextInput's text to vertically centered,
+    // which looks fine for one line but drifts oddly as it grows toward
+    // maxHeight — iOS already starts multiline text from the top by default,
+    // this just makes Android match it. No-op on iOS.
+    textAlignVertical: 'top',
   },
   sendButton: {
     backgroundColor: colors.primary,

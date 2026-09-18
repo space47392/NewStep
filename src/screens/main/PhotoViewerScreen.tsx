@@ -14,11 +14,13 @@ export default function PhotoViewerScreen() {
   const { width, height } = useWindowDimensions();
   const [index, setIndex] = useState(initialIndex);
   const [loaded, setLoaded] = useState(false);
+  const [failed, setFailed] = useState(false);
 
   const hasMultiple = photoUrls.length > 1;
 
   const handleSetIndex = (nextIndex: number) => {
     setLoaded(false);
+    setFailed(false);
     setIndex(nextIndex);
   };
 
@@ -36,17 +38,29 @@ export default function PhotoViewerScreen() {
         showsHorizontalScrollIndicator={false}
         showsVerticalScrollIndicator={false}
       >
-        <Image
-          source={{ uri: photoUrls[index] }}
-          style={{ width, height }}
-          resizeMode="contain"
-          onLoad={() => setLoaded(true)}
-          // Without this, a request that fails outright (deleted file,
-          // network error) never fires onLoad, leaving the spinner below
-          // running forever — same fix as StoryViewerScreen's existing
-          // pattern (Step 42).
-          onError={() => setLoaded(true)}
-        />
+        {failed ? (
+          <View style={[styles.brokenWrap, { width, height }]}>
+            <Ionicons name="image-outline" size={48} color="rgba(255,255,255,0.5)" />
+            <Text style={styles.brokenText}>Couldn't load this photo</Text>
+          </View>
+        ) : (
+          <Image
+            source={{ uri: photoUrls[index] }}
+            style={{ width, height }}
+            resizeMode="contain"
+            onLoad={() => setLoaded(true)}
+            // Without this, a request that fails outright (deleted file,
+            // network error) never fires onLoad, leaving the spinner below
+            // running forever — same fix as StoryViewerScreen's existing
+            // pattern (Step 42). `failed` additionally swaps in a visible
+            // placeholder instead of leaving the screen blank (PhotoCarousel
+            // already does this inline; the full-screen viewer didn't).
+            onError={() => {
+              setFailed(true);
+              setLoaded(true);
+            }}
+          />
+        )}
       </ScrollView>
 
       {!loaded && (
@@ -94,6 +108,16 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
+  },
+  brokenWrap: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  brokenText: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    color: 'rgba(255,255,255,0.7)',
   },
   loadingOverlay: {
     position: 'absolute',

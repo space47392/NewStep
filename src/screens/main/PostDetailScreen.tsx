@@ -82,6 +82,7 @@ export default function PostDetailScreen() {
     thanksReceived: number;
   } | null>(null);
   const commentInputRef = useRef<TextInput>(null);
+  const flatListRef = useRef<FlatList>(null);
 
   // Refetch just the post (not comments) whenever this screen regains focus, so
   // returning from editing shows the new content immediately.
@@ -145,6 +146,12 @@ export default function PostDetailScreen() {
         if (prev.some((c) => c.id === comment.id)) return prev;
         return [...prev, comment];
       });
+      // Only auto-scroll for the current user's own comment — someone reading
+      // older comments must not be forcibly moved to the bottom by others'
+      // incoming comments.
+      if (comment.profiles?.id === user?.id) {
+        requestAnimationFrame(() => flatListRef.current?.scrollToEnd({ animated: true }));
+      }
     });
 
     return () => {
@@ -409,9 +416,13 @@ export default function PostDetailScreen() {
   };
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={styles.topBar}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
           <Ionicons name="arrow-back" size={20} color={colors.primary} />
           <Text style={styles.backText}>Back</Text>
         </TouchableOpacity>
@@ -437,9 +448,12 @@ export default function PostDetailScreen() {
       ) : (
       <>
       <FlatList
+        ref={flatListRef}
         data={comments}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />}
         ListHeaderComponent={
           <FadeInView style={styles.postCard}>
@@ -451,6 +465,7 @@ export default function PostDetailScreen() {
             <View style={styles.postHeader}>
               <TouchableOpacity
                 style={styles.postHeaderUser}
+                disabled={!post.profiles}
                 onPress={() => navigation.navigate('UserProfile', { userId: post.author_id })}
               >
                 <Avatar uri={post.profiles?.avatar_url} size={44} />
@@ -616,6 +631,7 @@ export default function PostDetailScreen() {
             <TouchableOpacity
               disabled={!item.profiles}
               onPress={() => item.profiles && navigation.navigate('UserProfile', { userId: item.profiles!.id })}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
               <Avatar uri={item.profiles?.avatar_url} size={32} />
             </TouchableOpacity>
@@ -898,6 +914,7 @@ const styles = StyleSheet.create({
     color: colors.textDark,
     maxHeight: 100,
     marginRight: spacing.sm,
+    textAlignVertical: 'top',
   },
   sendButton: {
     backgroundColor: colors.primary,

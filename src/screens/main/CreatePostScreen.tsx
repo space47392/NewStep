@@ -67,6 +67,12 @@ export default function CreatePostScreen() {
   const sourceStoryAuthorName = route.params?.sourceStoryAuthorName;
   const [existingPhotoUrls, setExistingPhotoUrls] = useState<string[]>(editingPost?.photo_urls ?? []);
   const [newPhotos, setNewPhotos] = useState<ImagePicker.ImagePickerAsset[]>([]);
+  // Keys (url, or assetId ?? uri) of thumbnails whose image failed to load —
+  // same fallback convention as PhotoCarousel/PhotoViewer/StoryViewer, mainly
+  // relevant to existingPhotoUrls (remote Storage URLs, when editing a post)
+  // where a deleted/stale file is a real possibility, not just a local
+  // picker URI moments after the OS itself confirmed it exists.
+  const [failedPhotoKeys, setFailedPhotoKeys] = useState<Set<string>>(new Set());
   const [posting, setPosting] = useState(false);
 
   // Event-only fields — real Date values from the native picker, never typed
@@ -167,7 +173,15 @@ export default function CreatePostScreen() {
     });
     if (result.canceled || !result.assets?.length) return;
 
-    setNewPhotos((prev) => [...prev, ...result.assets]);
+    // Reopening the picker starts a fresh session with no memory of what was
+    // already picked, so nothing else stops the user from selecting the same
+    // photo again — without this, it would be added (and later uploaded) a
+    // second time as a duplicate.
+    setNewPhotos((prev) => {
+      const existingKeys = new Set(prev.map((a) => a.assetId ?? a.uri));
+      const additions = result.assets.filter((a) => !existingKeys.has(a.assetId ?? a.uri));
+      return [...prev, ...additions];
+    });
   };
 
   const handleRemoveExisting = (url: string) => {
@@ -194,6 +208,14 @@ export default function CreatePostScreen() {
   };
 
   const handleSubmit = async () => {
+    // Synchronous re-entrancy guard — postingRef updates immediately, unlike
+    // the `posting` state PrimaryButton's own disabled/loading prop depends
+    // on, which only takes effect on the next render. Without this, a rapid
+    // double-tap could squeeze a second call in before that render happens —
+    // and unlike follow/unfollow elsewhere, createPost/editPost are NOT
+    // idempotent: a second call would upload the photos again and insert a
+    // second, duplicate post.
+    if (postingRef.current) return;
     if (!content.trim()) {
       Alert.alert('Empty post', 'Write something before posting.');
       return;
@@ -219,6 +241,7 @@ export default function CreatePostScreen() {
       eventDateIso = startDateTime.toISOString();
     }
 
+    postingRef.current = true;
     setPosting(true);
     // Tracks exactly which of this attempt's new photos actually finished
     // uploading, so a failure anywhere below (another photo in the same
@@ -288,12 +311,13 @@ export default function CreatePostScreen() {
       const message = err instanceof Error ? err.message : 'Something went wrong.';
       Alert.alert(editingPost ? 'Could not save changes' : 'Could not post', message);
     } finally {
+      postingRef.current = false;
       setPosting(false);
     }
   };
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
@@ -301,6 +325,7 @@ export default function CreatePostScreen() {
           disabled={posting}
           accessibilityRole="button"
           accessibilityLabel="Close"
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
           <Ionicons name="close" size={22} color={colors.textMid} />
         </TouchableOpacity>
@@ -337,6 +362,7 @@ export default function CreatePostScreen() {
                   { borderColor: selected ? style.text : colors.border, backgroundColor: selected ? style.text : colors.cardBg },
                 ]}
                 onPress={() => setCategory(c)}
+                hitSlop={{ top: 8, bottom: 8 }}
               >
                 <Ionicons name={style.icon} size={14} color={selected ? '#fff' : style.text} />
                 <Text style={[styles.chipText, { color: selected ? '#fff' : style.text }]}>{c}</Text>
@@ -486,22 +512,55 @@ export default function CreatePostScreen() {
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoRow}>
           {existingPhotoUrls.map((url) => (
             <View key={url} style={styles.photoThumbWrap}>
-              <Image source={{ uri: url }} style={styles.photoThumb} />
-              <TouchableOpacity style={styles.photoRemove} onPress={() => handleRemoveExisting(url)}>
+              {failedPhotoKeys.has(url) ? (
+                <View style={[styles.photoThumb, styles.photoThumbBroken]}>
+                  <Ionicons name="image-outline" size={20} color={colors.textLight} />
+                </View>
+              ) : (
+                <Image
+                  source={{ uri: url }}
+                  style={styles.photoThumb}
+                  onError={() => setFailedPhotoKeys((prev) => new Set(prev).add(url))}
+                />
+              )}
+              <TouchableOpacity
+                style={styles.photoRemove}
+                onPress={() => handleRemoveExisting(url)}
+                disabled={posting}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 2 }}
+              >
                 <Ionicons name="close" size={14} color="#fff" />
               </TouchableOpacity>
             </View>
           ))}
-          {newPhotos.map((asset, index) => (
-            <View key={asset.assetId ?? asset.uri} style={styles.photoThumbWrap}>
-              <Image source={{ uri: asset.uri }} style={styles.photoThumb} />
-              <TouchableOpacity style={styles.photoRemove} onPress={() => handleRemoveNew(index)}>
-                <Ionicons name="close" size={14} color="#fff" />
-              </TouchableOpacity>
-            </View>
-          ))}
+          {newPhotos.map((asset, index) => {
+            const key = asset.assetId ?? asset.uri;
+            return (
+              <View key={key} style={styles.photoThumbWrap}>
+                {failedPhotoKeys.has(key) ? (
+                  <View style={[styles.photoThumb, styles.photoThumbBroken]}>
+                    <Ionicons name="image-outline" size={20} color={colors.textLight} />
+                  </View>
+                ) : (
+                  <Image
+                    source={{ uri: asset.uri }}
+                    style={styles.photoThumb}
+                    onError={() => setFailedPhotoKeys((prev) => new Set(prev).add(key))}
+                  />
+                )}
+                <TouchableOpacity
+                  style={styles.photoRemove}
+                  onPress={() => handleRemoveNew(index)}
+                  disabled={posting}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 2 }}
+                >
+                  <Ionicons name="close" size={14} color="#fff" />
+                </TouchableOpacity>
+              </View>
+            );
+          })}
           {remainingSlots > 0 && (
-            <TouchableOpacity style={styles.addPhotoTile} onPress={handlePickPhotos}>
+            <TouchableOpacity style={styles.addPhotoTile} onPress={handlePickPhotos} disabled={posting}>
               <Ionicons name="image-outline" size={24} color={colors.primary} />
               <Text style={styles.addPhotoText}>Add</Text>
             </TouchableOpacity>
@@ -629,6 +688,10 @@ const styles = StyleSheet.create({
     height: 76,
     borderRadius: radius.md,
     backgroundColor: colors.cardBg,
+  },
+  photoThumbBroken: {
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   photoRemove: {
     position: 'absolute',

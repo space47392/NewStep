@@ -14,7 +14,12 @@ import { AuthProvider } from './src/contexts/AuthContext';
 import { ToastProvider } from './src/contexts/ToastContext';
 import AppNavigator from './src/navigation/AppNavigator';
 import { navigateToMainStack } from './src/navigation/navigationRef';
-import { addNotificationResponseListener, resolveNotificationTarget } from './src/lib/notifications';
+import {
+  addNotificationResponseListener,
+  getInitialNotificationResponse,
+  resolveNotificationTarget,
+  PushNotificationData,
+} from './src/lib/notifications';
 import { fetchPostById } from './src/lib/posts';
 import { fetchProfileById } from './src/lib/profile';
 import { supabase } from './src/lib/supabase';
@@ -49,7 +54,7 @@ export default function App() {
   // anything. The active-session check up front covers the case where
   // nobody's logged in at all (Step 40).
   useEffect(() => {
-    return addNotificationResponseListener(async (data) => {
+    const handleNotificationData = async (data: PushNotificationData) => {
       const {
         data: { session },
       } = await supabase.auth.getSession();
@@ -105,7 +110,21 @@ export default function App() {
         // safe fallback instead.
         navigateToMainStack('Tabs', undefined);
       }
+    };
+
+    // Covers a tap that arrives while the app is already running (foreground
+    // or backgrounded).
+    const unsubscribe = addNotificationResponseListener(handleNotificationData);
+
+    // Covers the "cold start" case the listener above can't: the exact tap
+    // that launches the app from fully closed happens before this listener
+    // is even registered, so without this the app would just open to the
+    // default screen instead of the notification's target.
+    getInitialNotificationResponse().then((data) => {
+      if (data) handleNotificationData(data);
     });
+
+    return unsubscribe;
   }, []);
 
   if (!fontsLoaded) {

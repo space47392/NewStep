@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, FlatList, RefreshControl, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -71,6 +71,18 @@ export default function NotificationsScreen() {
   // openingPostRef (Step 34): openingId (state) can't rule out a second tap
   // landing before React re-renders with the row disabled; a ref can.
   const openingGroupIdRef = useRef<string | null>(null);
+  // If the user backs out of this screen while handlePressInner's PostDetail
+  // fetch is still in flight, navigation itself isn't tied to this
+  // component's lifecycle — calling navigation.navigate() after that would
+  // still actually navigate, surprising the user with a screen they thought
+  // they'd already left behind. Checked right before that one call, which is
+  // the only branch with a meaningful await between the tap and the navigate.
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   // Purely a display transform — groupNotifications() never mutates or drops
   // the underlying rows, so pagination/mark-as-read below still operate on
@@ -218,6 +230,7 @@ export default function NotificationsScreen() {
     try {
       if (target.screen === 'PostDetail') {
         const post = await fetchPostById(target.postId);
+        if (!isMountedRef.current) return;
         navigation.navigate('PostDetail', { post });
       } else if (target.screen === 'Conversation') {
         // group.actor may be null — the other participant has since deleted

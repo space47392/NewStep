@@ -92,6 +92,21 @@ export function addNotificationResponseListener(onTap: (data: PushNotificationDa
   return () => subscription.remove();
 }
 
+// Handles the "cold start" case addNotificationResponseListener() can't:
+// addNotificationResponseReceivedListener() only fires for a response
+// received while it's already registered, so the exact tap that launches the
+// app from fully closed (not just backgrounded) never reaches it — the app
+// would otherwise just open to the default screen instead of the
+// notification's actual target. Call once near app startup, alongside
+// addNotificationResponseListener(). Returns null both when there's genuinely
+// no such response and when push isn't supported (Expo Go).
+export async function getInitialNotificationResponse(): Promise<PushNotificationData | null> {
+  if (!Notifications) return null;
+  const response = await Notifications.getLastNotificationResponseAsync();
+  if (!response) return null;
+  return (response.notification.request.content.data ?? {}) as PushNotificationData;
+}
+
 // ---------------------------------------------------------------------------
 // In-app notification data — a separate concern from the push delivery above.
 // A push is a fire-and-forget OS-level alert; these read/write the persistent

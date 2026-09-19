@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, Image, ScrollView, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,6 +20,7 @@ import EmptyState from '../../components/EmptyState';
 import ErrorState from '../../components/ErrorState';
 import LoadingScreen from '../../components/LoadingScreen';
 import FadeInView from '../../components/FadeInView';
+import Avatar from '../../components/Avatar';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
 import { MainStackParamList, PointsHistoryEntry, AchievementProgress, School, Post } from '../../types';
 
@@ -244,13 +245,7 @@ export default function ProfileScreen() {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <FadeInView style={styles.headerArea}>
-        {avatarUrl ? (
-          <Image source={{ uri: avatarUrl }} style={styles.avatar} />
-        ) : (
-          <View style={[styles.avatar, styles.avatarPlaceholder]}>
-            <Ionicons name="person" size={48} color={colors.primary} />
-          </View>
-        )}
+        <Avatar uri={avatarUrl} size={96} />
 
         <Text style={styles.name}>{fullName ?? 'Unknown'}</Text>
         {username ? <Text style={styles.username}>@{username}</Text> : null}
@@ -290,12 +285,18 @@ export default function ProfileScreen() {
           </Text>
           {user && (
             <>
-              <TouchableOpacity onPress={() => navigation.navigate('FollowList', { userId: user.id, mode: 'followers' })}>
+              <TouchableOpacity
+                onPress={() => navigation.navigate('FollowList', { userId: user.id, mode: 'followers' })}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
                 <Text style={styles.statText}>
                   <Text style={styles.statNumber}>{followCounts.followers}</Text> Followers
                 </Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => navigation.navigate('FollowList', { userId: user.id, mode: 'following' })}>
+              <TouchableOpacity
+                onPress={() => navigation.navigate('FollowList', { userId: user.id, mode: 'following' })}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
                 <Text style={styles.statText}>
                   <Text style={styles.statNumber}>{followCounts.following}</Text> Following
                 </Text>
@@ -304,13 +305,16 @@ export default function ProfileScreen() {
           )}
         </View>
 
-        <TouchableOpacity
-          style={styles.editButton}
-          onPress={() => navigation.navigate('EditProfile')}
-        >
-          <Ionicons name="create-outline" size={16} color={colors.primary} />
-          <Text style={styles.editButtonText}>Edit Profile</Text>
-        </TouchableOpacity>
+        <View style={styles.profileActionsRow}>
+          <TouchableOpacity style={styles.editButton} onPress={() => navigation.navigate('EditProfile')}>
+            <Ionicons name="create-outline" size={16} color={colors.primary} />
+            <Text style={styles.editButtonText}>Edit Profile</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.editButton} onPress={() => navigation.navigate('SavedPosts')}>
+            <Ionicons name="bookmark-outline" size={16} color={colors.primary} />
+            <Text style={styles.editButtonText}>Saved Posts</Text>
+          </TouchableOpacity>
+        </View>
 
         <View style={styles.communityCard}>
           <Text style={styles.communityTitle}>Community</Text>
@@ -401,7 +405,12 @@ export default function ProfileScreen() {
 
       <FadeInView style={styles.accountSection} delay={100}>
         <Text style={styles.email}>{user?.email}</Text>
-        <TouchableOpacity onPress={handleLogout} style={styles.logoutButton} disabled={loggingOut}>
+        <TouchableOpacity
+          onPress={handleLogout}
+          style={styles.logoutButton}
+          disabled={loggingOut}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
           {loggingOut ? (
             <ActivityIndicator size="small" color={colors.error} />
           ) : (
@@ -411,11 +420,21 @@ export default function ProfileScreen() {
             </>
           )}
         </TouchableOpacity>
-        <TouchableOpacity onPress={handleLogoutAllDevices} style={styles.logoutEverywhereButton}>
+        <TouchableOpacity
+          onPress={handleLogoutAllDevices}
+          style={styles.logoutEverywhereButton}
+          disabled={loggingOut}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
           <Text style={styles.logoutEverywhereText}>Log out of all devices</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={handleDeleteAccount} style={styles.deleteAccountButton} disabled={deletingAccount}>
+        <TouchableOpacity
+          onPress={handleDeleteAccount}
+          style={styles.deleteAccountButton}
+          disabled={deletingAccount}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
           {deletingAccount ? (
             <ActivityIndicator size="small" color={colors.error} />
           ) : (
@@ -511,6 +530,11 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.textMid,
   },
+  profileActionsRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.lg,
+  },
   editButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -520,7 +544,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.full,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
-    marginTop: spacing.lg,
   },
   editButtonText: {
     fontFamily: fontFamily.semibold,

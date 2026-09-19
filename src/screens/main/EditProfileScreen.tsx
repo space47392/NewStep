@@ -1,5 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, Image, ScrollView, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  StyleSheet,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,6 +20,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { supabase } from '../../lib/supabase';
 import { fetchSchoolById } from '../../lib/schools';
 import { PUBLIC_PROFILE_FIELDS, PublicProfile } from '../../lib/profile';
+import Avatar from '../../components/Avatar';
 import IconInput from '../../components/IconInput';
 import InterestPicker from '../../components/InterestPicker';
 import PrimaryButton from '../../components/PrimaryButton';
@@ -60,6 +71,11 @@ export default function EditProfileScreen() {
   // discard-changes prompt.
   const initialSnapshotRef = useRef<string | null>(null);
   const isDirtyRef = useRef(false);
+  // Mirrors `saving` state for the beforeRemove listener below, which is
+  // registered once and would otherwise only ever see saving's value from
+  // mount time (a stale closure) — same reason isDirtyRef exists instead of
+  // reading `saving`/dirty state directly in that listener.
+  const savingRef = useRef(false);
   const buildSnapshot = () =>
     JSON.stringify({ fullName, grade, interests, avatarUrl, pendingAvatarUri: pendingAvatar?.uri ?? null, isNewStudent });
 
@@ -114,6 +130,15 @@ export default function EditProfileScreen() {
   // for the header Back button, swipe-back, and Android hardware back.
   useEffect(() => {
     const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      // A save actually in flight must never be raced by a "Discard changes?"
+      // confirmation that unmounts this screen mid-upload/upsert — the
+      // network calls would keep running in the background regardless, so
+      // "Discard" could silently let a save the user thinks they cancelled
+      // go through anyway. Block navigation outright until it settles.
+      if (savingRef.current) {
+        e.preventDefault();
+        return;
+      }
       if (!isDirtyRef.current) return;
       e.preventDefault();
       Alert.alert('Discard changes?', 'Your changes will be lost.', [
@@ -171,6 +196,7 @@ export default function EditProfileScreen() {
   const handleSave = async () => {
     if (!user) return;
     setSaving(true);
+    savingRef.current = true;
 
     // Still the same fixed path/upsert-overwrite avatars bucket as before —
     // only the timing moved (now inside Save, not inside Pick), so a picked
@@ -204,6 +230,7 @@ export default function EditProfileScreen() {
         // "Discard changes?" already implies elsewhere on this screen.
         setUploadingAvatar(false);
         setSaving(false);
+        savingRef.current = false;
         const message = err instanceof Error ? err.message : 'Something went wrong.';
         Alert.alert('Upload failed', message);
         return;
@@ -221,6 +248,7 @@ export default function EditProfileScreen() {
       updated_at: new Date().toISOString(),
     });
     setSaving(false);
+    savingRef.current = false;
 
     if (error) {
       Alert.alert('Save failed', error.message);
@@ -240,9 +268,15 @@ export default function EditProfileScreen() {
   }
 
   return (
+    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
     <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       <FadeInView style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.backButton}
+          disabled={saving}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
           <Ionicons name="arrow-back" size={20} color={colors.primary} />
           <Text style={styles.backText}>Back</Text>
         </TouchableOpacity>
@@ -253,13 +287,7 @@ export default function EditProfileScreen() {
         <TouchableOpacity style={styles.avatarWrapper} onPress={handlePickAvatar} disabled={uploadingAvatar}>
           {/* A picked-but-not-yet-saved photo previews from its local uri —
               Storage/avatarUrl only change once Save actually succeeds. */}
-          {(pendingAvatar?.uri ?? avatarUrl) ? (
-            <Image source={{ uri: (pendingAvatar?.uri ?? avatarUrl) as string }} style={styles.avatar} />
-          ) : (
-            <View style={[styles.avatar, styles.avatarPlaceholder]}>
-              <Ionicons name="person" size={40} color={colors.primary} />
-            </View>
-          )}
+          <Avatar uri={pendingAvatar?.uri ?? avatarUrl} size={96} />
           <View style={styles.cameraBadge}>
             <Ionicons name="camera" size={14} color="#fff" />
           </View>
@@ -310,12 +338,14 @@ export default function EditProfileScreen() {
           <TouchableOpacity
             style={[styles.chip, isNewStudent === true && styles.chipSelected]}
             onPress={() => setIsNewStudent(true)}
+            hitSlop={{ top: 8, bottom: 8 }}
           >
             <Text style={[styles.chipText, isNewStudent === true && styles.chipTextSelected]}>Yes</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.chip, isNewStudent === false && styles.chipSelected]}
             onPress={() => setIsNewStudent(false)}
+            hitSlop={{ top: 8, bottom: 8 }}
           >
             <Text style={[styles.chipText, isNewStudent === false && styles.chipTextSelected]}>Not right now</Text>
           </TouchableOpacity>
@@ -328,6 +358,7 @@ export default function EditProfileScreen() {
               key={g}
               style={[styles.chip, grade === g && styles.chipSelected]}
               onPress={() => setGrade(g)}
+              hitSlop={{ top: 8, bottom: 8 }}
             >
               <Text style={[styles.chipText, grade === g && styles.chipTextSelected]}>{g}</Text>
             </TouchableOpacity>
@@ -340,10 +371,14 @@ export default function EditProfileScreen() {
         <PrimaryButton title="Save Profile" icon="checkmark-outline" onPress={handleSave} loading={saving} style={styles.saveButton} />
       </FadeInView>
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
+  flex: {
+    flex: 1,
+  },
   container: {
     flexGrow: 1,
     backgroundColor: colors.background,

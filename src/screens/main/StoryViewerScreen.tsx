@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, Image, TouchableOpacity, Animated, ActivityIndicator, Alert, BackHandler, StyleSheet } from 'react-native';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -35,6 +35,7 @@ export default function StoryViewerScreen() {
   const [menuVisible, setMenuVisible] = useState(false);
   const [reportTarget, setReportTarget] = useState<{ type: ReportTargetType; id: string } | null>(null);
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageFailed, setImageFailed] = useState(false);
   const [viewCount, setViewCount] = useState(0);
   const [viewsModalVisible, setViewsModalVisible] = useState(false);
   const progress = useRef(new Animated.Value(0)).current;
@@ -42,15 +43,26 @@ export default function StoryViewerScreen() {
   // shouldn't try to "resume" an animation that was never paused.
   const isPausedRef = useRef(false);
   const pausedValueRef = useRef(0);
+  // Guards against a double pop — rapid repeated hardware-back presses (or a
+  // tap-to-advance landing on the last story at the same moment) could each
+  // independently call goBack() before the first pop's transition finishes,
+  // popping an extra screen underneath this one.
+  const closingRef = useRef(false);
 
   const story = stories[index];
   const isOwnStory = user?.id === story.author_id;
+
+  const handleClose = () => {
+    if (closingRef.current) return;
+    closingRef.current = true;
+    navigation.goBack();
+  };
 
   const goToNext = () => {
     if (index < stories.length - 1) {
       setIndex((i) => i + 1);
     } else {
-      navigation.goBack();
+      handleClose();
     }
   };
 
@@ -63,7 +75,7 @@ export default function StoryViewerScreen() {
   // that runs (no double pop).
   useEffect(() => {
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
-      navigation.goBack();
+      handleClose();
       return true;
     });
     return () => subscription.remove();
@@ -81,11 +93,37 @@ export default function StoryViewerScreen() {
     });
   };
 
+  // Pauses the auto-advance timer the moment this screen loses focus (e.g.
+  // tapping the author's avatar to view their profile) and resumes from
+  // exactly where it left off on return — reuses the same pause/resume
+  // primitives handleHoldStart/handleHoldEnd already use for long-press.
+  // Without this, the timer kept running in the background and could
+  // silently skip to (or past) another story, or even pop this screen via
+  // goToNext()'s end-of-list branch, while the user was looking at a
+  // completely different screen.
+  useFocusEffect(
+    useCallback(() => {
+      if (imageLoaded && isPausedRef.current) {
+        isPausedRef.current = false;
+        startProgress(pausedValueRef.current);
+      }
+      return () => {
+        if (!imageLoaded) return;
+        progress.stopAnimation((value) => {
+          pausedValueRef.current = value;
+        });
+        isPausedRef.current = true;
+      };
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [imageLoaded])
+  );
+
   // A new story: reset everything, mark it seen right away (opening it is
   // enough), and — for someone else's story — record a view. Never counts a
   // story owner viewing their own story.
   useEffect(() => {
     setImageLoaded(false);
+    setImageFailed(false);
     isPausedRef.current = false;
     progress.setValue(0);
     if (user) {
@@ -237,15 +275,30 @@ export default function StoryViewerScreen() {
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
-      <Image
-        source={{ uri: story.image_url }}
-        style={styles.image}
-        resizeMode="cover"
-        onLoad={() => setImageLoaded(true)}
-        onError={() => setImageLoaded(true)}
-      />
+      {imageFailed ? (
+        <View style={styles.brokenWrap}>
+          <Ionicons name="image-outline" size={48} color="rgba(255,255,255,0.5)" />
+          <Text style={styles.brokenText}>Couldn't load this photo</Text>
+        </View>
+      ) : (
+        <Image
+          source={{ uri: story.image_url }}
+          style={styles.image}
+          resizeMode="cover"
+          onLoad={() => setImageLoaded(true)}
+          onError={() => {
+            setImageFailed(true);
+            setImageLoaded(true);
+          }}
+        />
+      )}
 
       {!imageLoaded && (
+        // Opaque (not just a spinner over transparent) — the Image above
+        // keeps showing the PREVIOUS story's bitmap until its own new one
+        // finishes decoding, so without an opaque backdrop here, navigating
+        // to the next story would briefly show the old photo underneath the
+        // spinner instead of a clean loading state.
         <View style={styles.loadingOverlay} pointerEvents="none">
           <ActivityIndicator color="#fff" />
         </View>
@@ -340,7 +393,7 @@ export default function StoryViewerScreen() {
         )}
         <TouchableOpacity
           style={styles.iconButton}
-          onPress={() => navigation.goBack()}
+          onPress={handleClose}
           hitSlop={{ top: 10, bottom: 10, left: 3, right: 10 }}
           accessibilityRole="button"
           accessibilityLabel="Close story"
@@ -400,8 +453,21 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
+    backgroundColor: '#000',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  brokenWrap: {
+    flex: 1,
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  brokenText: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    color: 'rgba(255,255,255,0.7)',
   },
   progressRow: {
     position: 'absolute',

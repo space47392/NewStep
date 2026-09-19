@@ -362,6 +362,12 @@ export default function SearchScreen() {
   };
 
   const handleSelectPerson = async (person: PersonSearchResult) => {
+    // Same guard as handleSelectPost/handleOpenPost below — this is the only
+    // other handler in this file with an await (recordSearch) before its
+    // navigate() call, so it carries the same rapid-double-tap risk of
+    // dispatching two navigations before the first one's state update lands.
+    if (openingPostRef.current) return;
+    openingPostRef.current = true;
     await recordSearch();
     navigation.navigate('UserProfile', { userId: person.id });
   };
@@ -453,6 +459,7 @@ export default function SearchScreen() {
               key={f.label}
               style={[styles.chip, postCategory === f.value && styles.chipSelected]}
               onPress={() => setPostCategory(f.value)}
+              hitSlop={{ top: 8, bottom: 8 }}
               accessibilityRole="button"
               accessibilityState={{ selected: postCategory === f.value }}
             >
@@ -480,7 +487,7 @@ export default function SearchScreen() {
             <View style={styles.section}>
               <View style={styles.recentHeader}>
                 <Text style={styles.sectionTitle}>Recent Searches</Text>
-                <TouchableOpacity onPress={handleClearRecent}>
+                <TouchableOpacity onPress={handleClearRecent} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                   <Text style={styles.clearText}>Clear All</Text>
                 </TouchableOpacity>
               </View>

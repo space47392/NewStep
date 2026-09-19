@@ -7,13 +7,22 @@ type Props = {
   post: Post;
 };
 
-// True once an Event's start time has passed — shared by EventDetails' own
-// "Past" badge and by FeedScreen/PostDetailScreen, which use it to decide
-// whether the interactive InterestButton still makes sense to show (Step 32).
-// Not exported for non-Event posts or unparseable dates — callers should
-// treat those as "not past" (i.e. don't special-case them).
+// True once an Event has actually ended — shared by EventDetails' own "Past"
+// badge and by FeedScreen/PostDetailScreen, which use it to decide whether
+// the interactive InterestButton still makes sense to show (Step 32).
+// Mirrors posts.ts's fetchUpcomingEventsBySchool[ById]() "not past" filter:
+// an event with event_end_time set is only past once THAT has gone by (a
+// 2pm-5pm event is still very much current at 3pm, even though its
+// event_date/start is already behind now()) — only falls back to event_date
+// itself when there's no event_end_time at all. Not exported for non-Event
+// posts or unparseable dates — callers should treat those as "not past"
+// (i.e. don't special-case them).
 export function isEventPast(post: Post): boolean {
   if (post.category !== 'Event' || !post.event_date) return false;
+  if (post.event_end_time) {
+    const end = new Date(post.event_end_time);
+    return !isNaN(end.getTime()) && end.getTime() < Date.now();
+  }
   const date = new Date(post.event_date);
   return !isNaN(date.getTime()) && date.getTime() < Date.now();
 }

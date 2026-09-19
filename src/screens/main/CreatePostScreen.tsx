@@ -231,10 +231,17 @@ export default function CreatePostScreen() {
       }
       const startDateTime = combineDateAndTime(eventDate, eventStartTime);
       if (showEndTimeField && eventEndTime) {
-        const endDateTime = combineDateAndTime(eventDate, eventEndTime);
+        let endDateTime = combineDateAndTime(eventDate, eventEndTime);
+        // The form only collects one date for both ends, so an end time that
+        // lands at/before the start when applied to that same day (e.g. a
+        // 9 PM–1 AM event) is the only way to express an overnight event —
+        // treat it as landing the following day instead of rejecting it
+        // outright. setDate (not raw millisecond math) so this still rolls
+        // over correctly across a DST boundary.
         if (endDateTime.getTime() <= startDateTime.getTime()) {
-          Alert.alert('Invalid event time', 'End time must be after the start time.');
-          return;
+          const rolled = new Date(endDateTime);
+          rolled.setDate(rolled.getDate() + 1);
+          endDateTime = rolled;
         }
         eventEndTimeIso = endDateTime.toISOString();
       }
@@ -379,13 +386,13 @@ export default function CreatePostScreen() {
 
             <Text style={styles.label}>Date</Text>
             <View style={styles.quickDateRow}>
-              <TouchableOpacity style={styles.quickDateChip} onPress={() => handleQuickDate(0)}>
+              <TouchableOpacity style={styles.quickDateChip} onPress={() => handleQuickDate(0)} hitSlop={{ top: 8, bottom: 8 }}>
                 <Text style={styles.quickDateChipText}>Today</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.quickDateChip} onPress={() => handleQuickDate(1)}>
+              <TouchableOpacity style={styles.quickDateChip} onPress={() => handleQuickDate(1)} hitSlop={{ top: 8, bottom: 8 }}>
                 <Text style={styles.quickDateChipText}>Tomorrow</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.quickDateChip} onPress={() => setActivePicker('date')}>
+              <TouchableOpacity style={styles.quickDateChip} onPress={() => setActivePicker('date')} hitSlop={{ top: 8, bottom: 8 }}>
                 <Text style={styles.quickDateChipText}>Pick a date</Text>
               </TouchableOpacity>
             </View>

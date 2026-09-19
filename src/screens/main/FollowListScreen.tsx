@@ -64,6 +64,12 @@ export default function FollowListScreen() {
   // stale by the time it resolves and must not be appended on top of the
   // fresh replacement (Step 49, P1 #5, mirroring Step 48's *LoadTokenRef).
   const loadTokenRef = useRef(0);
+  // The person ids that made up page 1 as of the last successful load —
+  // lets a 'merge' tell "was on page 1 but the relationship changed since"
+  // (e.g. you unfollowed them from their profile — should be removed) apart
+  // from "was never re-checked because it's on a later Load More page"
+  // (must be left untouched).
+  const page1IdsRef = useRef<Set<string>>(new Set());
 
   // The ids the CURRENT viewer (not the profile being looked at) follows —
   // powers each row's own Follow/Following button, independent of whose
@@ -74,8 +80,9 @@ export default function FollowListScreen() {
   const fetchPage: (userId: string, limit: number, beforeCreatedAt?: string) => Promise<FollowPage> =
     mode === 'followers' ? fetchFollowers : fetchFollowing;
 
-  const loadFirstPage = useCallback(async () => {
+  const loadFirstPage = useCallback(async (mode: 'replace' | 'merge' = 'replace') => {
     const tokenAtStart = ++loadTokenRef.current;
+    const isFirstEverPage = cursorRef.current === null && !hasEverLoadedRef.current;
     try {
       const [page, blockedIds, myFollowingIds] = await Promise.all([
         fetchPage(userId, PAGE_SIZE),
@@ -90,10 +97,34 @@ export default function FollowListScreen() {
       blockedIdsRef.current = blockedIds;
       // UX filtering only, not a security boundary — see blocks.ts.
       const visible = page.people.filter((p) => !blockedIds.has(p.id));
-      setPeople(visible);
+      const freshIds = new Set(visible.map((p) => p.id));
+      // Always refreshed regardless of mode — the viewer's own Follow/
+      // Following button state per row must reflect a follow/unfollow done
+      // elsewhere (e.g. from a profile) even when this list's own row
+      // membership hasn't changed.
       setFollowingIds(new Set(myFollowingIds));
-      cursorRef.current = page.nextCursor;
-      setHasMore(page.people.length === PAGE_SIZE);
+
+      if (mode === 'merge' && !isFirstEverPage) {
+        // Revalidates page 1 in place — same principle as SavedPostsScreen's
+        // merge: patches anything still present with fresh data, prepends
+        // anything new, and removes anything that WAS on page 1 last time
+        // but no longer is (e.g. you unfollowed them from their profile,
+        // while viewing your own Following list). Never touches an item
+        // that was only ever on a later Load More page.
+        const oldPage1Ids = page1IdsRef.current;
+        setPeople((prev) => {
+          const withoutRemoved = prev.filter((p) => freshIds.has(p.id) || !oldPage1Ids.has(p.id));
+          const existingIds = new Set(withoutRemoved.map((p) => p.id));
+          const newOnes = visible.filter((p) => !existingIds.has(p.id));
+          const merged = withoutRemoved.map((p) => visible.find((v) => v.id === p.id) ?? p);
+          return [...newOnes, ...merged];
+        });
+      } else {
+        setPeople(visible);
+        cursorRef.current = page.nextCursor;
+        setHasMore(page.people.length === PAGE_SIZE);
+      }
+      page1IdsRef.current = freshIds;
       setLoadFailed(false);
       hasEverLoadedRef.current = true;
     } catch {
@@ -111,7 +142,7 @@ export default function FollowListScreen() {
   useFocusEffect(
     useCallback(() => {
       (async () => {
-        await loadFirstPage();
+        await loadFirstPage('merge');
         setLoading(false);
       })();
     }, [loadFirstPage])
@@ -226,6 +257,7 @@ export default function FollowListScreen() {
           onPress={() => navigation.goBack()}
           accessibilityRole="button"
           accessibilityLabel="Go back"
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
           <Ionicons name="arrow-back" size={20} color={colors.primary} />
           <Text style={styles.backText}>Back</Text>
@@ -247,6 +279,7 @@ export default function FollowListScreen() {
         onPress={() => navigation.goBack()}
         accessibilityRole="button"
         accessibilityLabel="Go back"
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >
         <Ionicons name="arrow-back" size={20} color={colors.primary} />
         <Text style={styles.backText}>Back</Text>

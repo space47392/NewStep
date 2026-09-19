@@ -59,10 +59,16 @@ export default function SavedPostsScreen() {
   // Bumped only on a full replace (first load / pull-to-refresh / retry),
   // never on "Load more" — mirrors FollowListScreen/Step 48's *LoadTokenRef.
   const loadTokenRef = useRef(0);
+  // The post ids that made up page 1 as of the last successful load —
+  // lets a 'merge' tell "used to be on page 1 but got unsaved elsewhere"
+  // (should be removed) apart from "was never re-checked because it's on a
+  // later Load More page" (must be left untouched).
+  const page1IdsRef = useRef<Set<string>>(new Set());
 
-  const loadFirstPage = useCallback(async () => {
+  const loadFirstPage = useCallback(async (mode: 'replace' | 'merge' = 'replace') => {
     if (!user) return;
     const tokenAtStart = ++loadTokenRef.current;
+    const isFirstEverPage = cursorRef.current === null && !hasEverLoadedRef.current;
     try {
       const [{ posts: data, rawCount, nextCursor }, blockedIds] = await Promise.all([
         fetchSavedPosts(user.id, PAGE_SIZE),
@@ -75,9 +81,30 @@ export default function SavedPostsScreen() {
       blockedIdsRef.current = blockedIds;
       // UX filtering only, not a security boundary — see blocks.ts.
       const visible = data.filter((p) => !blockedIds.has(p.author_id));
-      setPosts(visible);
-      cursorRef.current = nextCursor;
-      setHasMore(rawCount === PAGE_SIZE);
+      const freshIds = new Set(visible.map((p) => p.id));
+
+      if (mode === 'merge' && !isFirstEverPage) {
+        // Revalidates page 1 in place — patches anything still saved with
+        // fresh data, prepends anything newly saved, and (unlike Feed/
+        // Notifications' merge) removes anything that WAS on page 1 last
+        // time but has since been unsaved elsewhere (e.g. from Post Detail).
+        // Never touches an item that was only ever on a later Load More
+        // page — those were never part of page1IdsRef, so they're left
+        // exactly as they were, preserving pages already loaded.
+        const oldPage1Ids = page1IdsRef.current;
+        setPosts((prev) => {
+          const withoutUnsaved = prev.filter((p) => freshIds.has(p.id) || !oldPage1Ids.has(p.id));
+          const existingIds = new Set(withoutUnsaved.map((p) => p.id));
+          const newOnes = visible.filter((p) => !existingIds.has(p.id));
+          const merged = withoutUnsaved.map((p) => visible.find((v) => v.id === p.id) ?? p);
+          return [...newOnes, ...merged];
+        });
+      } else {
+        setPosts(visible);
+        cursorRef.current = nextCursor;
+        setHasMore(rawCount === PAGE_SIZE);
+      }
+      page1IdsRef.current = freshIds;
       setLoadFailed(false);
       hasEverLoadedRef.current = true;
     } catch {
@@ -96,7 +123,7 @@ export default function SavedPostsScreen() {
   useFocusEffect(
     useCallback(() => {
       (async () => {
-        await loadFirstPage();
+        await loadFirstPage('merge');
         setLoading(false);
       })();
     }, [loadFirstPage])
@@ -152,6 +179,7 @@ export default function SavedPostsScreen() {
           onPress={() => navigation.goBack()}
           accessibilityRole="button"
           accessibilityLabel="Go back"
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
           <Ionicons name="arrow-back" size={20} color={colors.primary} />
           <Text style={styles.backText}>Back</Text>
@@ -173,6 +201,7 @@ export default function SavedPostsScreen() {
         onPress={() => navigation.goBack()}
         accessibilityRole="button"
         accessibilityLabel="Go back"
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >
         <Ionicons name="arrow-back" size={20} color={colors.primary} />
         <Text style={styles.backText}>Back</Text>

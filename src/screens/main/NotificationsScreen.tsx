@@ -67,24 +67,46 @@ export default function NotificationsScreen() {
   // fresh replacement (same *LoadTokenRef pattern as Feed/FollowList/
   // SavedPosts, Step 48/49).
   const loadTokenRef = useRef(0);
+  // Synchronous re-entrancy guard for handlePress — same purpose as Feed's
+  // openingPostRef (Step 34): openingId (state) can't rule out a second tap
+  // landing before React re-renders with the row disabled; a ref can.
+  const openingGroupIdRef = useRef<string | null>(null);
 
   // Purely a display transform — groupNotifications() never mutates or drops
   // the underlying rows, so pagination/mark-as-read below still operate on
   // real notification ids.
   const grouped = useMemo(() => groupNotifications(notifications), [notifications]);
 
-  const loadFirstPage = useCallback(async () => {
+  const loadFirstPage = useCallback(async (mode: 'replace' | 'merge' = 'replace') => {
     if (!user) return;
     const tokenAtStart = ++loadTokenRef.current;
+    // Computed before the fetch, from refs only (no stale-closure risk) —
+    // the very first page ever loaded always behaves like 'replace' even
+    // when called with 'merge', since there's nothing yet to preserve.
+    const isFirstEverPage = cursorRef.current === null && !hasEverLoadedRef.current;
     try {
       const data = await fetchNotifications(user.id, PAGE_SIZE);
       // A newer replace (another refresh/retry) already started after this
       // one — let its result stick instead of this now-stale response.
       if (loadTokenRef.current !== tokenAtStart) return;
 
-      setNotifications(data);
-      cursorRef.current = data.length > 0 ? data[data.length - 1].created_at : null;
-      setHasMore(data.length === PAGE_SIZE);
+      if (mode === 'merge' && !isFirstEverPage) {
+        // Revalidates page 1 in place (picks up read/unread and actor
+        // changes, prepends anything genuinely new) without touching the
+        // cursor/hasMore — refocusing this screen (e.g. returning from a
+        // notification's destination) must not silently discard any extra
+        // pages already loaded via "Load more" the way a full replace would.
+        setNotifications((prev) => {
+          const existingIds = new Set(prev.map((n) => n.id));
+          const newOnes = data.filter((n) => !existingIds.has(n.id));
+          const merged = prev.map((n) => data.find((d) => d.id === n.id) ?? n);
+          return [...newOnes, ...merged];
+        });
+      } else {
+        setNotifications(data);
+        cursorRef.current = data.length > 0 ? data[data.length - 1].created_at : null;
+        setHasMore(data.length === PAGE_SIZE);
+      }
       setLoadFailed(false);
       hasEverLoadedRef.current = true;
     } catch {
@@ -125,7 +147,7 @@ export default function NotificationsScreen() {
   // screen; only tapping an individual notification does that.
   useFocusEffect(
     useCallback(() => {
-      loadFirstPage();
+      loadFirstPage('merge');
     }, [loadFirstPage])
   );
 
@@ -157,6 +179,16 @@ export default function NotificationsScreen() {
   };
 
   const handlePress = async (group: NotificationGroup) => {
+    if (openingGroupIdRef.current === group.id) return;
+    openingGroupIdRef.current = group.id;
+    try {
+      await handlePressInner(group);
+    } finally {
+      openingGroupIdRef.current = null;
+    }
+  };
+
+  const handlePressInner = async (group: NotificationGroup) => {
     if (!group.read_at) {
       markNotificationsRead(group.memberIds).catch(() => {});
       setNotifications((prev) =>
@@ -227,7 +259,11 @@ export default function NotificationsScreen() {
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+      <TouchableOpacity
+        style={styles.backButton}
+        onPress={() => navigation.goBack()}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      >
         <Ionicons name="arrow-back" size={20} color={colors.primary} />
         <Text style={styles.backText}>Back</Text>
       </TouchableOpacity>

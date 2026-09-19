@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -17,15 +17,21 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
+  // Synchronous re-entrancy guard — same reasoning as Login/Register: avoids
+  // a rapid double-tap sending two reset emails from one tap.
+  const sendingRef = useRef(false);
 
   const handleSendReset = async () => {
+    if (sendingRef.current) return;
     if (!email.trim()) {
       Alert.alert('Missing email', 'Please enter your account email.');
       return;
     }
 
+    sendingRef.current = true;
     setLoading(true);
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim());
+    sendingRef.current = false;
     setLoading(false);
 
     // Deliberately shown regardless of whether the email exists — the same
@@ -71,7 +77,7 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
         )}
 
         <FadeInView style={styles.footer} delay={200}>
-          <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+          <TouchableOpacity onPress={() => navigation.navigate('Login')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
             <Text style={styles.footerLink}>Back to Sign In</Text>
           </TouchableOpacity>
         </FadeInView>

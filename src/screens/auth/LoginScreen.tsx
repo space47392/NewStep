@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -17,15 +17,24 @@ export default function LoginScreen({ navigation }: Props) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  // Synchronous re-entrancy guard — `loading` state only disables the button
+  // on the next render, leaving a brief window for a rapid double-tap to fire
+  // a second signInWithPassword() call. Not just a cosmetic concern: Supabase
+  // rate-limits sign-in attempts, so an accidental duplicate attempt on wrong
+  // credentials could count twice toward that limit for one real attempt.
+  const loggingInRef = useRef(false);
 
   const handleLogin = async () => {
+    if (loggingInRef.current) return;
     if (!email || !password) {
       Alert.alert('Missing fields', 'Please enter your email and password.');
       return;
     }
 
+    loggingInRef.current = true;
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
+    loggingInRef.current = false;
     setLoading(false);
 
     if (error) {
@@ -68,7 +77,11 @@ export default function LoginScreen({ navigation }: Props) {
             autoComplete="password"
           />
 
-          <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')} style={styles.forgotButton}>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('ForgotPassword')}
+            style={styles.forgotButton}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
             <Text style={styles.forgotText}>Forgot password?</Text>
           </TouchableOpacity>
 
@@ -77,7 +90,7 @@ export default function LoginScreen({ navigation }: Props) {
 
         <FadeInView style={styles.footer} delay={200}>
           <Text style={styles.footerText}>Don't have an account? </Text>
-          <TouchableOpacity onPress={() => navigation.navigate('Register')}>
+          <TouchableOpacity onPress={() => navigation.navigate('Register')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
             <Text style={styles.footerLink}>Sign up</Text>
           </TouchableOpacity>
         </FadeInView>

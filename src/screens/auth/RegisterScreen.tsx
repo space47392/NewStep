@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -27,8 +27,13 @@ export default function RegisterScreen({ navigation }: Props) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  // Synchronous re-entrancy guard — same reasoning as LoginScreen's
+  // loggingInRef: `loading` state alone leaves a brief window for a rapid
+  // double-tap to fire a second signUp() call before the button disables.
+  const registeringRef = useRef(false);
 
   const handleRegister = async () => {
+    if (registeringRef.current) return;
     if (!fullName || !email || !password) {
       Alert.alert('Missing fields', 'Please fill in all fields.');
       return;
@@ -38,6 +43,7 @@ export default function RegisterScreen({ navigation }: Props) {
       return;
     }
 
+    registeringRef.current = true;
     setLoading(true);
     const { error } = await supabase.auth.signUp({
       email,
@@ -46,6 +52,7 @@ export default function RegisterScreen({ navigation }: Props) {
         data: { full_name: fullName },
       },
     });
+    registeringRef.current = false;
     setLoading(false);
 
     if (error) {
@@ -109,7 +116,7 @@ export default function RegisterScreen({ navigation }: Props) {
 
         <FadeInView style={styles.footer} delay={200}>
           <Text style={styles.footerText}>Already have an account? </Text>
-          <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+          <TouchableOpacity onPress={() => navigation.navigate('Login')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
             <Text style={styles.footerLink}>Sign in</Text>
           </TouchableOpacity>
         </FadeInView>

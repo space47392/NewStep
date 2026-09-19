@@ -83,6 +83,19 @@ export default function PostDetailScreen() {
   } | null>(null);
   const commentInputRef = useRef<TextInput>(null);
   const flatListRef = useRef<FlatList>(null);
+  // Synchronous re-entrancy guards for handleVolunteer/handleComplete — the
+  // `volunteering`/`completing` state already disables these buttons, but
+  // only on the next render. A rapid double-tap slipping through that narrow
+  // window doesn't corrupt anything (the RPC re-validates status server-side
+  // and rejects the second call), but it does surface a confusing "couldn't
+  // volunteer" toast immediately after the tap that just succeeded.
+  const volunteeringRef = useRef(false);
+  const completingRef = useRef(false);
+  // thank_helper() itself is safe to call twice (a silent no-op repeat), but
+  // the friendly comment posted alongside it is not — a double-tap slipping
+  // through before `thanking` state disables the button would post the same
+  // "Thank you for your help..." comment twice.
+  const thankingRef = useRef(false);
 
   // Refetch just the post (not comments) whenever this screen regains focus, so
   // returning from editing shows the new content immediately.
@@ -227,7 +240,8 @@ export default function PostDetailScreen() {
   );
 
   const handleVolunteer = async () => {
-    if (!user) return;
+    if (!user || volunteeringRef.current) return;
+    volunteeringRef.current = true;
     setVolunteering(true);
     try {
       const updated = await volunteerToHelp(post.id);
@@ -238,11 +252,14 @@ export default function PostDetailScreen() {
       const message = err instanceof Error ? err.message : 'Could not volunteer to help.';
       showToast(message);
     } finally {
+      volunteeringRef.current = false;
       setVolunteering(false);
     }
   };
 
   const handleComplete = async () => {
+    if (completingRef.current) return;
+    completingRef.current = true;
     setCompleting(true);
     try {
       const updated = await markPostCompleted(post.id);
@@ -253,6 +270,7 @@ export default function PostDetailScreen() {
       const message = err instanceof Error ? err.message : 'Could not mark as completed.';
       showToast(message);
     } finally {
+      completingRef.current = false;
       setCompleting(false);
     }
   };
@@ -264,7 +282,8 @@ export default function PostDetailScreen() {
   // cosmetic now, not the mechanism. If the RPC itself fails, nothing is
   // posted and the user sees the real error instead of a false "Thanks sent!".
   const handleThankHelper = async () => {
-    if (!user || !post.helper) return;
+    if (!user || !post.helper || thankingRef.current) return;
+    thankingRef.current = true;
     setThanking(true);
     try {
       await thankHelper(post.id);
@@ -288,6 +307,7 @@ export default function PostDetailScreen() {
       const message = err instanceof Error ? err.message : 'Could not send thanks.';
       showToast(message);
     } finally {
+      thankingRef.current = false;
       setThanking(false);
     }
   };

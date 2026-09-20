@@ -21,6 +21,15 @@ const TAB_BAR_ROUTE_NAMES = new Set(['Feed', 'Search', 'Help', 'Chat', 'Voluntee
 // Matches TabNavigator's own tabBarStyle.height — the safe-area inset is
 // already handled separately below, so this is just the bar's own content height.
 const TAB_BAR_HEIGHT = 64;
+// StoryViewerScreen calls showToast() (handleSayHi's success/failure) but,
+// unlike every other screen this height is meant for, isn't a tab-bar screen
+// at all — it's a full-screen modal with its own bottom-anchored action pills
+// row (bottom: spacing.xl, ~32-64px from the true bottom, not inset-aware).
+// Without this, a toast there would land at the same low offset every other
+// stack screen gets and visually overlap those pills right after the exact
+// action that triggered it. Reusing TAB_BAR_HEIGHT's clearance here isn't
+// about the tab bar — it just happens to comfortably clear that row too.
+const EXTRA_CLEARANCE_ROUTE_NAMES = new Set([...TAB_BAR_ROUTE_NAMES, 'StoryViewer']);
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const insets = useSafeAreaInsets();
@@ -55,12 +64,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   // navigationRef, same pattern App.tsx's push-tap handler already uses, since
   // ToastProvider sits above NavigationContainer in the tree and can't use
   // navigation hooks directly. On a tab screen, clears the tab bar itself; on
-  // a stack screen (PostDetail, Conversation, CreatePost, StoryViewer, ...)
-  // where the tab bar is hidden, sits just above the safe area instead of
-  // leaving a large unexplained gap where the tab bar would have been.
-  const onTabBarScreen =
-    navigationRef.isReady() && TAB_BAR_ROUTE_NAMES.has(navigationRef.getCurrentRoute()?.name ?? '');
-  const bottomOffset = insets.bottom + (onTabBarScreen ? TAB_BAR_HEIGHT + spacing.sm : spacing.lg);
+  // StoryViewer, clears its own bottom action-pills row; on every other stack
+  // screen (PostDetail, Conversation, CreatePost, ...) where neither exists,
+  // sits just above the safe area instead of leaving a large unexplained gap.
+  const needsExtraClearance =
+    navigationRef.isReady() && EXTRA_CLEARANCE_ROUTE_NAMES.has(navigationRef.getCurrentRoute()?.name ?? '');
+  const bottomOffset = insets.bottom + (needsExtraClearance ? TAB_BAR_HEIGHT + spacing.sm : spacing.lg);
 
   return (
     <ToastContext.Provider value={{ showToast }}>

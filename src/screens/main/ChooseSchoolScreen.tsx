@@ -1,5 +1,15 @@
-import { useCallback, useEffect, useState } from 'react';
-import { View, Text, FlatList, TextInput, TouchableOpacity, ActivityIndicator, Alert, StyleSheet } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  View,
+  Text,
+  FlatList,
+  TextInput,
+  TouchableOpacity,
+  ActivityIndicator,
+  Alert,
+  BackHandler,
+  StyleSheet,
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -55,6 +65,16 @@ export default function ChooseSchoolScreen({ onDone, showSkip, title, subtitle }
   const [results, setResults] = useState<School[]>([]);
   const [searching, setSearching] = useState(false);
   const [savingId, setSavingId] = useState<string | null>(null);
+  // Guards against a slower, earlier request overwriting a faster, later
+  // one's results — e.g. typing "sunny" then quickly "sunny hills" before the
+  // first request resolves. The debounce below only prevents firing a new
+  // request for every keystroke; it doesn't stop an already-in-flight one
+  // from landing late. Same pattern SearchScreen already uses.
+  const searchRequestIdRef = useRef(0);
+  // Same principle for the city list — picking a state, going back, and
+  // picking a different one before the first fetchSchoolCities() call
+  // resolves could otherwise land the wrong state's cities.
+  const cityRequestIdRef = useRef(0);
 
   useEffect(() => {
     fetchSchoolStates()
@@ -68,25 +88,32 @@ export default function ChooseSchoolScreen({ onDone, showSkip, title, subtitle }
     setSelectedCity(null);
     setStep('city');
     setLoadingCities(true);
+    const requestId = ++cityRequestIdRef.current;
     try {
-      setCities(await fetchSchoolCities(state));
+      const data = await fetchSchoolCities(state);
+      if (cityRequestIdRef.current !== requestId) return;
+      setCities(data);
     } catch {
+      if (cityRequestIdRef.current !== requestId) return;
       setCities([]);
     } finally {
-      setLoadingCities(false);
+      if (cityRequestIdRef.current === requestId) setLoadingCities(false);
     }
   };
 
   const runSearch = useCallback(
     async (state: string, city: string | null, term: string) => {
+      const requestId = ++searchRequestIdRef.current;
       setSearching(true);
       try {
         const data = await searchSchoolsDirectory({ state, city: city ?? undefined, query: term });
+        if (searchRequestIdRef.current !== requestId) return;
         setResults(data);
       } catch {
+        if (searchRequestIdRef.current !== requestId) return;
         setResults([]);
       } finally {
-        setSearching(false);
+        if (searchRequestIdRef.current === requestId) setSearching(false);
       }
     },
     []
@@ -133,10 +160,31 @@ export default function ChooseSchoolScreen({ onDone, showSkip, title, subtitle }
     }
   };
 
+  // Android hardware back must mirror the on-screen Back/Change button's own
+  // step-wise behavior — this is one screen with internal step state, not
+  // separate stack screens, so the default hardware-back (pop this whole
+  // screen) would otherwise skip city/state review entirely instead of
+  // stepping back one level like the button right next to it already does.
+  // Left alone at the 'state' step, where stepping back IS exiting (same as
+  // the button's own else-branch above).
+  useEffect(() => {
+    if (step === 'state') return;
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      handleBackStep();
+      return true;
+    });
+    return () => subscription.remove();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step]);
+
   return (
     <View style={styles.container}>
       <View style={styles.topBar}>
-        <TouchableOpacity style={styles.backButton} onPress={handleBackStep}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={handleBackStep}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
           <Ionicons name="arrow-back" size={20} color={colors.primary} />
           <Text style={styles.backText}>{step === 'state' ? 'Back' : 'Change'}</Text>
         </TouchableOpacity>
@@ -149,7 +197,7 @@ export default function ChooseSchoolScreen({ onDone, showSkip, title, subtitle }
         <Text style={styles.title}>{title ?? DEFAULT_TITLE}</Text>
         <Text style={styles.subtitle}>{subtitle ?? DEFAULT_SUBTITLE}</Text>
         {showSkip && (
-          <TouchableOpacity onPress={finish} style={styles.skipButton}>
+          <TouchableOpacity onPress={finish} style={styles.skipButton} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
             <Text style={styles.skipText}>Skip for now</Text>
           </TouchableOpacity>
         )}
@@ -239,6 +287,7 @@ export default function ChooseSchoolScreen({ onDone, showSkip, title, subtitle }
               data={results}
               keyExtractor={(s) => s.id}
               contentContainerStyle={styles.list}
+              keyboardShouldPersistTaps="handled"
               ListEmptyComponent={
                 <EmptyState
                   icon="school-outline"

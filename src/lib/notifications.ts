@@ -50,6 +50,15 @@ export async function registerForPushNotifications(userId: string): Promise<void
   }
 
   const { status } = await Notifications.requestPermissionsAsync();
+  // Deliberately does NOT clear profiles.expo_push_token here. That column is
+  // one value per USER, not per device (see push_notifications_schema.sql),
+  // and the same account can realistically be signed in on more than one
+  // device. If this device's permission isn't granted, the stored token
+  // could belong to a DIFFERENT device where the user still has permission
+  // on and is actively using — clearing it here would silently break pushes
+  // for that other device. Leaving it untouched is the safe default for a
+  // single-column-per-user schema; only overwritten (below) once this device
+  // actually has a fresh, valid token to offer.
   if (status !== 'granted') return;
 
   const projectId = Constants.expoConfig?.extra?.eas?.projectId;

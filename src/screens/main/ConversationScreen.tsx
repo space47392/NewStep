@@ -10,6 +10,7 @@ import {
   Platform,
   ActivityIndicator,
   Alert,
+  AppState,
   StyleSheet,
   NativeScrollEvent,
   NativeSyntheticEvent,
@@ -206,6 +207,35 @@ export default function ConversationScreen() {
       unsubscribe();
     };
   }, [conversationId, user?.id, loadMessages]);
+
+  // Realtime doesn't replay events missed while disconnected (e.g. the app
+  // backgrounded for a while and the OS suspended its network activity) — a
+  // message sent during that gap would otherwise never appear until the user
+  // leaves and reopens this conversation. Catches up on foreground by
+  // fetching the newest page fresh and merging in only what isn't already
+  // loaded, the same "merge without disturbing what's already there"
+  // principle as Feed/Notifications' focus-merge — never replaces `messages`
+  // outright, so any already-loaded "Load Older" pages are untouched.
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState !== 'active') return;
+      fetchMessages(conversationId, PAGE_SIZE)
+        .then((latest) => {
+          if (!isMountedRef.current) return;
+          setMessages((prev) => {
+            const existingIds = new Set(prev.map((m) => m.id));
+            const newOnes = latest.filter((m) => !existingIds.has(m.id));
+            if (newOnes.length === 0) return prev;
+            return [...prev, ...newOnes].sort(
+              (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+            );
+          });
+          if (user?.id) markMessagesAsRead(conversationId, user.id).catch(() => {});
+        })
+        .catch(() => {});
+    });
+    return () => subscription.remove();
+  }, [conversationId, user?.id]);
 
   // Ephemeral broadcast channel — no table, no history, just relayed to whoever
   // else is subscribed to this conversation's typing topic right now.

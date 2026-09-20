@@ -91,6 +91,17 @@ export default function PostDetailScreen() {
   // volunteer" toast immediately after the tap that just succeeded.
   const volunteeringRef = useRef(false);
   const completingRef = useRef(false);
+  // handleMessage awaits getOrCreateConversation() before navigating — if the
+  // user backs out of this screen during that round trip, navigation isn't
+  // tied to the component's lifecycle, so the eventual navigate() call would
+  // still fire and surprise them with a screen they'd already left behind
+  // (same class of bug fixed in NotificationsScreen's handlePressInner).
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
   // thank_helper() itself is safe to call twice (a silent no-op repeat), but
   // the friendly comment posted alongside it is not — a double-tap slipping
   // through before `thanking` state disables the button would post the same
@@ -344,15 +355,17 @@ export default function PostDetailScreen() {
     setMessaging(true);
     try {
       const conversationId = await getOrCreateConversation(otherUser.id);
+      if (!isMountedRef.current) return;
       navigation.navigate('Conversation', {
         conversationId,
         otherUser: { id: otherUser.id, full_name: otherUser.full_name, avatar_url: otherUser.avatar_url },
       });
     } catch (err) {
+      if (!isMountedRef.current) return;
       const message = err instanceof Error ? err.message : 'Could not start the conversation.';
       Alert.alert('Error', message);
     } finally {
-      setMessaging(false);
+      if (isMountedRef.current) setMessaging(false);
     }
   };
 

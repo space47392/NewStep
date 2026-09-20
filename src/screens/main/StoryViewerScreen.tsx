@@ -48,6 +48,16 @@ export default function StoryViewerScreen() {
   // independently call goBack() before the first pop's transition finishes,
   // popping an extra screen underneath this one.
   const closingRef = useRef(false);
+  // openConversationWithAuthor awaits getOrCreateConversation() before
+  // navigating — if the user closes this viewer during that round trip,
+  // navigation isn't tied to the component's lifecycle, so the eventual
+  // navigate() call would still fire against a screen the user already left.
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const story = stories[index];
   const isOwnStory = user?.id === story.author_id;
@@ -215,6 +225,7 @@ export default function StoryViewerScreen() {
     setMessaging(true);
     try {
       const conversationId = await getOrCreateConversation(story.author_id);
+      if (!isMountedRef.current) return;
       navigation.navigate('Conversation', {
         conversationId,
         otherUser: {
@@ -225,10 +236,11 @@ export default function StoryViewerScreen() {
         prefillText,
       });
     } catch (err) {
+      if (!isMountedRef.current) return;
       const message = err instanceof Error ? err.message : 'Could not start a conversation.';
       Alert.alert('Error', message);
     } finally {
-      setMessaging(false);
+      if (isMountedRef.current) setMessaging(false);
     }
   };
 

@@ -48,6 +48,17 @@ const PAGE_SIZE = 50;
 // this off right as someone reaches the newest message.
 const NEAR_BOTTOM_THRESHOLD = 120;
 
+// Two messages share a timestamp bucket when they land in the same calendar
+// minute — matches formatRelativeTime()'s own "Just now" granularity for the
+// common case, and stays a fixed, absolute comparison (not relative to
+// render time) so a run of messages doesn't regroup on its own just because
+// time passed; it only changes when messages are actually added or removed.
+// Independent of sender — a same-minute run across two different senders is
+// still one bucket (see the timestamp-visibility rule below).
+function sameTimestampBucket(a: string, b: string): boolean {
+  return Math.floor(new Date(a).getTime() / 60000) === Math.floor(new Date(b).getTime() / 60000);
+}
+
 export default function ConversationScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
   const route = useRoute<RouteProp<MainStackParamList, 'Conversation'>>();
@@ -582,6 +593,11 @@ export default function ConversationScreen() {
             // two don't stack.
             const isFirstInGroup =
               !prevItem || prevItem.sender_id !== item.sender_id || !isSameDay(prevItem.created_at, item.created_at);
+            // Shows the timestamp only on the last message of a consecutive
+            // same-minute run — independent of the sender grouping above, so
+            // a same-minute run across two different senders still only
+            // shows one timestamp, at the end of that run.
+            const showTimestamp = !nextItem || !sameTimestampBucket(item.created_at, nextItem.created_at);
 
             return (
               <View>
@@ -654,7 +670,9 @@ export default function ConversationScreen() {
                       )}
                     </TouchableOpacity>
                     <View style={styles.messageFooter}>
-                      <Text style={styles.messageTimestamp}>{formatRelativeTime(item.created_at)}</Text>
+                      {showTimestamp ? (
+                        <Text style={styles.messageTimestamp}>{formatRelativeTime(item.created_at)}</Text>
+                      ) : null}
                       {item.edited_at && !isDeleted ? <Text style={styles.editedLabel}>(edited)</Text> : null}
                     </View>
                     {isMine && item.id === lastMineMessageId && item.read_at && !isDeleted ? (

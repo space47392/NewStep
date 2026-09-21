@@ -397,7 +397,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: colors.cardBg,
-    borderRadius: radius.md,
+    // Matches schoolRow below (same card-row role, one step later in this
+    // same picker) — previously the two used different radii for no reason.
+    borderRadius: radius.lg,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
     marginBottom: spacing.sm,

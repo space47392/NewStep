@@ -10,7 +10,7 @@ import {
   ViewStyle,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, radius, fontSize, fontFamily } from '../constants/theme';
+import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../constants/theme';
 
 type Variant = 'primary' | 'outline' | 'destructive' | 'success';
 
@@ -56,6 +56,11 @@ export default function PrimaryButton({
       <TouchableOpacity
         style={[
           styles.button,
+          // A soft lift on filled variants only — outline buttons stay flat,
+          // so the primary action reads as more prominent/pressable than a
+          // secondary one, on top of (not instead of) the existing color
+          // contrast (Visual Polish pass).
+          variant !== 'outline' && !isDisabled && shadow.subtle,
           { backgroundColor: v.bg, borderColor: v.border ?? v.bg, opacity: isDisabled ? 0.6 : 1 },
         ]}
         onPress={onPress}

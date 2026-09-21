@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "654182702624",
+    "project_id": "newstep-334e6",
+    "storage_bucket": "newstep-334e6.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:654182702624:android:8e305cccd1f9b48fe2a645",
+        "android_client_info": {
+          "package_name": "com.space47392.newstep"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAFQNeaFrGHDJ-TTKfGU1aXq5jqF3cdOhc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

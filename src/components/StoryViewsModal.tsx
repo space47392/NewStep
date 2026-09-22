@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Modal, View, Text, FlatList, TouchableOpacity, ActivityIndicator, Animated, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Avatar from './Avatar';
 import EmptyState from './EmptyState';
+import UserSelectRow from './UserSelectRow';
 import { fetchStoryViewers } from '../lib/stories';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../constants/theme';
 import { ChatProfile } from '../types';
@@ -73,12 +73,7 @@ export default function StoryViewsModal({ storyId, visible, onClose, onSelectUse
               data={viewers}
               keyExtractor={(item) => item.id}
               ListEmptyComponent={<EmptyState icon="eye-outline" title="No views yet" />}
-              renderItem={({ item }) => (
-                <TouchableOpacity style={styles.row} onPress={() => onSelectUser(item.id)}>
-                  <Avatar uri={item.avatar_url} size={40} />
-                  <Text style={styles.name}>{item.full_name ?? 'Unknown'}</Text>
-                </TouchableOpacity>
-              )}
+              renderItem={({ item }) => <UserSelectRow user={item} onPress={onSelectUser} />}
             />
           )}
         </Animated.View>
@@ -122,16 +117,5 @@ const styles = StyleSheet.create({
   },
   loadingWrap: {
     paddingVertical: spacing.xl,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.sm,
-  },
-  name: {
-    fontFamily: fontFamily.semibold,
-    fontSize: fontSize.md,
-    color: colors.textDark,
   },
 });

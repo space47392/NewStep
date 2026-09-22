@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Modal, View, Text, FlatList, TouchableOpacity, ActivityIndicator, Animated, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Avatar from './Avatar';
 import EmptyState from './EmptyState';
 import { fetchPostLikers } from '../lib/likes';
@@ -16,6 +17,9 @@ type Props = {
 const SHEET_OFFSET = 400;
 
 export default function LikesListModal({ postId, visible, onClose, onSelectUser }: Props) {
+  // Modal renders full-screen/edge-to-edge on Android — without this, the
+  // bottom of the list can sit under the system gesture/nav area.
+  const insets = useSafeAreaInsets();
   const [modalVisible, setModalVisible] = useState(visible);
   const [likers, setLikers] = useState<ChatProfile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,7 +56,9 @@ export default function LikesListModal({ postId, visible, onClose, onSelectUser 
         <Animated.View style={[styles.backdrop, { opacity: backdropOpacity }]}>
           <TouchableOpacity style={styles.backdropTouchable} activeOpacity={1} onPress={onClose} />
         </Animated.View>
-        <Animated.View style={[styles.sheet, { transform: [{ translateY }] }]}>
+        <Animated.View
+          style={[styles.sheet, { paddingBottom: spacing.xl + insets.bottom, transform: [{ translateY }] }]}
+        >
           <Text style={styles.title}>Likes</Text>
           {loading ? (
             <View style={styles.loadingWrap}>

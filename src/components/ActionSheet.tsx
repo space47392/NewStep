@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Modal, View, Text, TouchableOpacity, Animated, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../constants/theme';
@@ -20,6 +21,10 @@ type Props = {
 const SHEET_OFFSET = 320;
 
 export default function ActionSheet({ visible, onClose, actions }: Props) {
+  // Modal renders full-screen/edge-to-edge on Android — without this, the
+  // Cancel button (the bottom-most, most-reached-for action) can sit under
+  // the system gesture/nav area.
+  const insets = useSafeAreaInsets();
   // Kept separate from the `visible` prop so the sheet can slide down before the
   // Modal actually unmounts, instead of just vanishing instantly.
   const [modalVisible, setModalVisible] = useState(visible);
@@ -51,7 +56,9 @@ export default function ActionSheet({ visible, onClose, actions }: Props) {
         <Animated.View style={[styles.backdrop, { opacity: backdropOpacity }]}>
           <TouchableOpacity style={styles.backdropTouchable} activeOpacity={1} onPress={onClose} />
         </Animated.View>
-        <Animated.View style={[styles.sheet, { transform: [{ translateY }] }]}>
+        <Animated.View
+          style={[styles.sheet, { paddingBottom: spacing.xl + insets.bottom, transform: [{ translateY }] }]}
+        >
           {actions.map((action, index) => (
             <TouchableOpacity
               key={action.label}

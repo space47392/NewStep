@@ -13,6 +13,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { useFocusEffect, useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -52,6 +53,9 @@ export default function PostDetailScreen() {
   const route = useRoute<RouteProp<MainStackParamList, 'PostDetail'>>();
   const { user } = useAuth();
   const { showToast } = useToast();
+  // Stack-pushed full-screen — the comment composer sits at the true bottom
+  // edge on Android's edge-to-edge layout, same reasoning as ConversationScreen.
+  const insets = useSafeAreaInsets();
 
   // Local copy so the screen can reflect the new status/helper after volunteering,
   // since route.params.post is just a snapshot from when the feed card was tapped.
@@ -682,7 +686,7 @@ export default function PostDetailScreen() {
         )}
       />
 
-      <View style={styles.inputRow}>
+      <View style={[styles.inputRow, { paddingBottom: spacing.md + insets.bottom }]}>
         <TextInput
           ref={commentInputRef}
           style={styles.input}

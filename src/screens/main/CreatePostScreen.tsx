@@ -13,6 +13,7 @@ import {
   Alert,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -54,6 +55,7 @@ export default function CreatePostScreen() {
   const editingPost = route.params?.post;
   const { user } = useAuth();
   const { showToast } = useToast();
+  const insets = useSafeAreaInsets();
 
   // Never auto-posted — just starts the draft already typed (e.g. StoryViewer's
   // "I Can Help"); the user still has to review, edit, and tap Post themselves.
@@ -342,7 +344,7 @@ export default function CreatePostScreen() {
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: spacing.xl + insets.bottom }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >

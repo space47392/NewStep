@@ -11,6 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -40,6 +41,7 @@ export default function EditProfileScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
   const { user } = useAuth();
   const { showToast } = useToast();
+  const insets = useSafeAreaInsets();
 
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -283,7 +285,7 @@ export default function EditProfileScreen() {
         <Text style={styles.title}>Edit Profile</Text>
       </FadeInView>
 
-      <FadeInView style={styles.form} delay={40}>
+      <FadeInView style={[styles.form, { paddingBottom: spacing.xl + insets.bottom }]} delay={40}>
         <TouchableOpacity style={styles.avatarWrapper} onPress={handlePickAvatar} disabled={uploadingAvatar}>
           {/* A picked-but-not-yet-saved photo previews from its local uri —
               Storage/avatarUrl only change once Save actually succeeds. */}

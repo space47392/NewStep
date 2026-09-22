@@ -13,7 +13,7 @@ import ErrorState from '../../components/ErrorState';
 import PrimaryButton from '../../components/PrimaryButton';
 import { PostCardSkeleton } from '../../components/Skeleton';
 import FadeInView from '../../components/FadeInView';
-import { colors, spacing, fontSize, fontFamily } from '../../constants/theme';
+import { colors, spacing, radius, fontSize, fontFamily } from '../../constants/theme';
 import { MainStackParamList, Post } from '../../types';
 
 const HELP_LIMIT = 20;
@@ -133,7 +133,17 @@ export default function HelpScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />}
         ListHeaderComponent={
           <View style={styles.header}>
-            <Text style={styles.title}>🤝 Need Help</Text>
+            <View style={styles.titleRow}>
+              <Text style={styles.title}>🤝 Need Help</Text>
+              {/* A live count gives this screen an immediate, at-a-glance
+                  sense of current opportunity instead of only a static
+                  subtitle — "action/opportunity-first" (Visual Polish pass). */}
+              {posts.length > 0 && (
+                <View style={styles.countBadge}>
+                  <Text style={styles.countBadgeText}>{posts.length} open</Text>
+                </View>
+              )}
+            </View>
             <Text style={styles.subtitle}>Open requests from your school community</Text>
           </View>
         }
@@ -183,10 +193,28 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xl,
     marginBottom: spacing.lg,
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
   title: {
     fontFamily: fontFamily.bold,
     fontSize: fontSize.xxl,
     color: colors.textDark,
+  },
+  // Secondary/help-red, matching the same category color Notifications
+  // already uses for this exact type (getNotificationCategoryColor).
+  countBadge: {
+    backgroundColor: colors.secondaryLight,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+  },
+  countBadgeText: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.xs,
+    color: colors.secondary,
   },
   subtitle: {
     fontFamily: fontFamily.regular,

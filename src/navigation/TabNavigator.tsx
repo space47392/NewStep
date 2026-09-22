@@ -1,4 +1,5 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { MainTabParamList } from '../types';
 import { colors, fontFamily, shadow } from '../constants/theme';
@@ -22,6 +23,16 @@ const TAB_ICONS: Record<string, { focused: string; unfocused: string }> = {
 };
 
 export default function TabNavigator() {
+  // Android is edge-to-edge by default on this SDK — the tab bar draws behind
+  // the system gesture/nav area unless it explicitly reserves that space
+  // itself. Adding insets.bottom on top of both the height and the bottom
+  // padding keeps the icons/labels sitting exactly where they always did
+  // (same 8/10 visual padding) while extending the bar's own background the
+  // rest of the way down, so there's no gap and nothing sits under/behind the
+  // system navigation controls. 0 on devices with no inset (iOS handles its
+  // own home indicator separately), so this never adds unwanted space there.
+  const insets = useSafeAreaInsets();
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -31,9 +42,9 @@ export default function TabNavigator() {
         tabBarStyle: {
           backgroundColor: colors.tabBar,
           borderTopWidth: 0,
-          height: 64,
+          height: 64 + insets.bottom,
           paddingTop: 8,
-          paddingBottom: 10,
+          paddingBottom: 10 + insets.bottom,
           ...shadow.floating,
         },
         // Slightly smaller/tighter than before — 6 tabs (Home/Search/Help/

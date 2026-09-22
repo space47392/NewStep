@@ -278,31 +278,39 @@ export default function ProfileScreen() {
 
         {/* Identity -> School/Grade -> Social stats -> Community contribution
             (below) -> Achievements — previously this row sat above School/Grade,
-            ahead of identity's own school context (Step 31). */}
-        <View style={styles.statsRow}>
-          <Text style={styles.statText}>
-            <Text style={styles.statNumber}>{posts.length}</Text> Posts
-          </Text>
-          {user && (
-            <>
-              <TouchableOpacity
-                onPress={() => navigation.navigate('FollowList', { userId: user.id, mode: 'followers' })}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Text style={styles.statText}>
-                  <Text style={styles.statNumber}>{followCounts.followers}</Text> Followers
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => navigation.navigate('FollowList', { userId: user.id, mode: 'following' })}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Text style={styles.statText}>
-                  <Text style={styles.statNumber}>{followCounts.following}</Text> Following
-                </Text>
-              </TouchableOpacity>
-            </>
-          )}
+            ahead of identity's own school context (Step 31). Given the exact
+            same card/divider/bold-number treatment as the Community card
+            below (Visual Polish pass) — previously a bare text row next to a
+            fully "carded" stat block read as one unfinished, one finished. */}
+        <View style={styles.statsCard}>
+          <View style={styles.statsCardRow}>
+            <View style={styles.statBlock}>
+              <Text style={styles.statBlockNumber}>{posts.length}</Text>
+              <Text style={styles.statBlockLabel}>{posts.length === 1 ? 'Post' : 'Posts'}</Text>
+            </View>
+            {user && (
+              <>
+                <View style={styles.statBlockDivider} />
+                <TouchableOpacity
+                  style={styles.statBlock}
+                  onPress={() => navigation.navigate('FollowList', { userId: user.id, mode: 'followers' })}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={styles.statBlockNumber}>{followCounts.followers}</Text>
+                  <Text style={styles.statBlockLabel}>Followers</Text>
+                </TouchableOpacity>
+                <View style={styles.statBlockDivider} />
+                <TouchableOpacity
+                  style={styles.statBlock}
+                  onPress={() => navigation.navigate('FollowList', { userId: user.id, mode: 'following' })}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={styles.statBlockNumber}>{followCounts.following}</Text>
+                  <Text style={styles.statBlockLabel}>Following</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
         </View>
 
         <View style={styles.profileActionsRow}>
@@ -317,7 +325,10 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.communityCard}>
-          <Text style={styles.communityTitle}>Community</Text>
+          {/* Matches the "🌟 Community Contributors" heading already used on
+              the Community tab/School screen for the same concept, instead
+              of this being the one place that concept shows with no icon. */}
+          <Text style={styles.communityTitle}>🌟 Community</Text>
           <View style={styles.communityStatsRow}>
             <View style={styles.communityStat}>
               <Ionicons name="star" size={20} color={colors.primary} />
@@ -479,19 +490,37 @@ const styles = StyleSheet.create({
     color: colors.textMid,
     marginTop: 2,
   },
-  statsRow: {
-    flexDirection: 'row',
-    gap: spacing.lg,
-    marginTop: spacing.md,
+  statsCard: {
+    width: '100%',
+    backgroundColor: colors.cardBg,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    marginTop: spacing.lg,
+    ...shadow.card,
   },
-  statText: {
+  statsCardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  statBlock: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 2,
+  },
+  statBlockNumber: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.xl,
+    color: colors.textDark,
+  },
+  statBlockLabel: {
     fontFamily: fontFamily.regular,
-    fontSize: fontSize.sm,
+    fontSize: fontSize.xs,
     color: colors.textMid,
   },
-  statNumber: {
-    fontFamily: fontFamily.bold,
-    color: colors.textDark,
+  statBlockDivider: {
+    width: 1,
+    height: 36,
+    backgroundColor: colors.border,
   },
   metaRow: {
     flexDirection: 'row',

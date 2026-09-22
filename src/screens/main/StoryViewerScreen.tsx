@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, Image, TouchableOpacity, Animated, ActivityIndicator, Alert, BackHandler, StyleSheet } from 'react-native';
 import { useNavigation, useRoute, useFocusEffect, RouteProp } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -27,6 +28,10 @@ export default function StoryViewerScreen() {
   const { stories, initialIndex } = route.params;
   const { user } = useAuth();
   const { showToast } = useToast();
+  // Full-screen edge-to-edge modal — progress bar/header can sit under the
+  // status bar, and the bottom action pills / views row under the system
+  // gesture/nav area, unless explicitly offset by the real inset.
+  const insets = useSafeAreaInsets();
 
   const [index, setIndex] = useState(initialIndex);
   const [deleting, setDeleting] = useState(false);
@@ -338,7 +343,7 @@ export default function StoryViewerScreen() {
         />
       </View>
 
-      <View style={styles.progressRow}>
+      <View style={[styles.progressRow, { top: spacing.xl + insets.top }]}>
         {stories.map((s, i) => (
           <View key={s.id} style={styles.progressTrack}>
             <Animated.View
@@ -358,7 +363,7 @@ export default function StoryViewerScreen() {
         ))}
       </View>
 
-      <View style={styles.header}>
+      <View style={[styles.header, { top: spacing.xl + spacing.md + insets.top }]}>
         <TouchableOpacity
           style={styles.headerUser}
           onPress={() => navigation.navigate('UserProfile', { userId: story.author_id })}
@@ -415,14 +420,17 @@ export default function StoryViewerScreen() {
       </View>
 
       {isOwnStory ? (
-        <TouchableOpacity style={styles.viewsRow} onPress={() => setViewsModalVisible(true)}>
+        <TouchableOpacity
+          style={[styles.viewsRow, { bottom: spacing.xl + insets.bottom }]}
+          onPress={() => setViewsModalVisible(true)}
+        >
           <Ionicons name="eye-outline" size={16} color="#fff" />
           <Text style={styles.viewsText}>
             {viewCount} {viewCount === 1 ? 'view' : 'views'}
           </Text>
         </TouchableOpacity>
       ) : (
-        <View style={styles.actionsRow}>
+        <View style={[styles.actionsRow, { bottom: spacing.xl + insets.bottom }]}>
           <TouchableOpacity style={styles.actionPill} onPress={handleSayHi} disabled={waving}>
             {waving ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.actionPillText}>👋 Say Hi</Text>}
           </TouchableOpacity>

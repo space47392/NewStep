@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Modal, View, Text, FlatList, TouchableOpacity, ActivityIndicator, Animated, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Avatar from './Avatar';
 import EmptyState from './EmptyState';
 import { fetchStoryViewers } from '../lib/stories';
@@ -20,6 +21,9 @@ const SHEET_OFFSET = 400;
 // that up regardless: story_views' SELECT policy already scopes this to the
 // caller's own stories, so there's nothing to check client-side.
 export default function StoryViewsModal({ storyId, visible, onClose, onSelectUser }: Props) {
+  // Modal renders full-screen/edge-to-edge on Android — without this, the
+  // bottom of the list can sit under the system gesture/nav area.
+  const insets = useSafeAreaInsets();
   const [modalVisible, setModalVisible] = useState(visible);
   const [viewers, setViewers] = useState<ChatProfile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -56,7 +60,9 @@ export default function StoryViewsModal({ storyId, visible, onClose, onSelectUse
         <Animated.View style={[styles.backdrop, { opacity: backdropOpacity }]}>
           <TouchableOpacity style={styles.backdropTouchable} activeOpacity={1} onPress={onClose} />
         </Animated.View>
-        <Animated.View style={[styles.sheet, { transform: [{ translateY }] }]}>
+        <Animated.View
+          style={[styles.sheet, { paddingBottom: spacing.xl + insets.bottom, transform: [{ translateY }] }]}
+        >
           <Text style={styles.title}>Viewed By</Text>
           {loading ? (
             <View style={styles.loadingWrap}>

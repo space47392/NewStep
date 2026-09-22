@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
@@ -65,6 +66,13 @@ export default function ConversationScreen() {
   const { conversationId, otherUser } = route.params;
   const { user } = useAuth();
   const { showToast } = useToast();
+  // This screen is stack-pushed full-screen (not nested in the bottom tab
+  // bar), so its own composer sits at the true bottom edge on Android's
+  // edge-to-edge layout — react-native-safe-area-context reports the current
+  // window inset reactively (including while the keyboard is open, when the
+  // reserved system-gesture area is effectively covered), so using it
+  // directly here needs no separate keyboard-visibility tracking.
+  const insets = useSafeAreaInsets();
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
@@ -727,7 +735,7 @@ export default function ConversationScreen() {
             </View>
           )}
 
-          <View style={styles.inputRow}>
+          <View style={[styles.inputRow, { paddingBottom: spacing.md + insets.bottom }]}>
             <TextInput
               style={styles.input}
               placeholder="Message..."
@@ -757,7 +765,7 @@ export default function ConversationScreen() {
         // from here. The real boundary is the messages INSERT RLS policy
         // (requires both participants to still be non-null) — this is just
         // the matching, honest UI state on top of it.
-        <View style={styles.unavailableBanner}>
+        <View style={[styles.unavailableBanner, { paddingBottom: spacing.md + insets.bottom }]}>
           <Ionicons name="information-circle-outline" size={16} color={colors.textLight} />
           <Text style={styles.unavailableText}>This user is no longer available.</Text>
         </View>

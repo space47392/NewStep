@@ -37,6 +37,7 @@ import PrimaryButton from '../../components/PrimaryButton';
 import ActionSheet, { ActionSheetAction } from '../../components/ActionSheet';
 import ReportSheet from '../../components/ReportSheet';
 import HelpStatusBadge from '../../components/HelpStatusBadge';
+import CategoryBadge from '../../components/CategoryBadge';
 import EventDetails, { isEventPast } from '../../components/EventDetails';
 import LikeButton from '../../components/LikeButton';
 import SaveButton from '../../components/SaveButton';
@@ -44,7 +45,6 @@ import InterestButton from '../../components/InterestButton';
 import PhotoCarousel from '../../components/PhotoCarousel';
 import { Post, Story, MainStackParamList, ReportTargetType } from '../../types';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
-import { CATEGORY_STYLES } from '../../constants/categoryStyles';
 
 // Shared by both feeds' pagination — same page size, same .range() shape.
 const PAGE_SIZE = 20;
@@ -936,7 +936,6 @@ export default function FeedScreen() {
           )
         }
         renderItem={({ item, index }) => {
-          const category = CATEGORY_STYLES[item.category];
           const isDeleting = item.id === deletingPostId;
           const commentCount = item.comments?.[0]?.count ?? 0;
           return (
@@ -984,10 +983,7 @@ export default function FeedScreen() {
                 </View>
 
                 <View style={styles.badgeRow}>
-                  <View style={[styles.categoryBadge, { backgroundColor: category.bg }]}>
-                    <Ionicons name={category.icon} size={12} color={category.text} />
-                    <Text style={[styles.categoryText, { color: category.text }]}>{item.category}</Text>
-                  </View>
+                  <CategoryBadge category={item.category} />
                   {item.category === 'Need Help' && <HelpStatusBadge status={item.status} />}
                 </View>
 
@@ -1388,19 +1384,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.xs,
     marginBottom: spacing.sm,
-  },
-  categoryBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    alignSelf: 'flex-start',
-    borderRadius: radius.full,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-  },
-  categoryText: {
-    fontFamily: fontFamily.bold,
-    fontSize: fontSize.xs,
   },
   card: {
     backgroundColor: colors.cardBg,

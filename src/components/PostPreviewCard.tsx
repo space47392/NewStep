@@ -1,10 +1,9 @@
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import Avatar from './Avatar';
 import HelpStatusBadge from './HelpStatusBadge';
+import CategoryBadge from './CategoryBadge';
 import { formatRelativeTime } from '../lib/time';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../constants/theme';
-import { CATEGORY_STYLES } from '../constants/categoryStyles';
 import EventDetails from './EventDetails';
 import { Post } from '../types';
 
@@ -21,8 +20,6 @@ type Props = {
 // post results). No like/comment/volunteer controls of its own; tapping
 // always goes to the real PostDetailScreen for full interaction.
 export default function PostPreviewCard({ post, onPress, showCategory = true }: Props) {
-  const category = CATEGORY_STYLES[post.category];
-
   return (
     <TouchableOpacity style={styles.card} activeOpacity={0.85} onPress={onPress}>
       <View style={styles.header}>
@@ -31,12 +28,7 @@ export default function PostPreviewCard({ post, onPress, showCategory = true }: 
           <Text style={styles.author}>{post.profiles?.full_name ?? 'Unknown'}</Text>
           <Text style={styles.timestamp}>{formatRelativeTime(post.created_at)}</Text>
         </View>
-        {showCategory && (
-          <View style={[styles.categoryBadge, { backgroundColor: category.bg }]}>
-            <Ionicons name={category.icon} size={11} color={category.text} />
-            <Text style={[styles.categoryText, { color: category.text }]}>{post.category}</Text>
-          </View>
-        )}
+        {showCategory && <CategoryBadge category={post.category} size="sm" />}
       </View>
       {/* A "Need Help" result found via search may already be resolved — the
           same status pill Feed/PostDetail already use, so a search hit never
@@ -89,20 +81,8 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
     color: colors.textLight,
   },
-  categoryBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    borderRadius: radius.full,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 3,
-  },
   statusRow: {
     marginBottom: spacing.xs,
-  },
-  categoryText: {
-    fontFamily: fontFamily.bold,
-    fontSize: 10,
   },
   content: {
     fontFamily: fontFamily.regular,

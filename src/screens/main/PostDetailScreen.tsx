@@ -39,13 +39,13 @@ import ActionSheet, { ActionSheetAction } from '../../components/ActionSheet';
 import ReportSheet from '../../components/ReportSheet';
 import HelpStatusBadge from '../../components/HelpStatusBadge';
 import StoryOriginBadge from '../../components/StoryOriginBadge';
+import CategoryBadge from '../../components/CategoryBadge';
 import EventDetails, { isEventPast } from '../../components/EventDetails';
 import LikeButton from '../../components/LikeButton';
 import SaveButton from '../../components/SaveButton';
 import InterestButton from '../../components/InterestButton';
 import PhotoCarousel from '../../components/PhotoCarousel';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
-import { CATEGORY_STYLES } from '../../constants/categoryStyles';
 import { MainStackParamList, Comment, ReportTargetType } from '../../types';
 
 export default function PostDetailScreen() {
@@ -237,7 +237,6 @@ export default function PostDetailScreen() {
     };
   }, [post.status, post.helper?.id, fetchContribution]);
 
-  const category = CATEGORY_STYLES[post.category];
   const canVolunteer = post.category === 'Need Help' && post.status === 'open' && post.author_id !== user?.id;
   const canComplete = post.status === 'accepted' && post.author_id === user?.id;
   // Deliberately NOT gated on category === 'Need Help': status/helper_id already
@@ -517,10 +516,7 @@ export default function PostDetailScreen() {
             </View>
 
             <View style={styles.badgeRow}>
-              <View style={[styles.categoryBadge, { backgroundColor: category.bg }]}>
-                <Ionicons name={category.icon} size={12} color={category.text} />
-                <Text style={[styles.categoryText, { color: category.text }]}>{post.category}</Text>
-              </View>
+              <CategoryBadge category={post.category} />
               {post.category === 'Need Help' && <HelpStatusBadge status={post.status} />}
               {post.source_story_id && <StoryOriginBadge />}
             </View>
@@ -850,19 +846,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.xs,
     marginBottom: spacing.sm,
-  },
-  categoryBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    alignSelf: 'flex-start',
-    borderRadius: radius.full,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-  },
-  categoryText: {
-    fontFamily: fontFamily.bold,
-    fontSize: fontSize.xs,
   },
   postContent: {
     fontFamily: fontFamily.regular,

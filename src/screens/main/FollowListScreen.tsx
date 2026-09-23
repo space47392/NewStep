@@ -7,8 +7,8 @@ import { fetchFollowers, fetchFollowing, fetchFollowingIds, followUser, unfollow
 import { fetchBlockedUserIds } from '../../lib/blocks';
 import { resolveSchoolName } from '../../lib/schools';
 import { useAuth } from '../../contexts/AuthContext';
-import Avatar from '../../components/Avatar';
 import EmptyState from '../../components/EmptyState';
+import AuthorRow from '../../components/AuthorRow';
 import ErrorState from '../../components/ErrorState';
 import PrimaryButton from '../../components/PrimaryButton';
 import { ConversationRowSkeleton } from '../../components/Skeleton';
@@ -335,24 +335,20 @@ export default function FollowListScreen() {
                     SearchScreen's "People You May Know" card already uses,
                     so tapping Follow can never also trigger the profile
                     navigation underneath it. */}
-                <TouchableOpacity
+                <AuthorRow
                   style={styles.rowMain}
+                  user={item}
                   onPress={() => navigation.navigate('UserProfile', { userId: item.id })}
-                  accessibilityRole="button"
                   accessibilityLabel={`View ${item.full_name ?? 'this user'}'s profile`}
-                >
-                  <Avatar uri={item.avatar_url} size={48} />
-                  <View style={styles.rowText}>
-                    <Text style={styles.name}>{item.full_name ?? 'Unknown'}</Text>
-                    {item.username ? <Text style={styles.username}>@{item.username}</Text> : null}
-                    {itemSchoolName ? (
+                  meta={
+                    itemSchoolName ? (
                       <Text style={styles.meta}>
                         {itemSchoolName}
                         {item.grade ? ` · Grade ${item.grade}` : ''}
                       </Text>
-                    ) : null}
-                  </View>
-                </TouchableOpacity>
+                    ) : null
+                  }
+                />
                 {!isSelf && user ? (
                   <PrimaryButton
                     title={following ? 'Following' : 'Follow'}
@@ -421,23 +417,6 @@ const styles = StyleSheet.create({
   },
   rowMain: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  rowText: {
-    flex: 1,
-  },
-  name: {
-    fontFamily: fontFamily.semibold,
-    fontSize: fontSize.md,
-    color: colors.textDark,
-  },
-  username: {
-    fontFamily: fontFamily.medium,
-    fontSize: fontSize.xs,
-    color: colors.textMid,
-    marginTop: 1,
   },
   meta: {
     fontFamily: fontFamily.regular,

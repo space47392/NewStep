@@ -31,6 +31,7 @@ import PostPreviewCard from '../../components/PostPreviewCard';
 import PrimaryButton from '../../components/PrimaryButton';
 import SectionHeader from '../../components/SectionHeader';
 import ContributorRow from '../../components/ContributorRow';
+import AuthorRow from '../../components/AuthorRow';
 import { PostCardSkeleton } from '../../components/Skeleton';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
 import { getInterestIcon } from '../../constants/interests';
@@ -541,30 +542,29 @@ export default function SearchScreen() {
                 const pending = pendingFollowIds.has(person.id);
                 return (
                   <View key={person.id} style={styles.personCard}>
-                    <TouchableOpacity
+                    <AuthorRow
                       style={styles.personCardMain}
+                      user={person}
                       onPress={() => navigation.navigate('UserProfile', { userId: person.id })}
-                    >
-                      <Avatar uri={person.avatar_url} size={48} />
-                      <View style={styles.resultText}>
-                        <Text style={styles.resultName}>{person.full_name ?? 'Unknown'}</Text>
-                        {person.username ? <Text style={styles.resultMeta}>@{person.username}</Text> : null}
-                        {person.grade ? <Text style={styles.resultMeta}>🎓 {person.grade} Grade</Text> : null}
-                        {/* Plain-language reason, backed only by data this query actually
-                            guarantees: every suggestion here is already same-school, and
-                            the shared count comes straight from sharedInterests() above —
-                            never an inferred or invented signal (Step 30). */}
-                        <Text style={styles.personReason}>
-                          Same school
-                          {shared.length > 0 ? ` · ${shared.length} shared interest${shared.length === 1 ? '' : 's'}` : ''}
-                        </Text>
-                        {shared.length > 0 && (
-                          <Text style={styles.personInterests} numberOfLines={1}>
-                            {shared.slice(0, 3).map((i) => `${getInterestIcon(i)} ${i}`).join(' · ')}
+                      meta={
+                        <>
+                          {person.grade ? <Text style={styles.resultMeta}>🎓 {person.grade} Grade</Text> : null}
+                          {/* Plain-language reason, backed only by data this query actually
+                              guarantees: every suggestion here is already same-school, and
+                              the shared count comes straight from sharedInterests() above —
+                              never an inferred or invented signal (Step 30). */}
+                          <Text style={styles.personReason}>
+                            Same school
+                            {shared.length > 0 ? ` · ${shared.length} shared interest${shared.length === 1 ? '' : 's'}` : ''}
                           </Text>
-                        )}
-                      </View>
-                    </TouchableOpacity>
+                          {shared.length > 0 && (
+                            <Text style={styles.personInterests} numberOfLines={1}>
+                              {shared.slice(0, 3).map((i) => `${getInterestIcon(i)} ${i}`).join(' · ')}
+                            </Text>
+                          )}
+                        </>
+                      }
+                    />
                     <PrimaryButton
                       title="Follow"
                       icon="person-add-outline"
@@ -674,16 +674,16 @@ export default function SearchScreen() {
                   <SectionHeader title="People" />
                   {people.slice(0, RESULT_DISPLAY_LIMIT).map((person, index) => (
                     <FadeInView key={person.id} delay={Math.min(index, 6) * 30}>
-                      <TouchableOpacity style={styles.resultRow} onPress={() => handleSelectPerson(person)}>
-                        <Avatar uri={person.avatar_url} size={48} />
-                        <View style={styles.resultText}>
-                          <Text style={styles.resultName}>{person.full_name ?? 'Unknown'}</Text>
-                          {person.username ? <Text style={styles.resultMeta}>@{person.username}</Text> : null}
-                          {resolveSchoolName(person) ? (
+                      <AuthorRow
+                        style={styles.resultRow}
+                        user={person}
+                        onPress={() => handleSelectPerson(person)}
+                        meta={
+                          resolveSchoolName(person) ? (
                             <Text style={styles.resultMeta}>{resolveSchoolName(person)}</Text>
-                          ) : null}
-                        </View>
-                      </TouchableOpacity>
+                          ) : null
+                        }
+                      />
                     </FadeInView>
                   ))}
                 </View>
@@ -837,9 +837,6 @@ const styles = StyleSheet.create({
     color: colors.textDark,
   },
   resultRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
     paddingVertical: spacing.sm,
   },
   resultText: {
@@ -863,9 +860,6 @@ const styles = StyleSheet.create({
   },
   personCardMain: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
   },
   personReason: {
     fontFamily: fontFamily.regular,

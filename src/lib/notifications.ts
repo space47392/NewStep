@@ -253,15 +253,23 @@ export function resolveNotificationTarget(fields: {
 
 // ---------------------------------------------------------------------------
 // Lightweight client-side grouping — folds consecutive like/comment/follow
-// notifications into one display row ("Alex and 3 others liked your post").
-// Purely a display transform: every underlying notification row is untouched
-// and still individually present in memberIds for bulk mark-as-read. Other
-// types (volunteer, help_completed, thanks_received, message, achievements)
-// are never merged — each represents a distinct actionable event the user
-// should be able to identify on its own.
+// notifications into one display row ("Alex and 3 others liked your post"),
+// and consecutive points_earned notifications into one row ("You earned 5
+// Community Points" instead of 5 separate identical cards — a real-device
+// audit found this was the single most visible "looks unfinished" issue on
+// the Notifications screen). Purely a display transform: every underlying
+// notification row is untouched and still individually present in memberIds
+// for bulk mark-as-read. Other types (volunteer, help_completed,
+// thanks_received, message, achievement_earned) are never merged — each
+// represents a distinct actionable event the user should be able to
+// identify on its own. achievement_earned is deliberately excluded even
+// though it looks similar to points_earned: two achievement_earned rows can
+// represent two DIFFERENT achievements (distinguished only by achievement_id,
+// which the current merge key doesn't consider), so merging them the same
+// way would silently lose which achievements were actually earned.
 // ---------------------------------------------------------------------------
 
-const GROUPABLE_TYPES = new Set<NotificationType>(['like', 'comment', 'follow']);
+const GROUPABLE_TYPES = new Set<NotificationType>(['like', 'comment', 'follow', 'points_earned']);
 
 export type NotificationGroup = {
   id: string;
@@ -406,6 +414,16 @@ export function formatNotificationMessage(
 // wording above whenever nothing was actually merged, so a non-grouped
 // notification reads identically to before.
 export function formatGroupedNotificationMessage(group: NotificationGroup): string {
+  // points_earned has no actor (see create_notification() call above), so
+  // extraActorCount — which only counts distinct ACTORS — always stays 0 for
+  // it and can't signal "this was merged" the way it does for like/comment/
+  // follow. memberIds.length is used directly instead: each points_earned
+  // notification already means exactly 1 point (see the singular wording
+  // below), so N merged rows really did earn N points — never an invented
+  // total.
+  if (group.type === 'points_earned' && group.memberIds.length > 1) {
+    return `You earned ${group.memberIds.length} Community Points`;
+  }
   if (group.extraActorCount === 0) return formatNotificationMessage(group);
 
   const actorName = group.actor?.full_name ?? 'Someone';

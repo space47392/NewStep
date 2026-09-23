@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import { View, Text, FlatList, RefreshControl, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, FlatList, RefreshControl, StyleSheet } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../contexts/AuthContext';
@@ -8,20 +8,20 @@ import { fetchProfileById } from '../../lib/profile';
 import { fetchSchoolContributors, fetchSchoolContributorsById, fetchSchoolById } from '../../lib/schools';
 import { fetchHelpStats } from '../../lib/points';
 import { fetchBlockedUserIds } from '../../lib/blocks';
-import Avatar from '../../components/Avatar';
 import EmptyState from '../../components/EmptyState';
 import ErrorState from '../../components/ErrorState';
 import LoadingScreen from '../../components/LoadingScreen';
 import FadeInView from '../../components/FadeInView';
+import ContributorRow from '../../components/ContributorRow';
 import { MainStackParamList, SchoolContributor } from '../../types';
-import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
+import { colors, spacing, fontSize, fontFamily } from '../../constants/theme';
 
 const CONTRIBUTOR_LIMIT = 20;
 
 // A contributor plus their "students helped" count — computed per-contributor
 // via fetchHelpStats() (Promise.all, bounded by CONTRIBUTOR_LIMIT) since
 // there's no bulk version of that query; acceptable at this small, capped size.
-type ContributorRow = SchoolContributor & { studentsHelped: number };
+type ContributorData = SchoolContributor & { studentsHelped: number };
 
 // Step 30: replaces the old points leaderboard (medals, rank numbers,
 // points-sorted competitive framing) with the same non-competitive
@@ -40,7 +40,7 @@ export default function VolunteerScreen() {
   // HelpScreen's existing hasSchool pattern, so a transient name-lookup
   // failure can never make the empty state wrongly claim no school is set.
   const [hasSchool, setHasSchool] = useState(true);
-  const [contributors, setContributors] = useState<ContributorRow[]>([]);
+  const [contributors, setContributors] = useState<ContributorData[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   // True only after a load attempt that never previously succeeded fails —
@@ -158,20 +158,17 @@ export default function VolunteerScreen() {
       }
       renderItem={({ item, index }) => (
         <FadeInView delay={Math.min(index, 6) * 40}>
-          <TouchableOpacity
-            style={styles.row}
-            activeOpacity={0.85}
-            onPress={() => navigation.navigate('UserProfile', { userId: item.id })}
-          >
-            <Avatar uri={item.avatar_url} size={44} />
-            <View style={styles.rowText}>
-              <Text style={styles.name}>{item.full_name ?? 'Unknown'}</Text>
+          <ContributorRow
+            variant="row"
+            user={item}
+            stat={
               <View style={styles.statsRow}>
                 <Text style={styles.statText}>💙 {item.thanks_received_count} Thanks Received</Text>
                 {item.studentsHelped > 0 && <Text style={styles.statText}>🤝 {item.studentsHelped} Helped</Text>}
               </View>
-            </View>
-          </TouchableOpacity>
+            }
+            onPress={() => navigation.navigate('UserProfile', { userId: item.id })}
+          />
         </FadeInView>
       )}
     />
@@ -195,24 +192,6 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.textMid,
     marginTop: spacing.xs,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.cardBg,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-    gap: spacing.sm,
-    ...shadow.card,
-  },
-  rowText: {
-    flex: 1,
-  },
-  name: {
-    fontFamily: fontFamily.semibold,
-    fontSize: fontSize.md,
-    color: colors.textDark,
   },
   statsRow: {
     flexDirection: 'row',

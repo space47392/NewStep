@@ -30,6 +30,7 @@ import FadeInView from '../../components/FadeInView';
 import PostPreviewCard from '../../components/PostPreviewCard';
 import PrimaryButton from '../../components/PrimaryButton';
 import SectionHeader from '../../components/SectionHeader';
+import ContributorRow from '../../components/ContributorRow';
 import { PostCardSkeleton } from '../../components/Skeleton';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
 import { getInterestIcon } from '../../constants/interests';
@@ -587,16 +588,12 @@ export default function SearchScreen() {
                 keyExtractor={(c) => c.id}
                 contentContainerStyle={styles.storyRow}
                 renderItem={({ item }) => (
-                  <TouchableOpacity
-                    style={styles.storyItem}
+                  <ContributorRow
+                    variant="rail"
+                    user={item}
+                    stat={<Text style={styles.contributorMeta}>💙 {item.thanks_received_count}</Text>}
                     onPress={() => navigation.navigate('UserProfile', { userId: item.id })}
-                  >
-                    <Avatar uri={item.avatar_url} size={52} />
-                    <Text style={styles.storyItemName} numberOfLines={1}>
-                      {item.full_name ?? 'Unknown'}
-                    </Text>
-                    <Text style={styles.contributorMeta}>💙 {item.thanks_received_count}</Text>
-                  </TouchableOpacity>
+                  />
                 )}
               />
             </View>

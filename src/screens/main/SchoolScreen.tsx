@@ -35,6 +35,7 @@ import { Skeleton, PostCardSkeleton } from '../../components/Skeleton';
 import FadeInView from '../../components/FadeInView';
 import PostPreviewCard from '../../components/PostPreviewCard';
 import SectionHeader from '../../components/SectionHeader';
+import ContributorRow from '../../components/ContributorRow';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
 import { MainStackParamList, SchoolMember, Post, Story, School, SchoolContributor } from '../../types';
 
@@ -457,16 +458,14 @@ export default function SchoolScreen() {
             keyExtractor={(c) => c.id}
             contentContainerStyle={styles.membersRow}
             renderItem={({ item }) => (
-              <TouchableOpacity
-                style={styles.memberItem}
+              <ContributorRow
+                variant="rail"
+                avatarSize={56}
+                itemWidth={64}
+                user={item}
+                stat={<Text style={styles.contributorMeta}>💙 {item.thanks_received_count}</Text>}
                 onPress={() => navigation.navigate('UserProfile', { userId: item.id })}
-              >
-                <Avatar uri={item.avatar_url} size={56} />
-                <Text style={styles.memberName} numberOfLines={1}>
-                  {item.full_name ?? 'Unknown'}
-                </Text>
-                <Text style={styles.contributorMeta}>💙 {item.thanks_received_count}</Text>
-              </TouchableOpacity>
+              />
             )}
           />
         </FadeInView>

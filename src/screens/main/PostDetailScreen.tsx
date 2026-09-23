@@ -40,6 +40,7 @@ import ReportSheet from '../../components/ReportSheet';
 import HelpStatusBadge from '../../components/HelpStatusBadge';
 import StoryOriginBadge from '../../components/StoryOriginBadge';
 import CategoryBadge from '../../components/CategoryBadge';
+import PostAuthorHeader from '../../components/PostAuthorHeader';
 import EventDetails, { isEventPast } from '../../components/EventDetails';
 import LikeButton from '../../components/LikeButton';
 import SaveButton from '../../components/SaveButton';
@@ -498,22 +499,12 @@ export default function PostDetailScreen() {
                 <ActivityIndicator color={colors.primary} />
               </View>
             )}
-            <View style={styles.postHeader}>
-              <TouchableOpacity
-                style={styles.postHeaderUser}
-                disabled={!post.profiles}
-                onPress={() => navigation.navigate('UserProfile', { userId: post.author_id })}
-              >
-                <Avatar uri={post.profiles?.avatar_url} size={44} />
-                <View style={styles.postHeaderText}>
-                  <Text style={styles.name}>{post.profiles?.full_name ?? 'Unknown'}</Text>
-                  {post.profiles && resolveSchoolName(post.profiles) ? (
-                    <Text style={styles.school}>{resolveSchoolName(post.profiles)}</Text>
-                  ) : null}
-                </View>
-              </TouchableOpacity>
-              <Text style={styles.timestamp}>{formatRelativeTime(post.created_at)}</Text>
-            </View>
+            <PostAuthorHeader
+              author={post.profiles}
+              createdAt={post.created_at}
+              avatarSize={44}
+              onPress={() => navigation.navigate('UserProfile', { userId: post.author_id })}
+            />
 
             <View style={styles.badgeRow}>
               <CategoryBadge category={post.category} />
@@ -759,30 +750,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 1,
   },
-  postHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  postHeaderUser: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  postHeaderText: {
-    flex: 1,
-    marginLeft: spacing.sm,
-  },
-  name: {
-    fontFamily: fontFamily.semibold,
-    fontSize: fontSize.md,
-    color: colors.textDark,
-  },
-  school: {
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.xs,
-    color: colors.textMid,
-  },
   actionButton: {
     marginBottom: spacing.md,
   },
@@ -835,11 +802,6 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     fontSize: fontSize.xs,
     color: colors.textMid,
-  },
-  timestamp: {
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.xs,
-    color: colors.textLight,
   },
   badgeRow: {
     flexDirection: 'row',

@@ -22,12 +22,11 @@ import { sharePost } from '../../lib/share';
 import { fetchActiveStories, uploadStory } from '../../lib/stories';
 import { getSeenStoryIds, pruneSeenStoryIds } from '../../lib/storyPrefs';
 import { fetchProfileById } from '../../lib/profile';
-import { fetchSchoolStudentCount, fetchSchoolStudentCountById, fetchSchoolById, resolveSchoolName } from '../../lib/schools';
+import { fetchSchoolStudentCount, fetchSchoolStudentCountById, fetchSchoolById } from '../../lib/schools';
 import { fetchFollowingIds } from '../../lib/follows';
 import { isWelcomeBannerDismissed, dismissWelcomeBanner } from '../../lib/newStudentPrefs';
 import { fetchUnreadNotificationCount } from '../../lib/notifications';
 import { fetchBlockedUserIds } from '../../lib/blocks';
-import { formatRelativeTime } from '../../lib/time';
 import Avatar from '../../components/Avatar';
 import EmptyState from '../../components/EmptyState';
 import ErrorState from '../../components/ErrorState';
@@ -38,6 +37,7 @@ import ActionSheet, { ActionSheetAction } from '../../components/ActionSheet';
 import ReportSheet from '../../components/ReportSheet';
 import HelpStatusBadge from '../../components/HelpStatusBadge';
 import CategoryBadge from '../../components/CategoryBadge';
+import PostAuthorHeader from '../../components/PostAuthorHeader';
 import EventDetails, { isEventPast } from '../../components/EventDetails';
 import LikeButton from '../../components/LikeButton';
 import SaveButton from '../../components/SaveButton';
@@ -951,36 +951,28 @@ export default function FeedScreen() {
                     <ActivityIndicator color={colors.primary} />
                   </View>
                 )}
-                <View style={styles.cardHeader}>
-                  <TouchableOpacity
-                    style={styles.cardHeaderUser}
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      navigation.navigate('UserProfile', { userId: item.author_id });
-                    }}
-                  >
-                    <Avatar uri={item.profiles?.avatar_url} size={42} />
-                    <View style={styles.cardHeaderText}>
-                      <Text style={styles.name}>{item.profiles?.full_name ?? 'Unknown'}</Text>
-                      {item.profiles && resolveSchoolName(item.profiles) ? (
-                        <Text style={styles.school}>{resolveSchoolName(item.profiles)}</Text>
-                      ) : null}
-                    </View>
-                  </TouchableOpacity>
-                  <Text style={styles.timestamp}>{formatRelativeTime(item.created_at)}</Text>
-                  <TouchableOpacity
-                    style={styles.menuButton}
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      setMenuPost(item);
-                    }}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    accessibilityRole="button"
-                    accessibilityLabel="Open post menu"
-                  >
-                    <Ionicons name="ellipsis-horizontal" size={18} color={colors.textMid} />
-                  </TouchableOpacity>
-                </View>
+                <PostAuthorHeader
+                  author={item.profiles}
+                  createdAt={item.created_at}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    navigation.navigate('UserProfile', { userId: item.author_id });
+                  }}
+                  trailing={
+                    <TouchableOpacity
+                      style={styles.menuButton}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        setMenuPost(item);
+                      }}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      accessibilityRole="button"
+                      accessibilityLabel="Open post menu"
+                    >
+                      <Ionicons name="ellipsis-horizontal" size={18} color={colors.textMid} />
+                    </TouchableOpacity>
+                  }
+                />
 
                 <View style={styles.badgeRow}>
                   <CategoryBadge category={item.category} />
@@ -1404,38 +1396,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 1,
   },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  cardHeaderUser: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  cardHeaderText: {
-    flex: 1,
-    marginLeft: spacing.sm,
-  },
   menuButton: {
     padding: spacing.xs,
     marginLeft: spacing.xs,
-  },
-  name: {
-    fontFamily: fontFamily.semibold,
-    fontSize: fontSize.md,
-    color: colors.textDark,
-  },
-  school: {
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.xs,
-    color: colors.textMid,
-  },
-  timestamp: {
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.xs,
-    color: colors.textLight,
   },
   content: {
     fontFamily: fontFamily.regular,

@@ -4,6 +4,7 @@ import { useFocusEffect, useNavigation, useRoute, RouteProp } from '@react-navig
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { fetchProfileById, PublicProfile } from '../../lib/profile';
@@ -34,6 +35,7 @@ export default function UserProfileScreen() {
   const { userId } = route.params;
   const { user } = useAuth();
   const { showToast } = useToast();
+  const insets = useSafeAreaInsets();
 
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
@@ -254,7 +256,7 @@ export default function UserProfileScreen() {
       style={styles.container}
       data={posts}
       keyExtractor={(item) => item.id}
-      contentContainerStyle={styles.list}
+      contentContainerStyle={[styles.list, { paddingBottom: spacing.xl + insets.bottom }]}
       ListHeaderComponent={
         <FadeInView>
           <View style={styles.topBar}>
@@ -307,21 +309,36 @@ export default function UserProfileScreen() {
 
             {/* Identity -> School/Grade -> Social stats -> Community
                 contribution (below) -> Achievements — same reorder as
-                ProfileScreen, which this screen deliberately mirrors (Step 31). */}
-            <View style={styles.statsRow}>
-              <Text style={styles.statText}>
-                <Text style={styles.statNumber}>{posts.length}</Text> Posts
-              </Text>
-              <TouchableOpacity onPress={() => navigation.navigate('FollowList', { userId, mode: 'followers' })}>
-                <Text style={styles.statText}>
-                  <Text style={styles.statNumber}>{followCounts.followers}</Text> Followers
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => navigation.navigate('FollowList', { userId, mode: 'following' })}>
-                <Text style={styles.statText}>
-                  <Text style={styles.statNumber}>{followCounts.following}</Text> Following
-                </Text>
-              </TouchableOpacity>
+                ProfileScreen, which this screen deliberately mirrors (Step 31).
+                Same card/divider/bold-number treatment ProfileScreen's own
+                stats row already uses (Step 63) — previously this was a bare
+                text row next to a fully "carded" Community block below it,
+                which read as unfinished next to ProfileScreen's matching version. */}
+            <View style={styles.statsCard}>
+              <View style={styles.statsCardRow}>
+                <View style={styles.statBlock}>
+                  <Text style={styles.statBlockNumber}>{posts.length}</Text>
+                  <Text style={styles.statBlockLabel}>{posts.length === 1 ? 'Post' : 'Posts'}</Text>
+                </View>
+                <View style={styles.statBlockDivider} />
+                <TouchableOpacity
+                  style={styles.statBlock}
+                  onPress={() => navigation.navigate('FollowList', { userId, mode: 'followers' })}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={styles.statBlockNumber}>{followCounts.followers}</Text>
+                  <Text style={styles.statBlockLabel}>Followers</Text>
+                </TouchableOpacity>
+                <View style={styles.statBlockDivider} />
+                <TouchableOpacity
+                  style={styles.statBlock}
+                  onPress={() => navigation.navigate('FollowList', { userId, mode: 'following' })}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={styles.statBlockNumber}>{followCounts.following}</Text>
+                  <Text style={styles.statBlockLabel}>Following</Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             {!isOwnProfile && !isBlocked && (
@@ -445,19 +462,37 @@ const styles = StyleSheet.create({
     color: colors.textMid,
     marginTop: 2,
   },
-  statsRow: {
-    flexDirection: 'row',
-    gap: spacing.lg,
-    marginTop: spacing.md,
+  statsCard: {
+    width: '100%',
+    backgroundColor: colors.cardBg,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    marginTop: spacing.lg,
+    ...shadow.card,
   },
-  statText: {
+  statsCardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  statBlock: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 2,
+  },
+  statBlockNumber: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.xl,
+    color: colors.textDark,
+  },
+  statBlockLabel: {
     fontFamily: fontFamily.regular,
-    fontSize: fontSize.sm,
+    fontSize: fontSize.xs,
     color: colors.textMid,
   },
-  statNumber: {
-    fontFamily: fontFamily.bold,
-    color: colors.textDark,
+  statBlockDivider: {
+    width: 1,
+    height: 36,
+    backgroundColor: colors.border,
   },
   metaRow: {
     flexDirection: 'row',

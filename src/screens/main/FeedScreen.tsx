@@ -1110,6 +1110,28 @@ export default function FeedScreen() {
   );
 }
 
+// Declared once and reused by both `fab` and `list.paddingBottom` below, so
+// the Feed's bottom content clearance can never silently drift out of sync
+// with the FAB's own actual size/position again — the previous version
+// hardcoded 58 and spacing.lg separately in each place, and the resulting
+// clearance (spacing.lg above the FAB's own top edge) was thin enough that a
+// short/sparse feed's last post could still rest under the FAB after only a
+// moderate scroll, not a deliberate scroll-to-absolute-end gesture (Step 65
+// — a real-device audit reproduced this covering an Event post's
+// "0 interested" row twice).
+//
+// No `insets.bottom` here, unlike CreatePost/EditProfile/Conversation/
+// PostDetail's own safe-area fixes — FeedScreen is a direct Tab.Screen (see
+// TabNavigator.tsx), and React Navigation's bottom-tabs already reserves
+// `tabBarStyle.height` (which itself already includes `+ insets.bottom`) as
+// the scene's own bottom offset, so this content area is already clear of
+// the system nav bar by construction. HelpScreen/SearchScreen/etc. — the
+// other direct Tab.Screens — don't add their own insets.bottom either, for
+// the same reason. Adding it again here would double-count it and push the
+// FAB up further than necessary on 3-button-nav devices.
+const FAB_SIZE = 58;
+const FAB_BOTTOM_OFFSET = spacing.lg;
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -1117,10 +1139,9 @@ const styles = StyleSheet.create({
   },
   list: {
     padding: spacing.lg,
-    // Clears the floating create-post button (58px, offset spacing.lg from
-    // the screen bottom) plus breathing room, so the last post's content and
-    // interaction row are never covered by it (Step 31).
-    paddingBottom: spacing.lg + 58 + spacing.lg,
+    // FAB's own offset + size, plus a full extra spacing.xxl of clear gap
+    // above it (not just barely touching) — see the comment above.
+    paddingBottom: FAB_BOTTOM_OFFSET + FAB_SIZE + spacing.xxl,
   },
   welcomeCard: {
     position: 'relative',
@@ -1362,9 +1383,9 @@ const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
     right: spacing.lg,
-    bottom: spacing.lg,
-    width: 58,
-    height: 58,
+    bottom: FAB_BOTTOM_OFFSET,
+    width: FAB_SIZE,
+    height: FAB_SIZE,
     borderRadius: radius.full,
     backgroundColor: colors.primary,
     justifyContent: 'center',

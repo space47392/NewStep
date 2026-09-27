@@ -14,7 +14,7 @@ import LoadingScreen from '../../components/LoadingScreen';
 import FadeInView from '../../components/FadeInView';
 import ContributorRow from '../../components/ContributorRow';
 import { MainStackParamList, SchoolContributor } from '../../types';
-import { colors, spacing, fontSize, fontFamily } from '../../constants/theme';
+import { colors, spacing, radius, fontSize, fontFamily } from '../../constants/theme';
 
 const CONTRIBUTOR_LIMIT = 20;
 
@@ -137,7 +137,20 @@ export default function VolunteerScreen() {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />}
       ListHeaderComponent={
         <View style={styles.header}>
-          <Text style={styles.title}>🌟 Community Contributors</Text>
+          <View style={styles.titleRow}>
+            <Text style={styles.title}>🌟 Community Contributors</Text>
+            {/* Presentation-only — contributors.length is already in local
+                state (Step 10A). Matches Help's existing "N open" badge
+                pattern (same shape/spacing), so a sparse Community screen
+                gets the same kind of information anchor Help already has,
+                without a new fetch or a new badge system. Hidden at zero,
+                same as Help's, so it can never read as a misleading "0". */}
+            {contributors.length > 0 && (
+              <View style={styles.countBadge}>
+                <Text style={styles.countBadgeText}>{contributors.length}</Text>
+              </View>
+            )}
+          </View>
           <Text style={styles.subtitle}>
             {schoolName
               ? `Students who've genuinely helped others at ${schoolName}`
@@ -182,10 +195,36 @@ const styles = StyleSheet.create({
   header: {
     marginBottom: spacing.lg,
   },
+  // flexWrap so a long/localized title never pushes the badge off-screen —
+  // it wraps to its own line instead of clipping or forcing horizontal
+  // scroll (Step 10A).
+  titleRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
   title: {
+    flexShrink: 1,
     fontFamily: fontFamily.bold,
     fontSize: fontSize.xxl,
     color: colors.textDark,
+  },
+  // Same shape/spacing as HelpScreen's countBadge — primary/star-colored
+  // here instead of secondary/help-colored, matching the 🌟 star icon this
+  // screen's title already uses (the same color the "Points" stat's star
+  // icon already uses on Profile/UserProfile's Community card), not a new
+  // color introduced just for this badge.
+  countBadge: {
+    backgroundColor: colors.primaryLight,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+  },
+  countBadgeText: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.xs,
+    color: colors.primary,
   },
   subtitle: {
     fontFamily: fontFamily.regular,

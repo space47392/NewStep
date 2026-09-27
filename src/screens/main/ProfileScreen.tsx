@@ -415,7 +415,19 @@ export default function ProfileScreen() {
       </View>
 
       <FadeInView style={styles.accountSection} delay={100}>
-        <Text style={styles.email}>{user?.email}</Text>
+        {/* Own-account info only — user.email comes from the Supabase Auth
+            session (see AuthContext), not the profiles table, which has no
+            email column at all (see PUBLIC_PROFILE_FIELDS in lib/profile.ts).
+            UserProfileScreen fetches a PublicProfile instead, which never
+            carries an email, so this can't leak onto another user's profile,
+            search, feed, notifications, or follow lists — there's simply no
+            path for another viewer's session to reach it. Same icon+text row
+            pattern as the school metaRow above, restyled from bare text
+            (Step 65 — read as leftover debug text without a label). */}
+        <View style={styles.emailRow}>
+          <Ionicons name="mail-outline" size={14} color={colors.textMid} />
+          <Text style={styles.email}>{user?.email}</Text>
+        </View>
         <TouchableOpacity
           onPress={handleLogout}
           style={styles.logoutButton}
@@ -723,11 +735,16 @@ const styles = StyleSheet.create({
     marginTop: spacing.xl,
     alignItems: 'center',
   },
+  emailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: spacing.lg,
+  },
   email: {
     fontFamily: fontFamily.regular,
     fontSize: fontSize.sm,
     color: colors.textMid,
-    marginBottom: spacing.lg,
   },
   logoutButton: {
     flexDirection: 'row',

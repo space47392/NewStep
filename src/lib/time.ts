@@ -7,7 +7,23 @@ export function formatRelativeTime(dateString: string): string {
   if (diffHr < 24) return `${diffHr}h ago`;
   const diffDay = Math.floor(diffHr / 24);
   if (diffDay < 7) return `${diffDay}d ago`;
-  return new Date(dateString).toLocaleDateString();
+  // Was a bare toLocaleDateString() — device-locale "M/D/YYYY" with the year
+  // always shown, even for a date a few months ago in the current year. Right
+  // next to "5d ago" (used just above this threshold) that read as two
+  // different products' worth of timestamp styling — a real-device audit
+  // caught this exact jump in both Feed and Chat, which both call this same
+  // function. Matches formatDayLabel()'s own year-conditional logic just
+  // below (same file, same device-locale choice) and EventDetails.tsx's
+  // already-shipped short-month date style ("Sep 16") — not a new format,
+  // just this function's existing fallback finally matching the other two
+  // date formats already established elsewhere in the app.
+  const date = new Date(dateString);
+  const now = new Date();
+  return date.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
+  });
 }
 
 export function isSameDay(a: string, b: string): boolean {

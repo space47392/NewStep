@@ -706,9 +706,12 @@ export default function FeedScreen() {
                 >
                   <Ionicons name="close" size={18} color={colors.textLight} />
                 </TouchableOpacity>
-                <Text style={styles.welcomeTitle}>👋 Welcome to {mySchoolName}!</Text>
+                {/* No separate "Welcome to {school}!" headline — the school
+                    name is already the identity row directly below. Trailing
+                    arrows dropped so both buttons fit one row on a ~384dp
+                    phone at the existing text size (Step 12A). */}
                 <Text style={styles.welcomeSubtitle}>
-                  New here? Find your community and introduce yourself to other students.
+                  👋 New here? Find your community and introduce yourself to other students.
                 </Text>
                 <View style={styles.welcomeActions}>
                   <TouchableOpacity
@@ -716,14 +719,12 @@ export default function FeedScreen() {
                     onPress={() => navigation.navigate('School', { schoolId: mySchoolId ?? undefined, schoolName: mySchoolName })}
                   >
                     <Text style={styles.welcomeButtonText}>Discover your community</Text>
-                    <Ionicons name="arrow-forward" size={14} color={colors.primary} />
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.welcomeButtonSecondary}
                     onPress={() => navigation.navigate('CreatePost')}
                   >
                     <Text style={styles.welcomeButtonSecondaryText}>Introduce yourself</Text>
-                    <Ionicons name="arrow-forward" size={14} color="#fff" />
                   </TouchableOpacity>
                 </View>
               </FadeInView>
@@ -1147,8 +1148,8 @@ const styles = StyleSheet.create({
     position: 'relative',
     backgroundColor: colors.primaryLight,
     borderRadius: radius.lg,
-    padding: spacing.lg,
-    marginBottom: spacing.lg,
+    padding: spacing.md,
+    marginBottom: spacing.md,
   },
   welcomeDismiss: {
     position: 'absolute',
@@ -1157,24 +1158,22 @@ const styles = StyleSheet.create({
     padding: spacing.xs,
     zIndex: 1,
   },
-  welcomeTitle: {
-    fontFamily: fontFamily.bold,
-    fontSize: fontSize.lg,
-    color: colors.textDark,
-    paddingRight: spacing.xl,
-  },
+  // Now the banner's first line, so it carries the ✕ clearance the removed
+  // headline used to.
   welcomeSubtitle: {
     fontFamily: fontFamily.regular,
     fontSize: fontSize.sm,
     color: colors.textMid,
-    marginTop: spacing.xs,
     lineHeight: 19,
+    paddingRight: spacing.xl,
   },
+  // flexWrap kept — larger font scales or narrower phones still wrap
+  // safely to a second row instead of clipping.
   welcomeActions: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
-    marginTop: spacing.md,
+    marginTop: spacing.sm,
   },
   welcomeButton: {
     flexDirection: 'row',
@@ -1182,7 +1181,7 @@ const styles = StyleSheet.create({
     gap: 4,
     backgroundColor: colors.cardBg,
     borderRadius: radius.full,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,
   },
   welcomeButtonText: {
@@ -1196,7 +1195,7 @@ const styles = StyleSheet.create({
     gap: 4,
     backgroundColor: colors.primary,
     borderRadius: radius.full,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,
   },
   welcomeButtonSecondaryText: {

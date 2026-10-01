@@ -35,7 +35,7 @@ import FadeInView from '../../components/FadeInView';
 import PrimaryButton from '../../components/PrimaryButton';
 import ActionSheet, { ActionSheetAction } from '../../components/ActionSheet';
 import ReportSheet from '../../components/ReportSheet';
-import HelpStatusBadge from '../../components/HelpStatusBadge';
+import HelpProgress from '../../components/HelpProgress';
 import CategoryBadge from '../../components/CategoryBadge';
 import PostAuthorHeader from '../../components/PostAuthorHeader';
 import EventDetails, { isEventPast } from '../../components/EventDetails';
@@ -113,6 +113,9 @@ export default function FeedScreen() {
   const [seenStoryIds, setSeenStoryIds] = useState<Set<string>>(new Set());
   const [uploadingStory, setUploadingStory] = useState(false);
   const [mySchoolName, setMySchoolName] = useState<string | null>(null);
+  // First name for the "Hi, <name> 👋" greeting — null until the profile
+  // loads (or if no name is set), in which case the plain brand title shows.
+  const [myFirstName, setMyFirstName] = useState<string | null>(null);
   const [mySchoolId, setMySchoolId] = useState<string | null>(null);
   const [mySchoolStudentCount, setMySchoolStudentCount] = useState(0);
   const [openHelpCount, setOpenHelpCount] = useState(0);
@@ -474,6 +477,7 @@ export default function FeedScreen() {
         isWelcomeBannerDismissed(user.id),
       ]);
       setMySchoolId(profile.school_id);
+      setMyFirstName(profile.full_name?.trim().split(/\s+/)[0] || null);
       setIsNewStudent(profile.is_new_student === true);
       setWelcomeBannerDismissed(dismissed);
       // Prefer the stable school_id once set; school_name stays the fallback
@@ -735,7 +739,16 @@ export default function FeedScreen() {
                 Add your school in Pr...") when there was no school set. Now
                 "NewStep" is always shown in full; school/activity context
                 (unchanged) lives entirely in identityText below. */}
-            <Text style={styles.pageTitle}>NewStep</Text>
+            {myFirstName ? (
+              <>
+                <Text style={styles.brandLabel}>👣 NewStep</Text>
+                <Text style={styles.greeting} numberOfLines={1}>
+                  Hi, {myFirstName} 👋
+                </Text>
+              </>
+            ) : (
+              <Text style={styles.pageTitle}>NewStep</Text>
+            )}
 
             {/* One identity line instead of three separate widgets (title,
                 story caption, school pill) — same data as before, just no
@@ -977,7 +990,6 @@ export default function FeedScreen() {
 
                 <View style={styles.badgeRow}>
                   <CategoryBadge category={item.category} />
-                  {item.category === 'Need Help' && <HelpStatusBadge status={item.status} />}
                 </View>
 
                 <Text style={styles.content} numberOfLines={2}>{item.content}</Text>
@@ -994,17 +1006,13 @@ export default function FeedScreen() {
                   </View>
                 )}
 
-                {/* Not gated on category — see the matching comment in PostDetailScreen.tsx's
-                    showHelper: an active/completed helper relationship should stay visible
-                    even if the post's category is edited after the fact. */}
-                {item.status !== 'open' && item.helper ? (
-                  <View style={styles.helperNotice}>
-                    <Ionicons name="checkmark-circle" size={14} color={colors.success} />
-                    <Text style={styles.helperNoticeText}>
-                      {item.helper.full_name ?? 'Someone'} {item.status === 'completed' ? 'helped' : 'is helping'}
-                    </Text>
-                  </View>
-                ) : null}
+                {/* Also shown for a non-help post that still has a helper — see the
+                    matching comment in PostDetailScreen.tsx's showHelper: an active/
+                    completed helper relationship should stay visible even if the
+                    post's category is edited after the fact. */}
+                {(item.category === 'Need Help' || (item.status !== 'open' && item.helper)) && (
+                  <HelpProgress status={item.status} author={item.profiles} helper={item.helper} />
+                )}
 
                 {item.category === 'Need Help' && item.status === 'open' && item.author_id !== user?.id && (
                   <TouchableOpacity
@@ -1272,6 +1280,18 @@ const styles = StyleSheet.create({
     color: colors.primary,
     marginBottom: spacing.xs,
   },
+  brandLabel: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.xs,
+    color: colors.primary,
+    letterSpacing: 0.5,
+  },
+  greeting: {
+    fontFamily: fontFamily.extrabold,
+    fontSize: fontSize.xl,
+    color: colors.textDark,
+    marginBottom: spacing.xs,
+  },
   identityRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1462,17 +1482,6 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.sm,
     color: colors.primary,
-  },
-  helperNotice: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: spacing.sm,
-  },
-  helperNoticeText: {
-    fontFamily: fontFamily.semibold,
-    fontSize: fontSize.sm,
-    color: colors.success,
   },
   canHelpButton: {
     flexDirection: 'row',

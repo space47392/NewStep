@@ -1,11 +1,30 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { setIsNewStudent } from '../../lib/profile';
-import PrimaryButton from '../../components/PrimaryButton';
 import FadeInView from '../../components/FadeInView';
 import { colors, spacing, radius, fontSize, fontFamily } from '../../constants/theme';
+
+// One tap answers and moves on, same as the old two buttons.
+const CHOICES = [
+  {
+    value: true,
+    emoji: '🎒',
+    tilt: '-8deg',
+    tint: colors.primaryLight,
+    title: "Yes, I'm new",
+    body: 'Show me people, stories and help to get started.',
+  },
+  {
+    value: false,
+    emoji: '🏫',
+    tilt: '6deg',
+    tint: colors.accentLight,
+    title: 'Not right now',
+    body: "I know my way around — I'm here to help and hang out.",
+  },
+];
 
 type Props = {
   // Same onDone-driven pattern as ChooseSchool/ChooseInterests — AppNavigator
@@ -53,22 +72,33 @@ export default function ChooseNewStudentScreen({ onDone }: Props) {
           We'll help you find your community, school stories, and people to meet — no pressure either way.
         </Text>
 
-        <PrimaryButton
-          title="Yes, I'm new"
-          icon="sparkles-outline"
-          onPress={() => handleChoice(true)}
-          loading={pendingChoice === true}
-          disabled={pendingChoice !== null}
-          style={styles.button}
-        />
-        <PrimaryButton
-          title="Not right now"
-          variant="outline"
-          onPress={() => handleChoice(false)}
-          loading={pendingChoice === false}
-          disabled={pendingChoice !== null}
-          style={styles.button}
-        />
+        {CHOICES.map((choice) => (
+          <TouchableOpacity
+            key={choice.title}
+            style={[
+              styles.choice,
+              { backgroundColor: choice.tint },
+              pendingChoice !== null && pendingChoice !== choice.value && styles.choiceDimmed,
+            ]}
+            activeOpacity={0.8}
+            onPress={() => handleChoice(choice.value)}
+            disabled={pendingChoice !== null}
+            accessibilityRole="button"
+            accessibilityLabel={`${choice.title}. ${choice.body}`}
+          >
+            <Text style={[styles.choiceEmoji, { transform: [{ rotate: choice.tilt }] }]}>{choice.emoji}</Text>
+            <View style={styles.choiceText}>
+              <Text style={styles.choiceTitle}>{choice.title}</Text>
+              <Text style={styles.choiceBody}>{choice.body}</Text>
+            </View>
+            {pendingChoice === choice.value ? (
+              <ActivityIndicator color={colors.primary} />
+            ) : (
+              <Ionicons name="chevron-forward" size={18} color={colors.textLight} />
+            )}
+          </TouchableOpacity>
+        ))}
+        <Text style={styles.footnote}>You can change this anytime in Edit Profile.</Text>
       </FadeInView>
     </View>
   );
@@ -108,8 +138,40 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     marginBottom: spacing.xl,
   },
-  button: {
+  choice: {
     width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    borderRadius: radius.lg,
+    padding: spacing.md,
     marginTop: spacing.sm,
+  },
+  choiceDimmed: {
+    opacity: 0.5,
+  },
+  choiceEmoji: {
+    fontSize: 34,
+  },
+  choiceText: {
+    flex: 1,
+  },
+  choiceTitle: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.md,
+    color: colors.textDark,
+  },
+  choiceBody: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
+    color: colors.textMid,
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  footnote: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
+    color: colors.textLight,
+    marginTop: spacing.lg,
   },
 });

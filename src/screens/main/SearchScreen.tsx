@@ -82,6 +82,9 @@ function sharedInterests(mine: string[], theirs: string[]): string[] {
 }
 
 const SUGGESTED_PEOPLE_LIMIT = 5;
+// Same pastel cycle as InterestChips, so shared interests look like the ones
+// on a profile.
+const SHARED_TINTS = [colors.primaryLight, colors.secondaryLight, colors.accentLight, colors.warningLight];
 
 export default function SearchScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
@@ -553,14 +556,21 @@ export default function SearchScreen() {
                               guarantees: every suggestion here is already same-school, and
                               the shared count comes straight from sharedInterests() above —
                               never an inferred or invented signal (Step 30). */}
-                          <Text style={styles.personReason}>
-                            Same school
-                            {shared.length > 0 ? ` · ${shared.length} shared interest${shared.length === 1 ? '' : 's'}` : ''}
-                          </Text>
-                          {shared.length > 0 && (
-                            <Text style={styles.personInterests} numberOfLines={1}>
-                              {shared.slice(0, 3).map((i) => `${getInterestIcon(i)} ${i}`).join(' · ')}
-                            </Text>
+                          {shared.length > 0 ? (
+                            <>
+                              <Text style={styles.personReason}>You both like</Text>
+                              <View style={styles.sharedRow}>
+                                {shared.slice(0, 3).map((i, idx) => (
+                                  <View key={i} style={[styles.sharedChip, { backgroundColor: SHARED_TINTS[idx % SHARED_TINTS.length] }]}>
+                                    <Text style={styles.sharedChipText} numberOfLines={1}>
+                                      {getInterestIcon(i)} {i}
+                                    </Text>
+                                  </View>
+                                ))}
+                              </View>
+                            </>
+                          ) : (
+                            <Text style={styles.personReason}>Same school</Text>
                           )}
                         </>
                       }
@@ -867,11 +877,22 @@ const styles = StyleSheet.create({
     color: colors.textLight,
     marginTop: 2,
   },
-  personInterests: {
-    fontFamily: fontFamily.medium,
+  sharedRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+    marginTop: 4,
+  },
+  sharedChip: {
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    maxWidth: 140,
+  },
+  sharedChipText: {
+    fontFamily: fontFamily.semibold,
     fontSize: fontSize.xs,
-    color: colors.primary,
-    marginTop: 2,
+    color: colors.textDark,
   },
   // Same PrimaryButton every other Follow action in the app uses (see
   // UserProfileScreen) — just narrower, so it fits inline in a person row

@@ -13,10 +13,20 @@ import ErrorState from '../../components/ErrorState';
 import LoadingScreen from '../../components/LoadingScreen';
 import FadeInView from '../../components/FadeInView';
 import ContributorRow from '../../components/ContributorRow';
+import PrimaryButton from '../../components/PrimaryButton';
 import { MainStackParamList, SchoolContributor } from '../../types';
 import { colors, spacing, radius, fontSize, fontFamily } from '../../constants/theme';
 
 const CONTRIBUTOR_LIMIT = 20;
+
+// Mirrors how someone actually lands on this list: contributors are students
+// with at least one thank-you (fetchSchoolContributors), so the last step is
+// exactly that — no promise this screen can't keep.
+const HOW_TO_STEPS = [
+  { emoji: '🙋', tint: colors.secondaryLight, text: 'Find a request in Help' },
+  { emoji: '🤝', tint: colors.primaryLight, text: 'Offer to help out' },
+  { emoji: '💙', tint: colors.accentLight, text: 'Get a thank-you' },
+];
 
 // A contributor plus their "students helped" count — computed per-contributor
 // via fetchHelpStats() (Promise.all, bounded by CONTRIBUTOR_LIMIT) since
@@ -161,6 +171,8 @@ export default function VolunteerScreen() {
       ListEmptyComponent={
         <EmptyState
           icon="star-outline"
+          emoji={hasSchool ? '🌟' : '🏫'}
+          tint={colors.warningLight}
           title={hasSchool ? 'No community contributors yet' : 'Add your school to see contributors'}
           subtitle={
             hasSchool
@@ -168,6 +180,29 @@ export default function VolunteerScreen() {
               : 'Set your school from your profile to see students who have helped others there.'
           }
         />
+      }
+      ListFooterComponent={
+        hasSchool ? (
+          <View style={styles.howTo}>
+            <Text style={styles.howToTitle}>How to show up here</Text>
+            <View style={styles.howToSteps}>
+              {HOW_TO_STEPS.map((step) => (
+                <View key={step.text} style={styles.howToStep}>
+                  <View style={[styles.howToCircle, { backgroundColor: step.tint }]}>
+                    <Text style={styles.howToEmoji}>{step.emoji}</Text>
+                  </View>
+                  <Text style={styles.howToText}>{step.text}</Text>
+                </View>
+              ))}
+            </View>
+            <PrimaryButton
+              title="See who needs help"
+              icon="hand-left-outline"
+              variant="outline"
+              onPress={() => navigation.navigate('Tabs', { screen: 'Help' })}
+            />
+          </View>
+        ) : null
       }
       renderItem={({ item, index }) => (
         <FadeInView delay={Math.min(index, 6) * 40}>
@@ -231,6 +266,44 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.textMid,
     marginTop: spacing.xs,
+  },
+  howTo: {
+    marginTop: spacing.lg,
+    backgroundColor: colors.cardBg,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    gap: spacing.md,
+  },
+  howToTitle: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.md,
+    color: colors.textDark,
+    textAlign: 'center',
+  },
+  howToSteps: {
+    flexDirection: 'row',
+  },
+  howToStep: {
+    flex: 1,
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  howToCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  howToEmoji: {
+    fontSize: 22,
+  },
+  howToText: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.xs,
+    color: colors.textMid,
+    textAlign: 'center',
+    paddingHorizontal: spacing.xs,
   },
   statsRow: {
     flexDirection: 'row',

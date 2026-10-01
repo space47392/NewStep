@@ -94,8 +94,10 @@ export default function ChatScreen() {
         ) : (
           <EmptyState
             icon="chatbubbles-outline"
-            title="No conversations yet"
-            subtitle="Volunteer to help someone, or get help, to start one!"
+            emoji="👋"
+            tint={colors.warningLight}
+            title="No chats yet"
+            subtitle="Say hi to someone from your school, or offer to help with a request — every friendship starts with a wave."
           />
         )
       }

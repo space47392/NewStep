@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import ConfettiBurst from '../../components/ConfettiBurst';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { fetchComments, addComment, subscribeToComments } from '../../lib/comments';
@@ -28,7 +29,6 @@ import { fetchInterestedPostIds } from '../../lib/eventInterests';
 import { sharePost } from '../../lib/share';
 import { fetchHelpStats, thankHelper } from '../../lib/points';
 import { fetchProfileById } from '../../lib/profile';
-import { resolveSchoolName } from '../../lib/schools';
 import { formatRelativeTime } from '../../lib/time';
 import Avatar from '../../components/Avatar';
 import EmptyState from '../../components/EmptyState';
@@ -37,7 +37,7 @@ import PrimaryButton from '../../components/PrimaryButton';
 import FadeInView from '../../components/FadeInView';
 import ActionSheet, { ActionSheetAction } from '../../components/ActionSheet';
 import ReportSheet from '../../components/ReportSheet';
-import HelpStatusBadge from '../../components/HelpStatusBadge';
+import HelpProgress from '../../components/HelpProgress';
 import StoryOriginBadge from '../../components/StoryOriginBadge';
 import CategoryBadge from '../../components/CategoryBadge';
 import PostAuthorHeader from '../../components/PostAuthorHeader';
@@ -73,6 +73,8 @@ export default function PostDetailScreen() {
   const [sending, setSending] = useState(false);
   const [volunteering, setVolunteering] = useState(false);
   const [completing, setCompleting] = useState(false);
+  // Bumped to fire the confetti when this screen marks a request done.
+  const [confettiKey, setConfettiKey] = useState(0);
   const [messaging, setMessaging] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
   const [deletingPost, setDeletingPost] = useState(false);
@@ -280,6 +282,7 @@ export default function PostDetailScreen() {
       const updated = await markPostCompleted(post.id);
       setPost(updated);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setConfettiKey(Date.now());
     } catch (err) {
       // Transient/retryable, not destructive — a toast is enough (Step 30).
       const message = err instanceof Error ? err.message : 'Could not mark as completed.';
@@ -508,7 +511,6 @@ export default function PostDetailScreen() {
 
             <View style={styles.badgeRow}>
               <CategoryBadge category={post.category} />
-              {post.category === 'Need Help' && <HelpStatusBadge status={post.status} />}
               {post.source_story_id && <StoryOriginBadge />}
             </View>
 
@@ -524,6 +526,77 @@ export default function PostDetailScreen() {
                   }
                 />
               </View>
+            )}
+
+            {/* Every help action (volunteer, message, mark done, thanks) lives
+                inside the help panel now, next to the step it belongs to,
+                instead of scattered below the post. */}
+            {(post.category === 'Need Help' || showHelper) && (
+              <HelpProgress
+                status={post.status}
+                author={post.profiles}
+                helper={post.helper}
+                waitingText={
+                  post.author_id === user?.id
+                    ? "You asked — we'll let you know when someone offers to help."
+                    : 'Asked — waiting for a helper'
+                }
+                onPressHelper={
+                  post.helper ? () => navigation.navigate('UserProfile', { userId: post.helper!.id }) : undefined
+                }
+              >
+                {post.status === 'completed' && post.helper && (
+                  <Text style={styles.doneText}>
+                    🎉 Done! {post.helper.full_name?.split(' ')[0] ?? 'They'} earned a Community Point for helping.
+                  </Text>
+                )}
+                {post.status === 'completed' && contribution && (
+                  <View style={styles.contributionRow}>
+                    <Text style={styles.contributionText}>
+                      🤝 Helped {contribution.studentsHelped} {contribution.studentsHelped === 1 ? 'student' : 'students'}
+                    </Text>
+                    <Text style={styles.contributionText}>
+                      ⭐ {contribution.points} Community {contribution.points === 1 ? 'Point' : 'Points'}
+                    </Text>
+                    <Text style={styles.contributionText}>💙 {contribution.thanksReceived} Thanks Received</Text>
+                  </View>
+                )}
+                {canVolunteer && (
+                  <PrimaryButton title="I Can Help" icon="hand-left-outline" onPress={handleVolunteer} loading={volunteering} />
+                )}
+                {showHelper && post.helper && (user?.id === post.author_id || user?.id === post.helper.id) && (
+                  <View style={styles.helperActions}>
+                    <PrimaryButton
+                      title={`Message ${
+                        (user?.id === post.author_id ? post.helper.full_name : post.profiles?.full_name)?.split(' ')[0] ?? ''
+                      }`.trim()}
+                      icon="chatbubble-outline"
+                      variant="outline"
+                      onPress={handleMessage}
+                      loading={messaging}
+                      style={styles.panelButton}
+                    />
+                    {user?.id === post.author_id && post.status === 'completed' && !alreadyThanked && (
+                      <PrimaryButton
+                        title={`Say thanks to ${post.helper.full_name?.split(' ')[0] ?? 'them'}`}
+                        icon="heart-outline"
+                        variant="success"
+                        onPress={handleThankHelper}
+                        loading={thanking}
+                        style={styles.panelButton}
+                      />
+                    )}
+                  </View>
+                )}
+                {canComplete && (
+                  <PrimaryButton
+                    title="Mark as done"
+                    icon="checkmark-circle-outline"
+                    onPress={handleComplete}
+                    loading={completing}
+                  />
+                )}
+              </HelpProgress>
             )}
 
             {/* Hidden (not disabled) once the event has passed — see
@@ -558,82 +631,6 @@ export default function PostDetailScreen() {
               </View>
             </View>
 
-            {canVolunteer && (
-              <PrimaryButton
-                title="I Can Help"
-                icon="hand-left-outline"
-                onPress={handleVolunteer}
-                loading={volunteering}
-                style={styles.actionButton}
-              />
-            )}
-
-            {showHelper && post.helper && (
-              <View style={styles.helperCard}>
-                <Text style={styles.helperLabel}>
-                  {post.status === 'completed' ? '✅ Helped by' : '🤝 Helping'}
-                </Text>
-                <TouchableOpacity
-                  style={styles.helperRow}
-                  onPress={() => navigation.navigate('UserProfile', { userId: post.helper!.id })}
-                >
-                  <Avatar uri={post.helper.avatar_url} size={36} />
-                  <View style={styles.helperTextWrap}>
-                    <Text style={styles.helperName}>{post.helper.full_name ?? 'Unknown'}</Text>
-                    {resolveSchoolName(post.helper) ? (
-                      <Text style={styles.helperSchool}>{resolveSchoolName(post.helper)}</Text>
-                    ) : null}
-                  </View>
-                </TouchableOpacity>
-
-                {post.status === 'completed' && contribution && (
-                  <View style={styles.contributionRow}>
-                    <Text style={styles.contributionText}>
-                      🤝 Helped {contribution.studentsHelped} {contribution.studentsHelped === 1 ? 'student' : 'students'}
-                    </Text>
-                    <Text style={styles.contributionText}>
-                      ⭐ {contribution.points} Community {contribution.points === 1 ? 'Point' : 'Points'}
-                    </Text>
-                    <Text style={styles.contributionText}>💙 {contribution.thanksReceived} Thanks Received</Text>
-                  </View>
-                )}
-
-                <View style={styles.helperActions}>
-                  {(user?.id === post.author_id || user?.id === post.helper.id) && (
-                    <PrimaryButton
-                      title="Message"
-                      icon="chatbubble-outline"
-                      variant="outline"
-                      onPress={handleMessage}
-                      loading={messaging}
-                      style={styles.messageButton}
-                    />
-                  )}
-                  {user?.id === post.author_id && post.status === 'completed' && !alreadyThanked && (
-                    <PrimaryButton
-                      title={`Thank ${post.helper.full_name?.split(' ')[0] ?? 'them'}`}
-                      icon="heart-outline"
-                      variant="outline"
-                      onPress={handleThankHelper}
-                      loading={thanking}
-                      style={styles.messageButton}
-                    />
-                  )}
-                </View>
-              </View>
-            )}
-
-            {canComplete && (
-              <PrimaryButton
-                title="Mark as Completed"
-                icon="checkmark-circle-outline"
-                variant="success"
-                onPress={handleComplete}
-                loading={completing}
-                style={styles.actionButton}
-              />
-            )}
-
             <Text style={styles.commentsLabel}>
               {loading ? 'Comments' : `${comments.length} Comment${comments.length === 1 ? '' : 's'}`}
             </Text>
@@ -647,7 +644,13 @@ export default function PostDetailScreen() {
               <CommentSkeleton />
             </View>
           ) : (
-            <EmptyState icon="chatbubbles-outline" title="No comments yet" subtitle="Start the conversation!" />
+            <EmptyState
+              icon="chatbubbles-outline"
+              emoji="💬"
+              tint={colors.accentLight}
+              title="Be the first to reply"
+              subtitle={post.category === 'Need Help' || post.category === 'School Question' ? "Know the answer? Even a small tip helps." : "Say something nice to get things going."}
+            />
           )
         }
         renderItem={({ item }) => (
@@ -696,6 +699,7 @@ export default function PostDetailScreen() {
 
       <ActionSheet visible={menuVisible} onClose={() => setMenuVisible(false)} actions={menuActions} />
       <ReportSheet target={reportTarget} reporterId={user?.id} onClose={() => setReportTarget(null)} />
+      <ConfettiBurst trigger={confettiKey} />
     </KeyboardAvoidingView>
   );
 }
@@ -750,26 +754,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 1,
   },
-  actionButton: {
-    marginBottom: spacing.md,
-  },
-  helperCard: {
-    backgroundColor: colors.accentLight,
-    borderRadius: radius.md,
-    padding: spacing.sm,
-    marginBottom: spacing.md,
-  },
-  helperLabel: {
+  doneText: {
     fontFamily: fontFamily.bold,
-    fontSize: fontSize.xs,
-    color: colors.success,
-    marginBottom: spacing.xs,
+    fontSize: fontSize.sm,
+    color: colors.accentDark,
   },
   contributionRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.md,
-    marginTop: spacing.sm,
   },
   contributionText: {
     fontFamily: fontFamily.semibold,
@@ -781,27 +774,9 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: spacing.sm,
   },
-  messageButton: {
-    marginTop: spacing.sm,
-    alignSelf: 'flex-start',
+  panelButton: {
+    flexGrow: 1,
     minWidth: 130,
-  },
-  helperRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  helperTextWrap: {
-    marginLeft: spacing.sm,
-  },
-  helperName: {
-    fontFamily: fontFamily.semibold,
-    fontSize: fontSize.sm,
-    color: colors.textDark,
-  },
-  helperSchool: {
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.xs,
-    color: colors.textMid,
   },
   badgeRow: {
     flexDirection: 'row',

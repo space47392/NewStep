@@ -46,6 +46,8 @@ const SECTION_LIMIT = 5;
 const MEMBER_LIMIT = 30;
 const DISCOVERY_LIMIT = 10;
 const CONTRIBUTOR_LIMIT = 5;
+const BUNTING_FLAGS = 14;
+const BUNTING_TINTS = [colors.secondary, colors.warning, colors.accent, colors.primary];
 
 // Shared by the Members row and both "Find your community" rows — same card
 // shape (avatar + name, tap through to the real profile). Callers own their
@@ -316,17 +318,49 @@ export default function SchoolScreen() {
       </TouchableOpacity>
 
       <FadeInView style={styles.header}>
-        <Text style={styles.schoolName}>🏫 {directorySchool?.name ?? schoolName}</Text>
-        {directorySchool?.city ? (
-          <Text style={styles.schoolLocation}>
-            {directorySchool.city}
-            {directorySchool.state ? `, ${directorySchool.state}` : ''}
-          </Text>
-        ) : null}
-        <Text style={styles.studentCount}>
-          {studentCount} {studentCount === 1 ? 'Student' : 'Students'}
-        </Text>
-        <Text style={styles.disclaimer}>Community-built from student profiles — not officially verified.</Text>
+        <View style={styles.pennant}>
+          <Text style={styles.schoolName}>🏫 {directorySchool?.name ?? schoolName}</Text>
+          {directorySchool?.city ? (
+            <Text style={styles.schoolLocation}>
+              {directorySchool.city}
+              {directorySchool.state ? `, ${directorySchool.state}` : ''}
+            </Text>
+          ) : null}
+        </View>
+        {/* A string of little flags under the banner — the school's own
+            pennant, instead of a plain card header. */}
+        <View style={styles.bunting} importantForAccessibility="no-hide-descendants">
+          {Array.from({ length: BUNTING_FLAGS }, (_, i) => (
+            <View key={i} style={[styles.buntingFlag, { borderTopColor: BUNTING_TINTS[i % BUNTING_TINTS.length] }]} />
+          ))}
+        </View>
+        <View style={styles.headerBody}>
+          <View style={styles.quickChips}>
+            <View style={[styles.quickChip, { backgroundColor: colors.primaryLight }]}>
+              <Text style={styles.quickChipText}>
+                🎒 {studentCount} {studentCount === 1 ? 'student' : 'students'}
+              </Text>
+            </View>
+            {openHelpPosts.length > 0 && (
+              <View style={[styles.quickChip, { backgroundColor: colors.secondaryLight }]}>
+                <Text style={styles.quickChipText}>
+                  🙋 {openHelpPosts.length}
+                  {openHelpPosts.length >= SECTION_LIMIT ? '+' : ''} need help
+                </Text>
+              </View>
+            )}
+            {upcomingEvents.length > 0 && (
+              <View style={[styles.quickChip, { backgroundColor: colors.warningLight }]}>
+                <Text style={styles.quickChipText}>
+                  🎉 {upcomingEvents.length}
+                  {upcomingEvents.length >= SECTION_LIMIT ? '+' : ''}{' '}
+                  {upcomingEvents.length === 1 ? 'event' : 'events'}
+                </Text>
+              </View>
+            )}
+          </View>
+          <Text style={styles.disclaimer}>Community-built from student profiles — not officially verified.</Text>
+        </View>
       </FadeInView>
 
       {schoolStories.length > 0 && (
@@ -522,20 +556,62 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: colors.cardBg,
     borderRadius: radius.lg,
-    padding: spacing.lg,
     marginBottom: spacing.lg,
+    overflow: 'hidden',
     ...shadow.card,
+  },
+  pennant: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.md,
   },
   schoolName: {
     fontFamily: fontFamily.bold,
     fontSize: fontSize.xxl,
-    color: colors.textDark,
+    color: '#fff',
   },
   schoolLocation: {
-    fontFamily: fontFamily.regular,
+    fontFamily: fontFamily.medium,
     fontSize: fontSize.xs,
-    color: colors.textLight,
+    color: '#fff',
+    opacity: 0.85,
     marginTop: 2,
+  },
+  bunting: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.sm,
+    height: 14,
+  },
+  buntingFlag: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: 9,
+    borderRightWidth: 9,
+    borderTopWidth: 14,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+  },
+  headerBody: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.md,
+  },
+  quickChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  quickChip: {
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: 4,
+  },
+  quickChipText: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.xs,
+    color: colors.textDark,
   },
   studentCount: {
     fontFamily: fontFamily.regular,

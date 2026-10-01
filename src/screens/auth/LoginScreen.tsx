@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase';
 import IconInput from '../../components/IconInput';
 import PrimaryButton from '../../components/PrimaryButton';
 import FadeInView from '../../components/FadeInView';
+import FootstepsIntro from '../../components/FootstepsIntro';
 import { colors, spacing, radius, fontSize, fontFamily } from '../../constants/theme';
 import { AuthStackParamList } from '../../types';
 
@@ -13,10 +14,20 @@ type Props = {
   navigation: NativeStackNavigationProp<AuthStackParamList, 'Login'>;
 };
 
+const TRAIL = [
+  { opacity: 0.15, y: 6 },
+  { opacity: 0.3, y: -2 },
+  { opacity: 0.5, y: 6 },
+];
+
 export default function LoginScreen({ navigation }: Props) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  // Plays every time this screen mounts (app launch, or after logging out).
+  // Coming back from Register/Forgot Password doesn't remount it — those
+  // screens sit on top in the stack — so the intro never replays mid-flow.
+  const [showIntro, setShowIntro] = useState(true);
   // Synchronous re-entrancy guard — `loading` state only disables the button
   // on the next render, leaving a brief window for a rapid double-tap to fire
   // a second signInWithPassword() call. Not just a cosmetic concern: Supabase
@@ -48,6 +59,18 @@ export default function LoginScreen({ navigation }: Props) {
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={styles.inner}>
         <FadeInView style={styles.header}>
+          {/* Footprints walking up to the badge — the "new step" itself. */}
+          <View style={styles.trail} importantForAccessibility="no-hide-descendants">
+            {TRAIL.map((step, i) => (
+              <Ionicons
+                key={i}
+                name="footsteps"
+                size={14}
+                color={colors.primary}
+                style={{ opacity: step.opacity, transform: [{ translateY: step.y }, { rotate: '-90deg' }] }}
+              />
+            ))}
+          </View>
           <View style={styles.logoBadge}>
             <Ionicons name="footsteps" size={32} color={colors.primary} />
           </View>
@@ -95,6 +118,11 @@ export default function LoginScreen({ navigation }: Props) {
           </TouchableOpacity>
         </FadeInView>
       </View>
+      {showIntro && (
+        <FootstepsIntro
+          onDone={() => setShowIntro(false)}
+        />
+      )}
     </KeyboardAvoidingView>
   );
 }
@@ -112,6 +140,11 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     marginBottom: spacing.xxl,
+  },
+  trail: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginBottom: spacing.sm,
   },
   logoBadge: {
     width: 64,

@@ -36,6 +36,17 @@ function dedupeAppendNotifications(prev: AppNotification[], additions: AppNotifi
   return [...prev, ...additions.filter((n) => !existingIds.has(n.id))];
 }
 
+// Splits the list into "Today / This week / Earlier" so a long list reads
+// like a timeline instead of one undifferentiated column.
+function timeBucket(iso: string): string {
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const t = new Date(iso).getTime();
+  if (t >= startOfToday.getTime()) return 'Today';
+  if (t >= startOfToday.getTime() - 6 * 24 * 60 * 60 * 1000) return 'This week';
+  return 'Earlier';
+}
+
 export default function NotificationsScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
   const { user } = useAuth();
@@ -293,6 +304,7 @@ export default function NotificationsScreen() {
           ) : (
             <EmptyState
               icon="notifications-outline"
+              emoji="✨"
               title="You're all caught up"
               subtitle="No new activity yet."
             />
@@ -300,8 +312,11 @@ export default function NotificationsScreen() {
         }
         renderItem={({ item, index }) => {
           const unread = !item.read_at;
+          const bucket = timeBucket(item.created_at);
+          const showBucket = index === 0 || timeBucket(grouped[index - 1].created_at) !== bucket;
           return (
             <FadeInView delay={Math.min(index, 6) * 30}>
+              {showBucket && <Text style={styles.bucketLabel}>{bucket}</Text>}
               <TouchableOpacity
                 style={[
                   styles.row,
@@ -348,6 +363,13 @@ export default function NotificationsScreen() {
 }
 
 const styles = StyleSheet.create({
+  bucketLabel: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.sm,
+    color: colors.textMid,
+    marginTop: spacing.sm,
+    marginBottom: spacing.sm,
+  },
   container: {
     flex: 1,
     backgroundColor: colors.background,

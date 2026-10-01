@@ -1,6 +1,6 @@
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import Avatar from './Avatar';
-import HelpStatusBadge from './HelpStatusBadge';
+import HelpProgress from './HelpProgress';
 import CategoryBadge from './CategoryBadge';
 import { formatRelativeTime } from '../lib/time';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../constants/theme';
@@ -30,21 +30,19 @@ export default function PostPreviewCard({ post, onPress, showCategory = true }: 
         </View>
         {showCategory && <CategoryBadge category={post.category} size="sm" />}
       </View>
-      {/* A "Need Help" result found via search may already be resolved — the
-          same status pill Feed/PostDetail already use, so a search hit never
-          looks indistinguishable from a still-open request (Step 43). Shown
-          regardless of showCategory: even where the category label itself is
-          hidden (already-known-category sections), the status is still new
-          information worth showing. */}
-      {post.category === 'Need Help' && (
-        <View style={styles.statusRow}>
-          <HelpStatusBadge status={post.status} />
-        </View>
-      )}
       <Text style={styles.content} numberOfLines={2}>
         {post.content}
       </Text>
       <EventDetails post={post} />
+      {/* A "Need Help" result found via search may already be resolved — the
+          same step tracker Feed/PostDetail use, so a search hit never looks
+          indistinguishable from a still-open request (Step 43). Shown
+          regardless of showCategory: even where the category label itself is
+          hidden (already-known-category sections), the status is still new
+          information worth showing. */}
+      {post.category === 'Need Help' && (
+        <HelpProgress status={post.status} author={post.profiles} helper={post.helper} />
+      )}
     </TouchableOpacity>
   );
 }
@@ -80,9 +78,6 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     fontSize: fontSize.xs,
     color: colors.textLight,
-  },
-  statusRow: {
-    marginBottom: spacing.xs,
   },
   content: {
     fontFamily: fontFamily.regular,

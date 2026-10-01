@@ -37,6 +37,11 @@ export default function StoryViewerScreen() {
   const [deleting, setDeleting] = useState(false);
   const [messaging, setMessaging] = useState(false);
   const [waving, setWaving] = useState(false);
+  // Stories waved at during this viewing session — the pill turns into a
+  // yellow "Said hi" so it's clear the wave landed (not persisted; the
+  // notification itself is the durable record).
+  const [wavedStoryIds, setWavedStoryIds] = useState<Set<string>>(new Set());
+  const waveAnim = useRef(new Animated.Value(0)).current;
   const [menuVisible, setMenuVisible] = useState(false);
   const [reportTarget, setReportTarget] = useState<{ type: ReportTargetType; id: string } | null>(null);
   const [imageLoaded, setImageLoaded] = useState(false);
@@ -261,7 +266,14 @@ export default function StoryViewerScreen() {
     try {
       await sayHiToStory(story.id);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      showToast('Hi sent! 👋');
+      if (!isMountedRef.current) return;
+      setWavedStoryIds((prev) => new Set(prev).add(story.id));
+      waveAnim.setValue(0);
+      Animated.sequence([
+        Animated.spring(waveAnim, { toValue: 1, friction: 4, tension: 80, useNativeDriver: true }),
+        Animated.delay(700),
+        Animated.timing(waveAnim, { toValue: 2, duration: 250, useNativeDriver: true }),
+      ]).start();
     } catch (err) {
       // Transient/retryable, not destructive — a toast is enough (Step 30).
       const message = err instanceof Error ? err.message : 'Could not send that.';
@@ -431,9 +443,15 @@ export default function StoryViewerScreen() {
         </TouchableOpacity>
       ) : (
         <View style={[styles.actionsRow, { bottom: spacing.xl + insets.bottom }]}>
-          <TouchableOpacity style={styles.actionPill} onPress={handleSayHi} disabled={waving}>
-            {waving ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.actionPillText}>👋 Say Hi</Text>}
-          </TouchableOpacity>
+          {wavedStoryIds.has(story.id) ? (
+            <View style={[styles.actionPill, styles.actionPillWaved]} accessible accessibilityLabel="Said hi">
+              <Text style={[styles.actionPillText, styles.actionPillTextWaved]}>👋 Said hi</Text>
+            </View>
+          ) : (
+            <TouchableOpacity style={styles.actionPill} onPress={handleSayHi} disabled={waving}>
+              {waving ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.actionPillText}>👋 Say Hi</Text>}
+            </TouchableOpacity>
+          )}
           <TouchableOpacity style={styles.actionPill} onPress={handleICanHelp} disabled={messaging}>
             <Text style={styles.actionPillText}>🤝 I Can Help</Text>
           </TouchableOpacity>
@@ -442,6 +460,25 @@ export default function StoryViewerScreen() {
           </TouchableOpacity>
         </View>
       )}
+
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          styles.waveBurst,
+          {
+            opacity: waveAnim.interpolate({ inputRange: [0, 0.3, 1, 2], outputRange: [0, 1, 1, 0] }),
+            transform: [
+              { scale: waveAnim.interpolate({ inputRange: [0, 1, 2], outputRange: [0.4, 1, 1.15] }) },
+              { rotate: waveAnim.interpolate({ inputRange: [0, 1, 2], outputRange: ['-30deg', '-10deg', '-10deg'] }) },
+            ],
+          },
+        ]}
+      >
+        <Text style={styles.waveEmoji}>👋</Text>
+        <Text style={styles.waveText}>
+          Hi sent to {story.profiles?.full_name?.trim().split(/\s+/)[0] || 'them'}!
+        </Text>
+      </Animated.View>
 
       <ActionSheet visible={menuVisible} onClose={() => setMenuVisible(false)} actions={menuActions} />
       <ReportSheet target={reportTarget} reporterId={user?.id} onClose={() => setReportTarget(null)} />
@@ -586,6 +623,29 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.45)',
     borderRadius: radius.full,
     paddingVertical: spacing.sm,
+  },
+  actionPillWaved: {
+    backgroundColor: colors.warning,
+  },
+  actionPillTextWaved: {
+    color: colors.textDark,
+  },
+  waveBurst: {
+    position: 'absolute',
+    top: '35%',
+    alignSelf: 'center',
+    alignItems: 'center',
+  },
+  waveEmoji: {
+    fontSize: 96,
+  },
+  waveText: {
+    marginTop: spacing.sm,
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.lg,
+    color: '#fff',
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowRadius: 6,
   },
   actionPillText: {
     fontFamily: fontFamily.semibold,

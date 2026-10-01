@@ -8,7 +8,6 @@ import PrimaryButton from '../../components/PrimaryButton';
 import LoadingScreen from '../../components/LoadingScreen';
 import FadeInView from '../../components/FadeInView';
 import { colors, spacing, radius, fontSize, fontFamily } from '../../constants/theme';
-import { MAX_INTERESTS } from '../../constants/interests';
 
 type Props = {
   // Same onDone-driven pattern as ChooseSchoolScreen's onboarding mode —
@@ -71,7 +70,7 @@ export default function ChooseInterestsScreen({ onDone }: Props) {
             <Ionicons name="sparkles" size={32} color={colors.primary} />
           </View>
           <Text style={styles.title}>Choose your interests</Text>
-          <Text style={styles.subtitle}>Pick up to {MAX_INTERESTS}. Optional — you can change these anytime.</Text>
+          <Text style={styles.subtitle}>Optional — you can change these anytime.</Text>
 
           <InterestPicker value={interests} onChange={setInterests} />
 

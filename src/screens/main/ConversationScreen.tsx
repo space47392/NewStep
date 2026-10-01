@@ -34,7 +34,8 @@ import {
 } from '../../lib/chat';
 import { formatRelativeTime, formatDayLabel, isSameDay } from '../../lib/time';
 import Avatar from '../../components/Avatar';
-import EmptyState from '../../components/EmptyState';
+import { fetchProfileById } from '../../lib/profile';
+import { getInterestIcon } from '../../constants/interests';
 import ErrorState from '../../components/ErrorState';
 import { MessageSkeleton } from '../../components/Skeleton';
 import TypingIndicator from '../../components/TypingIndicator';
@@ -93,6 +94,9 @@ export default function ConversationScreen() {
   const [reportTarget, setReportTarget] = useState<{ type: ReportTargetType; id: string } | null>(null);
   const [otherTyping, setOtherTyping] = useState(false);
   const [hasMoreOlder, setHasMoreOlder] = useState(true);
+  // Shared interests for the empty-chat "say hello" prompt — a conversation
+  // starter built only from what both profiles actually list.
+  const [sharedInterests, setSharedInterests] = useState<string[]>([]);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const listRef = useRef<FlatList>(null);
   const typingRef = useRef<ReturnType<typeof subscribeToTyping> | null>(null);
@@ -139,6 +143,23 @@ export default function ConversationScreen() {
     }
     return null;
   }, [messages, user?.id]);
+
+  useEffect(() => {
+    if (!user || !otherUser) return;
+    let cancelled = false;
+    Promise.all([fetchProfileById(user.id), fetchProfileById(otherUser.id)])
+      .then(([mine, theirs]) => {
+        if (cancelled) return;
+        const mineSet = new Set(mine.interests.map((i) => i.toLowerCase()));
+        setSharedInterests(theirs.interests.filter((i) => mineSet.has(i.toLowerCase())));
+      })
+      .catch(() => {
+        // Optional nicety — the prompt still works without it.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user, otherUser]);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -578,7 +599,42 @@ export default function ConversationScreen() {
               </TouchableOpacity>
             ) : null
           }
-          ListEmptyComponent={<EmptyState icon="happy-outline" title="Say hello!" subtitle="Start the conversation." />}
+          ListEmptyComponent={
+            <View style={styles.hello}>
+              <View style={styles.helloCircle}>
+                <Text style={styles.helloEmoji}>👋</Text>
+              </View>
+              <Text style={styles.helloTitle}>
+                Say hello{otherUser?.full_name ? ` to ${otherUser.full_name.trim().split(/\s+/)[0]}` : ''}!
+              </Text>
+              {sharedInterests.length > 0 ? (
+                <>
+                  <Text style={styles.helloSubtitle}>You both like</Text>
+                  <View style={styles.helloChips}>
+                    {sharedInterests.slice(0, 3).map((i) => (
+                      <View key={i} style={styles.helloChip}>
+                        <Text style={styles.helloChipText}>
+                          {getInterestIcon(i)} {i}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                </>
+              ) : (
+                <Text style={styles.helloSubtitle}>Every friendship starts with a wave.</Text>
+              )}
+              {otherUser && !text.trim() && (
+                <TouchableOpacity
+                  style={styles.helloStarter}
+                  onPress={() => setText('Hey! 👋')}
+                  accessibilityRole="button"
+                  accessibilityLabel="Start with Hey"
+                >
+                  <Text style={styles.helloStarterText}>👋 Hey!</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          }
           renderItem={({ item, index }) => {
             const isMine = item.sender_id === user?.id;
             const isDeleted = !!item.deleted_at;
@@ -638,6 +694,9 @@ export default function ConversationScreen() {
                       style={[
                         styles.bubble,
                         isMine ? styles.bubbleMine : styles.bubbleTheirs,
+                        // The last bubble of a run gets a little "tail" corner
+                        // pointing at whoever said it.
+                        isLastInGroup && (isMine ? styles.bubbleTailMine : styles.bubbleTailTheirs),
                         isDeleted && styles.bubbleDeleted,
                       ]}
                     >
@@ -895,6 +954,12 @@ const styles = StyleSheet.create({
   bubbleMine: {
     backgroundColor: colors.primary,
   },
+  bubbleTailMine: {
+    borderBottomRightRadius: 4,
+  },
+  bubbleTailTheirs: {
+    borderBottomLeftRadius: 4,
+  },
   bubbleTheirs: {
     backgroundColor: colors.cardBg,
     borderWidth: 1,
@@ -1019,5 +1084,66 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.medium,
     fontSize: fontSize.sm,
     color: colors.textLight,
+  },
+  hello: {
+    alignItems: 'center',
+    paddingVertical: spacing.xxl,
+    paddingHorizontal: spacing.xl,
+  },
+  helloCircle: {
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    backgroundColor: colors.warningLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.md,
+  },
+  helloEmoji: {
+    fontSize: 42,
+    transform: [{ rotate: '-12deg' }],
+  },
+  helloTitle: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.lg,
+    color: colors.textDark,
+    textAlign: 'center',
+  },
+  helloSubtitle: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    color: colors.textMid,
+    marginTop: spacing.xs,
+    textAlign: 'center',
+  },
+  helloChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.sm,
+  },
+  helloChip: {
+    backgroundColor: colors.primaryLight,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: 4,
+  },
+  helloChipText: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.xs,
+    color: colors.textDark,
+  },
+  helloStarter: {
+    marginTop: spacing.lg,
+    backgroundColor: colors.warning,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+  },
+  helloStarterText: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.md,
+    color: colors.textDark,
   },
 });

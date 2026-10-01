@@ -17,6 +17,7 @@ import { colors, spacing, radius, fontSize, fontFamily } from '../../constants/t
 import { MainStackParamList, Post } from '../../types';
 
 const HELP_LIMIT = 20;
+const IN_PROGRESS_LIMIT = 10;
 
 // Step 30: replaces the "Coming soon" placeholder with a real list — the
 // underlying Need Help / volunteer / completed flow already exists in full
@@ -31,6 +32,9 @@ export default function HelpScreen() {
   const { showToast } = useToast();
 
   const [posts, setPosts] = useState<Post[]>([]);
+  // Requests someone has already offered to help with — shown below the open
+  // ones so the screen tells the whole story, not just what's still waiting.
+  const [inProgress, setInProgress] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [hasSchool, setHasSchool] = useState(true);
@@ -56,21 +60,28 @@ export default function HelpScreen() {
       if (!profile.school_id && !profile.school_name) {
         setHasSchool(false);
         setPosts([]);
+        setInProgress([]);
         setLoadFailed(false);
         hasEverLoadedRef.current = true;
         return;
       }
       setHasSchool(true);
 
-      const [data, blockedIds] = await Promise.all([
+      const [data, accepted, blockedIds] = await Promise.all([
         profile.school_id
           ? fetchPostsBySchoolId(profile.school_id, 'Need Help', HELP_LIMIT, 'open')
           : fetchPostsBySchool(profile.school_name!, 'Need Help', HELP_LIMIT, 'open'),
+        // Secondary section — a failure here never blocks the open list above.
+        (profile.school_id
+          ? fetchPostsBySchoolId(profile.school_id, 'Need Help', IN_PROGRESS_LIMIT, 'accepted')
+          : fetchPostsBySchool(profile.school_name!, 'Need Help', IN_PROGRESS_LIMIT, 'accepted')
+        ).catch(() => [] as Post[]),
         fetchBlockedUserIds(user.id).catch(() => new Set<string>()),
       ]);
 
       // UX filtering only, not a security boundary — see blocks.ts.
       setPosts(data.filter((p) => !blockedIds.has(p.author_id)));
+      setInProgress(accepted.filter((p) => !blockedIds.has(p.author_id)));
       setLoadFailed(false);
       hasEverLoadedRef.current = true;
     } catch {
@@ -145,7 +156,18 @@ export default function HelpScreen() {
               )}
             </View>
             <Text style={styles.subtitle}>Open requests from your school community</Text>
+            {posts.length > 0 && <Text style={styles.sectionLabel}>🙋 Waiting for a helper</Text>}
           </View>
+        }
+        ListFooterComponent={
+          inProgress.length > 0 ? (
+            <View style={styles.inProgressSection}>
+              <Text style={styles.sectionLabel}>🤝 In progress</Text>
+              {inProgress.map((item) => (
+                <PostPreviewCard key={item.id} post={item} showCategory={false} onPress={() => handleOpenPost(item)} />
+              ))}
+            </View>
+          ) : null
         }
         ListEmptyComponent={
           loadFailed ? (
@@ -154,17 +176,19 @@ export default function HelpScreen() {
             <View>
               <EmptyState
                 icon="hand-left-outline"
-                title={hasSchool ? '🤝 No open requests right now' : 'Add your school to see help requests'}
+                emoji={hasSchool ? '🙌' : '🏫'}
+                tint={colors.secondaryLight}
+                title={hasSchool ? 'No one needs a hand right now' : 'Add your school to see help requests'}
                 subtitle={
                   hasSchool
-                    ? "Your school community doesn't have any active help requests."
+                    ? 'Stuck on something yourself? Take the first step and ask.'
                     : 'Set your school from your profile to see requests from your community.'
                 }
               />
               {hasSchool && (
                 <PrimaryButton
-                  title="Post a Need Help Request"
-                  icon="add-circle-outline"
+                  title="Ask for help"
+                  icon="hand-left-outline"
                   variant="outline"
                   onPress={() => navigation.navigate('CreatePost', { prefillCategory: 'Need Help' })}
                   style={styles.emptyActionButton}
@@ -214,7 +238,7 @@ const styles = StyleSheet.create({
   countBadgeText: {
     fontFamily: fontFamily.bold,
     fontSize: fontSize.xs,
-    color: colors.secondary,
+    color: colors.secondaryDark,
   },
   subtitle: {
     fontFamily: fontFamily.regular,
@@ -225,6 +249,16 @@ const styles = StyleSheet.create({
   list: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xl,
+  },
+  sectionLabel: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.sm,
+    color: colors.textMid,
+    marginTop: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  inProgressSection: {
+    marginTop: spacing.sm,
   },
   emptyActionButton: {
     marginTop: spacing.lg,

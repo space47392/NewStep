@@ -16,6 +16,8 @@ import { fetchBlockedUserIds, blockUser, unblockUser } from '../../lib/blocks';
 import { fetchFollowCounts, isFollowing, followUser, unfollowUser } from '../../lib/follows';
 import { resolveSchoolName } from '../../lib/schools';
 import Avatar from '../../components/Avatar';
+import InterestChips from '../../components/InterestChips';
+import AchievementStickers from '../../components/AchievementStickers';
 import EmptyState from '../../components/EmptyState';
 import LoadingScreen from '../../components/LoadingScreen';
 import PrimaryButton from '../../components/PrimaryButton';
@@ -297,15 +299,7 @@ export default function UserProfileScreen() {
               <Text style={styles.metaTextPlain}>Grade {profile.grade}</Text>
             ) : null}
 
-            {profile.interests.length > 0 && (
-              <View style={styles.chipRow}>
-                {profile.interests.map((interest) => (
-                  <View key={interest} style={styles.chip}>
-                    <Text style={styles.chipText}>{interest}</Text>
-                  </View>
-                ))}
-              </View>
-            )}
+            {profile.interests.length > 0 && <InterestChips interests={profile.interests} />}
 
             {/* Identity -> School/Grade -> Social stats -> Community
                 contribution (below) -> Achievements — same reorder as
@@ -390,16 +384,7 @@ export default function UserProfileScreen() {
                 <>
                   <View style={styles.achievementsDivider} />
                   <Text style={styles.achievementsTitle}>🏆 Achievements</Text>
-                  <View style={styles.achievementsGrid}>
-                    {earnedAchievements.map((achievement) => (
-                      <View key={achievement.id} style={styles.achievementBadge}>
-                        <Text style={styles.achievementIcon}>{achievement.icon}</Text>
-                        <Text style={styles.achievementName} numberOfLines={2}>
-                          {achievement.name}
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
+                  <AchievementStickers achievements={earnedAchievements} />
                 </>
               )}
             </View>
@@ -511,26 +496,6 @@ const styles = StyleSheet.create({
     color: colors.textMid,
     marginTop: spacing.sm,
   },
-  chipRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: spacing.xs,
-    marginTop: spacing.md,
-  },
-  chip: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.full,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    backgroundColor: colors.cardBg,
-  },
-  chipText: {
-    fontFamily: fontFamily.semibold,
-    fontSize: fontSize.sm,
-    color: colors.textMid,
-  },
   profileActions: {
     flexDirection: 'row',
     gap: spacing.sm,
@@ -591,30 +556,6 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.textMid,
     marginBottom: spacing.sm,
-  },
-  achievementsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  achievementBadge: {
-    width: '47%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    backgroundColor: colors.primaryLight,
-    borderRadius: radius.md,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.sm,
-  },
-  achievementIcon: {
-    fontSize: 20,
-  },
-  achievementName: {
-    flex: 1,
-    fontFamily: fontFamily.semibold,
-    fontSize: fontSize.xs,
-    color: colors.textDark,
   },
   postsHeading: {
     alignSelf: 'flex-start',

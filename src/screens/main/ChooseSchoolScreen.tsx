@@ -14,10 +14,10 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
-import { useToast } from '../../contexts/ToastContext';
 import { fetchSchoolStates, fetchSchoolCities, searchSchoolsDirectory, setMySchool } from '../../lib/schools';
 import EmptyState from '../../components/EmptyState';
 import LoadingScreen from '../../components/LoadingScreen';
+import SchoolJoinedCelebration from '../../components/SchoolJoinedCelebration';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
 import { MainStackParamList, School } from '../../types';
 
@@ -48,7 +48,6 @@ type Props = {
 export default function ChooseSchoolScreen({ onDone, showSkip, title, subtitle }: Props) {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
   const { user } = useAuth();
-  const { showToast } = useToast();
   const finish = onDone ?? (() => navigation.goBack());
 
   const [step, setStep] = useState<Step>('state');
@@ -65,6 +64,9 @@ export default function ChooseSchoolScreen({ onDone, showSkip, title, subtitle }
   const [results, setResults] = useState<School[]>([]);
   const [searching, setSearching] = useState(false);
   const [savingId, setSavingId] = useState<string | null>(null);
+  // Set once the school is saved — shows the pennant moment, which then
+  // calls finish() itself.
+  const [joinedSchool, setJoinedSchool] = useState<School | null>(null);
   // Guards against a slower, earlier request overwriting a faster, later
   // one's results — e.g. typing "sunny" then quickly "sunny hills" before the
   // first request resolves. The debounce below only prevents firing a new
@@ -139,8 +141,7 @@ export default function ChooseSchoolScreen({ onDone, showSkip, title, subtitle }
     setSavingId(school.id);
     try {
       await setMySchool(user.id, school.id);
-      showToast(`School set to ${school.name}`);
-      finish();
+      setJoinedSchool(school);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Could not save your school.';
       Alert.alert('Error', message);
@@ -319,6 +320,7 @@ export default function ChooseSchoolScreen({ onDone, showSkip, title, subtitle }
           )}
         </>
       )}
+      {joinedSchool && <SchoolJoinedCelebration schoolName={joinedSchool.name} onDone={finish} />}
     </View>
   );
 }

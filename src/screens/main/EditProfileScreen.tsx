@@ -25,6 +25,7 @@ import Avatar from '../../components/Avatar';
 import IconInput from '../../components/IconInput';
 import InterestPicker from '../../components/InterestPicker';
 import PrimaryButton from '../../components/PrimaryButton';
+import StudentCard from '../../components/StudentCard';
 import LoadingScreen from '../../components/LoadingScreen';
 import FadeInView from '../../components/FadeInView';
 import { colors, spacing, radius, fontSize, fontFamily } from '../../constants/theme';
@@ -370,6 +371,17 @@ export default function EditProfileScreen() {
         <Text style={styles.label}>Interests</Text>
         <InterestPicker value={interests} onChange={setInterests} />
 
+        {/* Live preview — updates as you type, before anything is saved. */}
+        <Text style={styles.label}>Your student card</Text>
+        <StudentCard
+          name={fullName}
+          avatarUri={pendingAvatar?.uri ?? avatarUrl}
+          schoolName={selectedSchool?.name ?? null}
+          grade={grade}
+          interests={interests}
+          style={styles.cardPreview}
+        />
+
         <PrimaryButton title="Save Profile" icon="checkmark-outline" onPress={handleSave} loading={saving} style={styles.saveButton} />
       </FadeInView>
     </ScrollView>
@@ -527,6 +539,10 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.semibold,
     color: '#fff',
     fontSize: fontSize.sm,
+  },
+  cardPreview: {
+    marginTop: spacing.sm,
+    marginBottom: spacing.md,
   },
   saveButton: {
     width: '100%',

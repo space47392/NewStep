@@ -22,6 +22,8 @@ type Props = {
   navigation: NativeStackNavigationProp<AuthStackParamList, 'Register'>;
 };
 
+const JOURNEY = ['Sign up', 'Your school', 'Interests', 'Say hi 👋'];
+
 export default function RegisterScreen({ navigation }: Props) {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -78,6 +80,22 @@ export default function RegisterScreen({ navigation }: Props) {
           <Text style={styles.tagline}>
             Connect with your school. Discover people, what's happening, and ways to help.
           </Text>
+          {/* A peek at the next few minutes, drawn as footprints — you're on
+              the first one. Footprints, not the help tracker's dots, which
+              stay reserved for help requests. */}
+          <View style={styles.journey} accessible accessibilityLabel="Step 1 of 4: sign up. Next: your school, interests, then say hi.">
+            {JOURNEY.map((step, i) => (
+              <View key={step} style={styles.journeyStep}>
+                <Ionicons
+                  name="footsteps"
+                  size={18}
+                  color={i === 0 ? colors.primary : colors.tabInactive}
+                  style={{ transform: [{ rotate: i % 2 === 0 ? '-12deg' : '12deg' }] }}
+                />
+                <Text style={[styles.journeyText, i === 0 && styles.journeyTextNow]}>{step}</Text>
+              </View>
+            ))}
+          </View>
         </FadeInView>
 
         <FadeInView style={styles.form} delay={100}>
@@ -160,6 +178,30 @@ const styles = StyleSheet.create({
     color: colors.textMid,
     textAlign: 'center',
     marginTop: spacing.xs,
+  },
+  journey: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignSelf: 'stretch',
+    marginTop: spacing.lg,
+    backgroundColor: colors.cardBg,
+    borderRadius: radius.lg,
+    paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.sm,
+  },
+  journeyStep: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 4,
+  },
+  journeyText: {
+    fontFamily: fontFamily.medium,
+    fontSize: 11,
+    color: colors.textLight,
+  },
+  journeyTextNow: {
+    fontFamily: fontFamily.bold,
+    color: colors.primary,
   },
   form: {
     gap: spacing.sm,

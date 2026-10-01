@@ -65,76 +65,155 @@ export default function EventDetails({ post }: Props) {
 
   const isPast = isEventPast(post);
   const dateLabel = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const monthLabel = date.toLocaleDateString('en-US', { month: 'short' }).toUpperCase();
   const endDate = post.event_end_time ? new Date(post.event_end_time) : null;
   const timeRangeLabel = formatTimeRange(date, endDate && !isNaN(endDate.getTime()) ? endDate : null);
 
+  // Styled as a ticket stub — the Event category's own signature, so an
+  // event reads as "something to go to" at a glance rather than one more
+  // text post.
   return (
-    <View style={styles.container}>
-      <View style={styles.row}>
-        <Ionicons name="calendar-outline" size={13} color={colors.primary} />
-        <Text style={styles.dateText}>
-          {dateLabel} · {timeRangeLabel}
-        </Text>
-        {isPast && (
-          <View style={styles.pastBadge}>
-            <Text style={styles.pastBadgeText}>Past</Text>
-          </View>
-        )}
+    <View
+      style={styles.ticket}
+      accessible
+      accessibilityLabel={`${dateLabel}, ${timeRangeLabel}${isPast ? ', past event' : ''}`}
+    >
+      <View style={[styles.stub, isPast && styles.stubPast]}>
+        <Text style={[styles.stubMonth, isPast && styles.stubTextPast]}>{monthLabel}</Text>
+        <Text style={[styles.stubDay, isPast && styles.stubTextPast]}>{date.getDate()}</Text>
       </View>
-      {post.event_location ? (
+
+      {/* Dots rather than a dashed border — single-side dashed borders
+          render unreliably on Android. */}
+      <View style={styles.perforation}>
+        {[0, 1, 2, 3, 4].map((i) => (
+          <View key={i} style={styles.perforationDot} />
+        ))}
+      </View>
+
+      <View style={[styles.details, isPast && styles.detailsPast]}>
         <View style={styles.row}>
-          <Ionicons name="location-outline" size={13} color={colors.textMid} />
-          <Text style={styles.locationText}>{post.event_location}</Text>
+          <Ionicons name="time-outline" size={13} color={isPast ? colors.textLight : colors.primary} />
+          <Text style={[styles.timeText, isPast && styles.mutedText]}>{timeRangeLabel}</Text>
         </View>
-      ) : null}
-      <View style={styles.row}>
-        <Ionicons name="star-outline" size={12} color={colors.textLight} />
-        <Text style={styles.interestedText}>{post.interested_count} interested</Text>
+        {post.event_location ? (
+          <View style={styles.row}>
+            <Ionicons name="location-outline" size={13} color={colors.textMid} />
+            <Text style={styles.locationText} numberOfLines={1}>
+              {post.event_location}
+            </Text>
+          </View>
+        ) : null}
+        <View style={styles.row}>
+          <Ionicons name="star-outline" size={12} color={colors.textLight} />
+          <Text style={styles.interestedText}>{post.interested_count} interested</Text>
+        </View>
       </View>
+
+      {isPast && (
+        <View style={styles.pastStamp}>
+          <Text style={styles.pastStampText}>PAST</Text>
+        </View>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    marginTop: spacing.xs,
+  ticket: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    marginTop: spacing.sm,
+    padding: spacing.sm,
+    borderRadius: radius.md,
+    backgroundColor: colors.background,
+  },
+  stub: {
+    width: 52,
+    borderRadius: radius.sm,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.xs,
+  },
+  stubPast: {
+    backgroundColor: colors.border,
+  },
+  stubMonth: {
+    fontFamily: fontFamily.bold,
+    fontSize: 10,
+    letterSpacing: 1,
+    color: '#fff',
+  },
+  stubDay: {
+    fontFamily: fontFamily.extrabold,
+    fontSize: fontSize.xl,
+    lineHeight: 26,
+    color: '#fff',
+  },
+  stubTextPast: {
+    color: colors.textLight,
+  },
+  perforation: {
+    justifyContent: 'space-evenly',
+    marginHorizontal: spacing.sm,
+  },
+  perforationDot: {
+    width: 3,
+    height: 3,
+    borderRadius: radius.full,
+    backgroundColor: colors.border,
+  },
+  details: {
+    flex: 1,
+    justifyContent: 'center',
     gap: 2,
+  },
+  // Leaves room for the PAST stamp so a long time range never runs under it.
+  detailsPast: {
+    paddingRight: spacing.xl + spacing.sm,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
   },
-  // Most prominent line — date/time is the first thing worth scanning after
-  // the post content itself.
-  dateText: {
+  timeText: {
     fontFamily: fontFamily.semibold,
-    fontSize: fontSize.xs,
-    color: colors.primary,
+    fontSize: fontSize.sm,
+    color: colors.textDark,
   },
-  // Secondary — present only when set, no reserved space otherwise.
+  mutedText: {
+    color: colors.textMid,
+  },
   locationText: {
+    flexShrink: 1,
     fontFamily: fontFamily.regular,
     fontSize: fontSize.xs,
     color: colors.textMid,
   },
-  // Lightest of the three — a passive count, not a call to action (the real
-  // action is InterestButton, rendered separately by the caller).
+  // A passive count, not a call to action (the real action is
+  // InterestButton, rendered separately by the caller).
   interestedText: {
     fontFamily: fontFamily.regular,
     fontSize: fontSize.xs,
     color: colors.textLight,
   },
-  pastBadge: {
-    backgroundColor: colors.border,
-    borderRadius: radius.full,
-    paddingHorizontal: spacing.sm,
+  pastStamp: {
+    position: 'absolute',
+    top: spacing.sm,
+    right: spacing.sm,
+    borderWidth: 1.5,
+    borderColor: colors.textLight,
+    borderRadius: radius.sm,
+    paddingHorizontal: 6,
     paddingVertical: 1,
-    marginLeft: 2,
+    transform: [{ rotate: '-8deg' }],
   },
-  pastBadgeText: {
-    fontFamily: fontFamily.bold,
-    fontSize: 9,
-    color: colors.textMid,
+  pastStampText: {
+    fontFamily: fontFamily.extrabold,
+    fontSize: 10,
+    letterSpacing: 1,
+    color: colors.textLight,
   },
 });

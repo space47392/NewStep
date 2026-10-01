@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
-import { fetchProfileById } from '../../lib/profile';
+import { fetchProfileById, PublicProfile } from '../../lib/profile';
+import { fetchSchoolById } from '../../lib/schools';
+import StudentCard from '../../components/StudentCard';
 import PrimaryButton from '../../components/PrimaryButton';
 import LoadingScreen from '../../components/LoadingScreen';
 import FadeInView from '../../components/FadeInView';
@@ -25,6 +27,7 @@ export default function WelcomeScreen({ onDone }: Props) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [schoolName, setSchoolName] = useState<string | null>(null);
+  const [profile, setProfile] = useState<PublicProfile | null>(null);
 
   useEffect(() => {
     if (!user) {
@@ -32,7 +35,13 @@ export default function WelcomeScreen({ onDone }: Props) {
       return;
     }
     fetchProfileById(user.id)
-      .then((profile) => setSchoolName(profile.school_name))
+      .then(async (p) => {
+        setProfile(p);
+        // A directory pick only writes school_id (see setMySchool()), so the
+        // name has to come from the schools table in that case.
+        const directory = p.school_id ? await fetchSchoolById(p.school_id).catch(() => null) : null;
+        setSchoolName(directory?.name ?? p.school_name);
+      })
       .catch(() => {
         // Non-critical — the screen still works fine without school context.
       })
@@ -49,12 +58,20 @@ export default function WelcomeScreen({ onDone }: Props) {
     <View style={styles.container}>
       <FadeInView style={styles.content}>
         <Text style={styles.title}>Welcome to NewStep 👋</Text>
+        <Text style={styles.subtitle}>
+          {hasSchool ? "Here's your student card." : 'You can add your school anytime from your profile.'}
+        </Text>
 
-        {hasSchool ? (
-          <Text style={styles.schoolLine}>🏫 {schoolName}</Text>
-        ) : (
-          <Text style={styles.subtitle}>You can add your school anytime from your profile.</Text>
-        )}
+        {/* Built only from what was just filled in during signup — nothing
+            here is invented, and empty fields simply don't show. */}
+        <StudentCard
+          name={profile?.full_name ?? null}
+          avatarUri={profile?.avatar_url ?? null}
+          schoolName={hasSchool ? schoolName : null}
+          grade={profile?.grade ?? null}
+          interests={profile?.interests ?? []}
+          style={styles.card}
+        />
 
         <View style={styles.actionList}>
           <View style={styles.actionRow}>
@@ -95,11 +112,8 @@ const styles = StyleSheet.create({
     color: colors.textDark,
     textAlign: 'center',
   },
-  schoolLine: {
-    fontFamily: fontFamily.semibold,
-    fontSize: fontSize.md,
-    color: colors.primary,
-    marginTop: spacing.sm,
+  card: {
+    marginTop: spacing.xl,
   },
   subtitle: {
     fontFamily: fontFamily.regular,
@@ -113,7 +127,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.cardBg,
     borderRadius: radius.lg,
     padding: spacing.lg,
-    marginTop: spacing.xl,
+    marginTop: spacing.lg,
     gap: spacing.md,
   },
   actionRow: {

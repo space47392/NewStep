@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import IconInput from './IconInput';
 import { colors, spacing, radius, fontSize, fontFamily } from '../constants/theme';
-import { INTEREST_GROUPS, MAX_INTERESTS } from '../constants/interests';
+import { INTEREST_GROUPS, MAX_INTERESTS, getInterestIcon } from '../constants/interests';
 
 type Props = {
   value: string[];
@@ -39,6 +39,14 @@ export default function InterestPicker({ value, onChange }: Props) {
 
   return (
     <View style={styles.container}>
+      <View style={styles.counterRow}>
+        <Text style={styles.counterHint}>Pick up to {MAX_INTERESTS}</Text>
+        <View style={[styles.counter, atLimit && styles.counterFull]}>
+          <Text style={[styles.counterText, atLimit && styles.counterTextFull]}>
+            {value.length} / {MAX_INTERESTS}
+          </Text>
+        </View>
+      </View>
       <IconInput
         icon="search-outline"
         style={styles.searchInput}
@@ -68,9 +76,16 @@ export default function InterestPicker({ value, onChange }: Props) {
                     ]}
                     onPress={() => toggleInterest(item)}
                     disabled={disabled}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: selected, disabled }}
                   >
-                    {selected && <Ionicons name="checkmark" size={14} color="#fff" />}
+                    <Text style={styles.optionEmoji}>{getInterestIcon(item)}</Text>
                     <Text style={[styles.optionChipText, selected && styles.optionChipTextSelected]}>{item}</Text>
+                    {selected && (
+                      <View style={styles.checkDot}>
+                        <Ionicons name="checkmark" size={10} color="#fff" />
+                      </View>
+                    )}
                   </TouchableOpacity>
                 );
               })}
@@ -87,9 +102,9 @@ export default function InterestPicker({ value, onChange }: Props) {
           <View style={styles.chipRow}>
             {value.map((interest) => (
               <TouchableOpacity key={interest} style={styles.selectedChip} onPress={() => toggleInterest(interest)}>
-                <Ionicons name="checkmark" size={13} color="#fff" />
+                <Text style={styles.optionEmoji}>{getInterestIcon(interest)}</Text>
                 <Text style={styles.selectedChipText}>{interest}</Text>
-                <Ionicons name="close" size={13} color="#fff" />
+                <Ionicons name="close" size={13} color={colors.textMid} />
               </TouchableOpacity>
             ))}
           </View>
@@ -102,6 +117,34 @@ export default function InterestPicker({ value, onChange }: Props) {
 const styles = StyleSheet.create({
   container: {
     width: '100%',
+  },
+  counterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.sm,
+  },
+  counterHint: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
+    color: colors.textMid,
+  },
+  counter: {
+    backgroundColor: colors.primaryLight,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: 3,
+  },
+  counterFull: {
+    backgroundColor: colors.accentLight,
+  },
+  counterText: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.xs,
+    color: colors.primary,
+  },
+  counterTextFull: {
+    color: colors.accentDark,
   },
   searchInput: {
     marginBottom: spacing.lg,
@@ -134,8 +177,19 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   optionChipSelected: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryLight,
     borderColor: colors.primary,
+  },
+  optionEmoji: {
+    fontSize: fontSize.md,
+  },
+  checkDot: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   optionChipDisabled: {
     opacity: 0.4,
@@ -146,14 +200,14 @@ const styles = StyleSheet.create({
     color: colors.textDark,
   },
   optionChipTextSelected: {
-    color: '#fff',
+    color: colors.primary,
     fontFamily: fontFamily.semibold,
   },
   selectedChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: colors.success,
+    backgroundColor: colors.accentLight,
     borderRadius: radius.full,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
@@ -161,6 +215,6 @@ const styles = StyleSheet.create({
   selectedChipText: {
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.sm,
-    color: '#fff',
+    color: colors.textDark,
   },
 });

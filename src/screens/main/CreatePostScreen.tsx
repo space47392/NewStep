@@ -21,6 +21,7 @@ import * as Crypto from 'expo-crypto';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
+import * as Haptics from 'expo-haptics';
 import { createPost, editPost } from '../../lib/posts';
 import { uploadPostPhoto, removePostPhotos } from '../../lib/postPhotos';
 import PrimaryButton from '../../components/PrimaryButton';
@@ -30,6 +31,23 @@ import { CATEGORY_STYLES } from '../../constants/categoryStyles';
 import { MainStackParamList, PostCategory } from '../../types';
 
 const CATEGORIES: PostCategory[] = ['Need Help', 'School Question', 'Looking for Friends', 'Event'];
+
+// The same three stages HelpProgress tracks once the request is live —
+// shown up front so asking for help never feels like posting into the void.
+const HELP_GUIDE_STEPS = [
+  { title: 'Asked', body: 'Classmates at your school see your request.' },
+  { title: 'Helping', body: "Someone offers to help — you'll get a notification." },
+  { title: 'Done', body: 'Mark it done and say thanks 💙' },
+];
+
+// A small, category-specific "it worked" after a new post — each one says what
+// happens next instead of a generic "Posted".
+const POSTED_TOASTS: Partial<Record<PostCategory, string>> = {
+  'Need Help': "🙋 Asked! We'll let you know when someone offers to help.",
+  'School Question': '❓ Question posted — classmates can answer in the comments.',
+  'Looking for Friends': '👋 Posted! Say hi back when people reply.',
+  Event: '🎉 Event posted — people can tap Interested.',
+};
 
 // Friendly display only — never shown to the user as a raw ISO timestamp.
 function formatFriendlyDate(d: Date): string {
@@ -302,6 +320,8 @@ export default function CreatePostScreen() {
           eventEndTime: eventEndTimeIso,
           eventLocation: category === 'Event' ? eventLocation.trim() || undefined : undefined,
         });
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        showToast(POSTED_TOASTS[category] ?? 'Posted! ✨');
       }
       // Successful submit is an intentional exit, not an accidental one — the
       // upcoming goBack() should never trigger the discard-changes prompt.
@@ -379,6 +399,28 @@ export default function CreatePostScreen() {
             );
           })}
         </View>
+
+        {category === 'Need Help' && !editingPost && (
+          <View style={styles.helpGuide}>
+            <Text style={styles.helpGuideTitle}>How asking for help works</Text>
+            {HELP_GUIDE_STEPS.map((step, i) => (
+              <View key={step.title} style={styles.helpGuideRow}>
+                <View style={styles.helpGuideRail}>
+                  <View style={[styles.helpGuideNumber, i === 0 && styles.helpGuideNumberActive]}>
+                    <Text style={[styles.helpGuideNumberText, i === 0 && styles.helpGuideNumberTextActive]}>
+                      {i + 1}
+                    </Text>
+                  </View>
+                  {i < HELP_GUIDE_STEPS.length - 1 && <View style={styles.helpGuideLine} />}
+                </View>
+                <View style={styles.helpGuideText}>
+                  <Text style={styles.helpGuideStepTitle}>{step.title}</Text>
+                  <Text style={styles.helpGuideStepBody}>{step.body}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
 
         {category === 'Event' && (
           <View style={styles.eventFields}>
@@ -500,10 +542,12 @@ export default function CreatePostScreen() {
           </View>
         )}
 
-        <Text style={styles.label}>What's on your mind?</Text>
+        <Text style={styles.label}>{category === 'Need Help' ? 'What do you need help with?' : "What's on your mind?"}</Text>
         <TextInput
           style={styles.textArea}
-          placeholder="Share something with your school community..."
+          placeholder={
+            category === 'Need Help' ? 'e.g. How do I join a club?' : 'Share something with your school community...'
+          }
           placeholderTextColor={colors.textLight}
           value={content}
           onChangeText={setContent}
@@ -577,8 +621,8 @@ export default function CreatePostScreen() {
         </ScrollView>
 
         <PrimaryButton
-          title={editingPost ? 'Save Changes' : 'Post'}
-          icon={editingPost ? 'checkmark-outline' : 'paper-plane-outline'}
+          title={editingPost ? 'Save Changes' : category === 'Need Help' ? 'Ask for help' : 'Post'}
+          icon={editingPost ? 'checkmark-outline' : category === 'Need Help' ? 'hand-left-outline' : 'paper-plane-outline'}
           onPress={handleSubmit}
           loading={posting}
           style={styles.submitButton}
@@ -731,6 +775,69 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     marginTop: spacing.sm,
+  },
+  helpGuide: {
+    backgroundColor: colors.secondaryLight,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    marginTop: spacing.md,
+  },
+  helpGuideTitle: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.sm,
+    color: colors.textDark,
+    marginBottom: spacing.sm,
+  },
+  helpGuideRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  helpGuideRail: {
+    alignItems: 'center',
+  },
+  helpGuideNumber: {
+    width: 24,
+    height: 24,
+    borderRadius: radius.full,
+    borderWidth: 2,
+    borderColor: colors.secondaryDark,
+    backgroundColor: colors.cardBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  helpGuideNumberActive: {
+    backgroundColor: colors.secondaryDark,
+  },
+  helpGuideNumberText: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.xs,
+    color: colors.secondaryDark,
+  },
+  helpGuideNumberTextActive: {
+    color: '#fff',
+  },
+  helpGuideLine: {
+    flex: 1,
+    width: 2,
+    minHeight: 12,
+    backgroundColor: colors.secondaryDark,
+    opacity: 0.3,
+  },
+  helpGuideText: {
+    flex: 1,
+    paddingBottom: spacing.sm,
+  },
+  helpGuideStepTitle: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.sm,
+    color: colors.textDark,
+    lineHeight: 24,
+  },
+  helpGuideStepBody: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
+    color: colors.textMid,
+    lineHeight: 17,
   },
   eventFields: {
     marginBottom: spacing.lg,

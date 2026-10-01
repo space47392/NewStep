@@ -21,6 +21,10 @@ import ErrorState from '../../components/ErrorState';
 import LoadingScreen from '../../components/LoadingScreen';
 import FadeInView from '../../components/FadeInView';
 import Avatar from '../../components/Avatar';
+import InterestChips from '../../components/InterestChips';
+import AchievementStickers from '../../components/AchievementStickers';
+import AchievementUnlockModal from '../../components/AchievementUnlockModal';
+import { getCelebratedAchievementIds, markAchievementCelebrated } from '../../lib/achievementPrefs';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
 import { MainStackParamList, PointsHistoryEntry, AchievementProgress, School, Post } from '../../types';
 
@@ -53,6 +57,9 @@ export default function ProfileScreen() {
   const [studentsHelped, setStudentsHelped] = useState(0);
   const [pointHistory, setPointHistory] = useState<PointsHistoryEntry[]>([]);
   const [achievements, setAchievements] = useState<AchievementProgress[]>([]);
+  // Earned achievements this device hasn't celebrated yet — shown one at a
+  // time in the unlock popup.
+  const [unlockQueue, setUnlockQueue] = useState<AchievementProgress[]>([]);
   const [followCounts, setFollowCounts] = useState({ followers: 0, following: 0 });
   const [selectedSchool, setSelectedSchool] = useState<School | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
@@ -99,6 +106,10 @@ export default function ProfileScreen() {
         setStudentsHelped(helpStats.studentsHelped);
         setPointHistory(history);
         setAchievements(achievementProgress);
+        const celebrated = await getCelebratedAchievementIds(user.id).catch(() => null);
+        if (celebrated) {
+          setUnlockQueue(achievementProgress.filter((a) => a.earned && !celebrated.has(a.id)));
+        }
         setFollowCounts(counts);
         setPosts(postList);
       } catch {
@@ -127,6 +138,12 @@ export default function ProfileScreen() {
       loadProfile();
     }, [loadProfile])
   );
+
+  const handleUnlockClose = () => {
+    const [current, ...rest] = unlockQueue;
+    if (current && user) markAchievementCelebrated(user.id, current.id).catch(() => {});
+    setUnlockQueue(rest);
+  };
 
   const handleRetry = async () => {
     if (retrying) return;
@@ -266,15 +283,7 @@ export default function ProfileScreen() {
           <Text style={styles.metaTextPlain}>Grade {grade}</Text>
         ) : null}
 
-        {interests.length > 0 && (
-          <View style={styles.chipRow}>
-            {interests.map((interest) => (
-              <View key={interest} style={styles.chip}>
-                <Text style={styles.chipText}>{interest}</Text>
-              </View>
-            ))}
-          </View>
-        )}
+        {interests.length > 0 && <InterestChips interests={interests} />}
 
         {/* Identity -> School/Grade -> Social stats -> Community contribution
             (below) -> Achievements — previously this row sat above School/Grade,
@@ -355,30 +364,7 @@ export default function ProfileScreen() {
             <>
               <View style={styles.achievementsDivider} />
               <Text style={styles.achievementsTitle}>🏆 Achievements</Text>
-              <View style={styles.achievementsGrid}>
-                {achievements.map((achievement) => (
-                  <View
-                    key={achievement.id}
-                    style={[styles.achievementBadge, !achievement.earned && styles.achievementBadgeLocked]}
-                  >
-                    <Text style={styles.achievementIcon}>{achievement.icon}</Text>
-                    <Text
-                      style={[styles.achievementName, !achievement.earned && styles.achievementNameLocked]}
-                      numberOfLines={2}
-                    >
-                      {achievement.name}
-                    </Text>
-                    {!achievement.earned && (
-                      <Ionicons
-                        name="lock-closed"
-                        size={10}
-                        color={colors.textLight}
-                        style={styles.achievementLockIcon}
-                      />
-                    )}
-                  </View>
-                ))}
-              </View>
+              <AchievementStickers achievements={achievements} showHints />
             </>
           )}
         </View>
@@ -465,6 +451,7 @@ export default function ProfileScreen() {
           )}
         </TouchableOpacity>
       </FadeInView>
+      <AchievementUnlockModal achievement={unlockQueue[0] ?? null} onClose={handleUnlockClose} />
     </ScrollView>
   );
 }
@@ -551,26 +538,6 @@ const styles = StyleSheet.create({
     color: colors.textMid,
     marginTop: spacing.sm,
   },
-  chipRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: spacing.xs,
-    marginTop: spacing.md,
-  },
-  chip: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.full,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    backgroundColor: colors.cardBg,
-  },
-  chipText: {
-    fontFamily: fontFamily.semibold,
-    fontSize: fontSize.sm,
-    color: colors.textMid,
-  },
   profileActionsRow: {
     flexDirection: 'row',
     gap: spacing.sm,
@@ -642,41 +609,6 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.textMid,
     marginBottom: spacing.sm,
-  },
-  achievementsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  achievementBadge: {
-    width: '47%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    backgroundColor: colors.primaryLight,
-    borderRadius: radius.md,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.sm,
-  },
-  achievementBadgeLocked: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  achievementIcon: {
-    fontSize: 20,
-  },
-  achievementName: {
-    flex: 1,
-    fontFamily: fontFamily.semibold,
-    fontSize: fontSize.xs,
-    color: colors.textDark,
-  },
-  achievementNameLocked: {
-    color: colors.textLight,
-  },
-  achievementLockIcon: {
-    marginLeft: -2,
   },
   activityCard: {
     width: '100%',

@@ -1,8 +1,13 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { View, Animated, StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { MainTabParamList } from '../types';
-import { colors, fontFamily, shadow } from '../constants/theme';
+import { colors, fontFamily, radius, shadow } from '../constants/theme';
+import { useAuth } from '../contexts/AuthContext';
+import { fetchProfileById } from '../lib/profile';
+import { fetchOpenHelpCountBySchool, fetchOpenHelpCountBySchoolId } from '../lib/posts';
 
 import FeedScreen from '../screens/main/FeedScreen';
 import SearchScreen from '../screens/main/SearchScreen';
@@ -22,7 +27,68 @@ const TAB_ICONS: Record<string, { focused: string; unfocused: string }> = {
   Profile:   { focused: 'person',         unfocused: 'person-outline' },
 };
 
+// Re-checking the open-help count on every tab switch would be a query per
+// tap; once every 30s is plenty for a badge.
+const HELP_BADGE_REFRESH_MS = 30_000;
+
+// The selected tab's icon sits in a soft pill and gives a little hop when
+// it becomes selected — a "step" onto that tab.
+function TabIcon({ name, focused, color, size }: { name: string; focused: boolean; color: string; size: number }) {
+  const hop = useRef(new Animated.Value(focused ? 1 : 0)).current;
+  useEffect(() => {
+    if (!focused) {
+      hop.setValue(0);
+      return;
+    }
+    hop.setValue(0);
+    Animated.spring(hop, { toValue: 1, friction: 4, tension: 160, useNativeDriver: true }).start();
+  }, [focused, hop]);
+
+  return (
+    <View style={[styles.iconPill, focused && styles.iconPillFocused]}>
+      <Animated.View
+        style={{
+          transform: [
+            { translateY: hop.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0, -4, 0] }) },
+            { scale: hop.interpolate({ inputRange: [0, 0.5, 1], outputRange: [1, 1.12, 1] }) },
+          ],
+        }}
+      >
+        <Ionicons name={name as any} size={size - 2} color={color} />
+      </Animated.View>
+    </View>
+  );
+}
+
 export default function TabNavigator() {
+  const { user } = useAuth();
+  // Open Need Help requests at my school, shown as a badge on the Help tab.
+  // Real count only; hidden at 0 and on any failure.
+  const [openHelpCount, setOpenHelpCount] = useState(0);
+  const lastHelpFetchRef = useRef(0);
+
+  const refreshHelpBadge = useCallback(async (force = false) => {
+    if (!user) return;
+    const now = Date.now();
+    if (!force && now - lastHelpFetchRef.current < HELP_BADGE_REFRESH_MS) return;
+    lastHelpFetchRef.current = now;
+    try {
+      const profile = await fetchProfileById(user.id);
+      const count = profile.school_id
+        ? await fetchOpenHelpCountBySchoolId(profile.school_id)
+        : profile.school_name
+          ? await fetchOpenHelpCountBySchool(profile.school_name)
+          : 0;
+      setOpenHelpCount(count);
+    } catch {
+      // Non-critical — keep whatever the badge last showed.
+    }
+  }, [user]);
+
+  useEffect(() => {
+    refreshHelpBadge(true);
+  }, [refreshHelpBadge]);
+
   // Android is edge-to-edge by default on this SDK — the tab bar draws behind
   // the system gesture/nav area unless it explicitly reserves that space
   // itself. Adding insets.bottom on top of both the height and the bottom
@@ -35,6 +101,11 @@ export default function TabNavigator() {
 
   return (
     <Tab.Navigator
+      screenListeners={({ route }) => ({
+        // Leaving Help (where a request may have just been taken) gets a
+        // fresh count right away; other switches use the throttle.
+        focus: () => refreshHelpBadge(route.name === 'Help'),
+      })}
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarActiveTintColor: colors.primary,
@@ -62,16 +133,38 @@ export default function TabNavigator() {
         tabBarIcon: ({ focused, color, size }) => {
           const icons = TAB_ICONS[route.name];
           const iconName = focused ? icons.focused : icons.unfocused;
-          return <Ionicons name={iconName as any} size={size} color={color} />;
+          return <TabIcon name={iconName} focused={focused} color={color} size={size} />;
+        },
+        tabBarBadgeStyle: {
+          backgroundColor: colors.secondaryDark,
+          fontFamily: fontFamily.bold,
+          fontSize: 10,
         },
       })}
     >
       <Tab.Screen name="Feed"      component={FeedScreen}      options={{ title: 'Home' }} />
       <Tab.Screen name="Search"    component={SearchScreen}    options={{ title: 'Search' }} />
-      <Tab.Screen name="Help"      component={HelpScreen}      options={{ title: 'Help' }} />
+      <Tab.Screen
+        name="Help"
+        component={HelpScreen}
+        options={{ title: 'Help', tabBarBadge: openHelpCount > 0 ? (openHelpCount > 9 ? '9+' : openHelpCount) : undefined }}
+      />
       <Tab.Screen name="Chat"      component={ChatScreen}      options={{ title: 'Chat' }} />
       <Tab.Screen name="Volunteer" component={VolunteerScreen} options={{ title: 'Community' }} />
       <Tab.Screen name="Profile"   component={ProfileScreen}   options={{ title: 'Profile' }} />
     </Tab.Navigator>
   );
 }
+
+const styles = StyleSheet.create({
+  iconPill: {
+    width: 46,
+    height: 28,
+    borderRadius: radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconPillFocused: {
+    backgroundColor: colors.primaryLight,
+  },
+});

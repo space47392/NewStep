@@ -298,11 +298,13 @@ export default function FollowListScreen() {
             <View>
               <EmptyState
                 icon="people-outline"
+                emoji={mode === 'followers' ? '🌱' : '🔭'}
+                tint={mode === 'followers' ? colors.accentLight : colors.primaryLight}
                 title={mode === 'followers' ? 'No followers yet' : "You're not following anyone yet"}
                 subtitle={
                   mode === 'followers'
                     ? 'When someone follows this account, they will show up here.'
-                    : 'Find classmates to follow from Search.'
+                    : 'Find classmates who like what you like.'
                 }
               />
               {/* Followers: no forced CTA — there's no useful action to offer

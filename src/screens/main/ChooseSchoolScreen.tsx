@@ -18,6 +18,7 @@ import { fetchSchoolStates, fetchSchoolCities, searchSchoolsDirectory, setMyScho
 import EmptyState from '../../components/EmptyState';
 import LoadingScreen from '../../components/LoadingScreen';
 import SchoolJoinedCelebration from '../../components/SchoolJoinedCelebration';
+import OnboardingSteps from '../../components/OnboardingSteps';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
 import { MainStackParamList, School } from '../../types';
 
@@ -195,6 +196,8 @@ export default function ChooseSchoolScreen({ onDone, showSkip, title, subtitle }
       </View>
 
       <View style={styles.header}>
+        {/* Onboarding only — the Profile → change school path has no steps. */}
+        {showSkip && <OnboardingSteps current={2} style={styles.steps} />}
         <Text style={styles.title}>{title ?? DEFAULT_TITLE}</Text>
         <Text style={styles.subtitle}>{subtitle ?? DEFAULT_SUBTITLE}</Text>
         {showSkip && (
@@ -326,6 +329,9 @@ export default function ChooseSchoolScreen({ onDone, showSkip, title, subtitle }
 }
 
 const styles = StyleSheet.create({
+  steps: {
+    marginBottom: spacing.md,
+  },
   container: {
     flex: 1,
     backgroundColor: colors.background,

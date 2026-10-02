@@ -346,7 +346,7 @@ export default function FollowListScreen() {
                     itemSchoolName ? (
                       <Text style={styles.meta}>
                         {itemSchoolName}
-                        {item.grade ? ` · Grade ${item.grade}` : ''}
+                        {item.grade ? ` · ${item.grade} Grade` : ''}
                       </Text>
                     ) : null
                   }

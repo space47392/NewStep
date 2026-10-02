@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Alert } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Alert, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
@@ -13,6 +13,12 @@ import { AuthStackParamList } from '../../types';
 type Props = {
   navigation: NativeStackNavigationProp<AuthStackParamList, 'Login'>;
 };
+
+// Links already answered with an alert. Module-level because a cold-start
+// link is returned by getInitialURL() for the whole app session — without
+// this, every remount of this screen (e.g. after logging out) and the 'url'
+// event for the same open would each show the alert again.
+const handledLinks = new Set<string>();
 
 const TRAIL = [
   { opacity: 0.15, y: 6 },
@@ -28,6 +34,35 @@ export default function LoginScreen({ navigation }: Props) {
   // Coming back from Register/Forgot Password doesn't remount it — those
   // screens sit on top in the stack — so the intro never replays mid-flow.
   const [showIntro, setShowIntro] = useState(true);
+
+  // Opened from the sign-up confirmation email (see EMAIL_CONFIRMED_URL in
+  // RegisterScreen). Deliberately does NOT sign in from tokens in the link —
+  // any app could open a newstep:// link with someone else's tokens — it
+  // only says the email is confirmed, and the student signs in as usual.
+  useEffect(() => {
+    const handle = (url: string | null) => {
+      if (!url || !url.startsWith('newstep://email-confirmed')) return;
+      // A password-reset link can land here too (Site URL fallback) —
+      // AppNavigator handles those.
+      if (url.includes('type=recovery')) return;
+      if (handledLinks.has(url)) return;
+      handledLinks.add(url);
+      setShowIntro(false);
+      const fragment = url.split('#')[1] ?? url.split('?')[1] ?? '';
+      // Parsed by hand — RN's URLSearchParams isn't fully implemented on
+      // every version.
+      const errorPair = fragment.split('&').find((pair) => pair.startsWith('error_description='));
+      const error = errorPair ? decodeURIComponent(errorPair.slice('error_description='.length).replace(/\+/g, ' ')) : null;
+      if (error) {
+        Alert.alert("Couldn't confirm your email", error);
+      } else {
+        Alert.alert('Email confirmed ✅', 'You can sign in with your email and password now.');
+      }
+    };
+    Linking.getInitialURL().then(handle).catch(() => {});
+    const sub = Linking.addEventListener('url', ({ url }) => handle(url));
+    return () => sub.remove();
+  }, []);
   // Synchronous re-entrancy guard — `loading` state only disables the button
   // on the next render, leaving a brief window for a rapid double-tap to fire
   // a second signInWithPassword() call. Not just a cosmetic concern: Supabase

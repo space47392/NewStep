@@ -23,7 +23,7 @@ export default function AchievementUnlockModal({ achievement, onClose }: Props) 
   }, [achievement, drop]);
 
   return (
-    <Modal visible={!!achievement} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal visible={!!achievement} transparent animationType="fade" statusBarTranslucent onRequestClose={onClose}>
       <View style={styles.backdrop}>
         {achievement && (
           <View style={styles.card} accessibilityViewIsModal>
@@ -43,7 +43,7 @@ export default function AchievementUnlockModal({ achievement, onClose }: Props) 
               <Text style={styles.icon}>{achievement.icon}</Text>
             </Animated.View>
             <Text style={styles.name}>{achievement.name}</Text>
-            <Text style={styles.description}>{achievement.description}</Text>
+            <Text style={styles.description}>Unlocked by: {achievement.description}</Text>
             <PrimaryButton title="Stick it on my profile" onPress={onClose} style={styles.button} />
           </View>
         )}

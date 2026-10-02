@@ -83,6 +83,7 @@ export default function ChatScreen() {
 
   return (
     <FlatList
+      style={styles.screen}
       data={conversations}
       keyExtractor={(item) => item.id}
       contentContainerStyle={styles.list}
@@ -148,6 +149,12 @@ export default function ChatScreen() {
 
 const styles = StyleSheet.create({
   loadingContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  // Without this the list shows the platform's default gray instead of the
+  // app background used on every other tab.
+  screen: {
     flex: 1,
     backgroundColor: colors.background,
   },

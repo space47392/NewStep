@@ -1,5 +1,8 @@
 export type RootStackParamList = {
   Auth: undefined;
+  // Opened from the "Forgot password?" email link — takes priority over every
+  // other branch until the new password is saved or cancelled.
+  ResetPassword: undefined;
   ChooseUsername: undefined;
   // Shown once, right after ChooseUsername, only for a brand-new signup in
   // this same app session — see AppNavigator. Distinct from MainStackParamList's

@@ -141,6 +141,7 @@ export default function VolunteerScreen() {
 
   return (
     <FlatList
+      style={styles.screen}
       data={contributors}
       keyExtractor={(item) => item.id}
       contentContainerStyle={styles.list}
@@ -169,6 +170,7 @@ export default function VolunteerScreen() {
         </View>
       }
       ListEmptyComponent={
+        <View>
         <EmptyState
           icon="star-outline"
           emoji={hasSchool ? '🌟' : '🏫'}
@@ -177,9 +179,18 @@ export default function VolunteerScreen() {
           subtitle={
             hasSchool
               ? 'Be the first to help someone at your school and get recognized here.'
-              : 'Set your school from your profile to see students who have helped others there.'
+              : 'Pick your school to see the students who help out there.'
           }
         />
+        {!hasSchool && (
+          <PrimaryButton
+            title="Choose School"
+            icon="school-outline"
+            onPress={() => navigation.navigate('ChooseSchool')}
+            style={styles.emptyActionButton}
+          />
+        )}
+        </View>
       }
       ListFooterComponent={
         hasSchool ? (
@@ -224,6 +235,12 @@ export default function VolunteerScreen() {
 }
 
 const styles = StyleSheet.create({
+  // Without this the list shows the platform's default gray instead of the
+  // app background used on every other tab.
+  screen: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
   list: {
     padding: spacing.lg,
   },
@@ -266,6 +283,10 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.textMid,
     marginTop: spacing.xs,
+  },
+  emptyActionButton: {
+    marginTop: spacing.lg,
+    marginHorizontal: spacing.xl,
   },
   howTo: {
     marginTop: spacing.lg,

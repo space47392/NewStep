@@ -547,7 +547,9 @@ export default function PostDetailScreen() {
               >
                 {post.status === 'completed' && post.helper && (
                   <Text style={styles.doneText}>
-                    🎉 Done! {post.helper.full_name?.split(' ')[0] ?? 'They'} earned a Community Point for helping.
+                    {post.helper.id === user?.id
+                      ? '🎉 Done! You earned a Community Point for helping.'
+                      : `🎉 Done! ${post.helper.full_name?.split(' ')[0] ?? 'They'} earned a Community Point for helping.`}
                   </Text>
                 )}
                 {post.status === 'completed' && contribution && (
@@ -769,14 +771,13 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
     color: colors.textMid,
   },
+  // Stacked full-width — side by side, longer names ("Say thanks to …")
+  // ran into the button edges on narrower phones.
   helperActions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: spacing.sm,
   },
   panelButton: {
-    flexGrow: 1,
-    minWidth: 130,
+    alignSelf: 'stretch',
   },
   badgeRow: {
     flexDirection: 'row',

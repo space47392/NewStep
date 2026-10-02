@@ -276,12 +276,23 @@ export default function ProfileScreen() {
             <Text style={styles.metaText}>
               {selectedSchool.name}
               {selectedSchool.city ? ` · ${selectedSchool.city}${selectedSchool.state ? `, ${selectedSchool.state}` : ''}` : ''}
-              {grade ? ` · Grade ${grade}` : ''}
+              {grade ? ` · ${grade} Grade` : ''}
             </Text>
           </TouchableOpacity>
-        ) : grade ? (
-          <Text style={styles.metaTextPlain}>Grade {grade}</Text>
-        ) : null}
+        ) : (
+          <>
+            {grade ? <Text style={styles.metaTextPlain}>{grade} Grade</Text> : null}
+            {/* No school yet — a direct way in, instead of nothing at all. */}
+            <TouchableOpacity
+              style={styles.addSchoolChip}
+              onPress={() => navigation.navigate('ChooseSchool')}
+              accessibilityRole="button"
+            >
+              <Text style={styles.addSchoolText}>🏫 Add your school</Text>
+              <Ionicons name="chevron-forward" size={14} color={colors.primary} />
+            </TouchableOpacity>
+          </>
+        )}
 
         {interests.length > 0 && <InterestChips interests={interests} />}
 
@@ -531,6 +542,21 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     fontSize: fontSize.sm,
     color: colors.textMid,
+  },
+  addSchoolChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    backgroundColor: colors.primaryLight,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    marginTop: spacing.sm,
+  },
+  addSchoolText: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
+    color: colors.primary,
   },
   metaTextPlain: {
     fontFamily: fontFamily.regular,

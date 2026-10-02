@@ -122,7 +122,7 @@ export default function HelpScreen() {
   if (loading) {
     return (
       <View style={styles.container}>
-        <View style={styles.header}>
+        <View style={[styles.header, { paddingHorizontal: spacing.lg }]}>
           <Text style={styles.title}>🤝 Need Help</Text>
           <Text style={styles.subtitle}>Open requests from your school community</Text>
         </View>
@@ -182,15 +182,22 @@ export default function HelpScreen() {
                 subtitle={
                   hasSchool
                     ? 'Stuck on something yourself? Take the first step and ask.'
-                    : 'Set your school from your profile to see requests from your community.'
+                    : 'Pick your school to see who needs a hand nearby.'
                 }
               />
-              {hasSchool && (
+              {hasSchool ? (
                 <PrimaryButton
                   title="Ask for help"
                   icon="hand-left-outline"
                   variant="outline"
                   onPress={() => navigation.navigate('CreatePost', { prefillCategory: 'Need Help' })}
+                  style={styles.emptyActionButton}
+                />
+              ) : (
+                <PrimaryButton
+                  title="Choose School"
+                  icon="school-outline"
+                  onPress={() => navigation.navigate('ChooseSchool')}
                   style={styles.emptyActionButton}
                 />
               )}
@@ -213,7 +220,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   header: {
-    paddingHorizontal: spacing.lg,
     paddingTop: spacing.xl,
     marginBottom: spacing.lg,
   },

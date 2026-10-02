@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { View, Text, Animated, Easing, TouchableWithoutFeedback, StyleSheet } from 'react-native';
+import { View, Text, Animated, Easing, Modal, TouchableWithoutFeedback, StyleSheet } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../constants/theme';
 
@@ -41,8 +41,11 @@ export default function SchoolJoinedCelebration({ schoolName, onDone }: Props) {
   }, []);
 
   return (
+    // A Modal (not an in-screen overlay) so the dim covers the whole screen,
+    // status bar strip included.
+    <Modal visible transparent animationType="fade" statusBarTranslucent onRequestClose={finish}>
     <TouchableWithoutFeedback onPress={finish} accessibilityRole="button" accessibilityLabel={`You joined ${schoolName}. Tap to continue.`}>
-      <View style={[StyleSheet.absoluteFill, styles.backdrop]}>
+      <View style={[styles.backdrop, styles.fill]}>
         <Animated.View
           style={[
             styles.card,
@@ -85,14 +88,18 @@ export default function SchoolJoinedCelebration({ schoolName, onDone }: Props) {
               />
             ))}
           </View>
-          <Text style={styles.body}>Welcome to your school community 👋</Text>
+          <Text style={styles.body}>Welcome to your school 👋</Text>
         </Animated.View>
       </View>
     </TouchableWithoutFeedback>
+    </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  fill: {
+    flex: 1,
+  },
   backdrop: {
     backgroundColor: 'rgba(20, 18, 40, 0.45)',
     justifyContent: 'center',

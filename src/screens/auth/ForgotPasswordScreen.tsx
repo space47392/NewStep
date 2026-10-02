@@ -30,7 +30,12 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
 
     sendingRef.current = true;
     setLoading(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim());
+    // The email's link reopens the app on ResetPasswordScreen (handled in
+    // AppNavigator). Must also be listed under Supabase → Auth → URL
+    // Configuration → Redirect URLs, or Supabase falls back to the Site URL.
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: 'newstep://reset-password',
+    });
     sendingRef.current = false;
     setLoading(false);
 

@@ -6,6 +6,7 @@ import { fetchProfileById, setMyInterests } from '../../lib/profile';
 import InterestPicker from '../../components/InterestPicker';
 import PrimaryButton from '../../components/PrimaryButton';
 import LoadingScreen from '../../components/LoadingScreen';
+import OnboardingSteps from '../../components/OnboardingSteps';
 import FadeInView from '../../components/FadeInView';
 import { colors, spacing, radius, fontSize, fontFamily } from '../../constants/theme';
 
@@ -66,6 +67,7 @@ export default function ChooseInterestsScreen({ onDone }: Props) {
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         <FadeInView style={styles.content}>
+          <OnboardingSteps current={3} style={styles.steps} />
           <View style={styles.iconCircle}>
             <Ionicons name="sparkles" size={32} color={colors.primary} />
           </View>
@@ -99,6 +101,9 @@ const styles = StyleSheet.create({
   },
   content: {
     alignItems: 'center',
+  },
+  steps: {
+    marginBottom: spacing.lg,
   },
   iconCircle: {
     width: 72,

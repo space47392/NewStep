@@ -691,6 +691,25 @@ export default function FeedScreen() {
 
   const displayedPosts = feedMode === 'following' ? followingPosts : posts;
 
+  // Sits on the identity row next to the school line — or, with no school
+  // yet, beside the greeting so it never ends up alone on its own row.
+  const bell = (
+    <TouchableOpacity
+      style={styles.bellButton}
+      onPress={() => navigation.navigate('Notifications')}
+      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      accessibilityRole="button"
+      accessibilityLabel="Open notifications"
+    >
+      <Ionicons name="notifications-outline" size={24} color={colors.textDark} />
+      {unreadNotificationCount > 0 && (
+        <View style={styles.bellBadge}>
+          <Text style={styles.bellBadgeText}>{unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}</Text>
+        </View>
+      )}
+    </TouchableOpacity>
+  );
+
   return (
     <View style={styles.container}>
       <FlatList
@@ -739,6 +758,8 @@ export default function FeedScreen() {
                 Add your school in Pr...") when there was no school set. Now
                 "NewStep" is always shown in full; school/activity context
                 (unchanged) lives entirely in identityText below. */}
+            <View style={styles.greetingRow}>
+            <View style={styles.greetingText}>
             {myFirstName ? (
               <>
                 <Text style={styles.brandLabel}>👣 NewStep</Text>
@@ -749,11 +770,15 @@ export default function FeedScreen() {
             ) : (
               <Text style={styles.pageTitle}>NewStep</Text>
             )}
+            </View>
+            {!mySchoolName && bell}
+            </View>
 
             {/* One identity line instead of three separate widgets (title,
                 story caption, school pill) — same data as before, just no
                 longer fragmented across the header. Doubles as the entry
                 point into School Community. */}
+            {mySchoolName ? (
             <View style={styles.identityRow}>
               {mySchoolName ? (
                 <TouchableOpacity
@@ -777,21 +802,9 @@ export default function FeedScreen() {
                 // (Step 31.5).
                 <View style={styles.identityTextWrap} />
               )}
-              <TouchableOpacity
-                style={styles.bellButton}
-                onPress={() => navigation.navigate('Notifications')}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                accessibilityRole="button"
-                accessibilityLabel="Open notifications"
-              >
-                <Ionicons name="notifications-outline" size={24} color={colors.textDark} />
-                {unreadNotificationCount > 0 && (
-                  <View style={styles.bellBadge}>
-                    <Text style={styles.bellBadgeText}>{unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}</Text>
-                  </View>
-                )}
-              </TouchableOpacity>
+              {bell}
             </View>
+            ) : null}
 
             {!mySchoolName && (
               <View style={styles.chooseSchoolCard}>
@@ -1279,6 +1292,14 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xl,
     color: colors.primary,
     marginBottom: spacing.xs,
+  },
+  greetingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  greetingText: {
+    flex: 1,
   },
   brandLabel: {
     fontFamily: fontFamily.bold,

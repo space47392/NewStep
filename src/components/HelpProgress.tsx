@@ -2,10 +2,11 @@ import { Fragment, ReactNode, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, Animated, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Avatar from './Avatar';
+import { useAuth } from '../contexts/AuthContext';
 import { colors, spacing, radius, fontSize, fontFamily } from '../constants/theme';
 import { PostStatus } from '../types';
 
-type Person = { full_name: string | null; avatar_url: string | null } | null;
+type Person = { id?: string; full_name: string | null; avatar_url: string | null } | null;
 
 type Props = {
   status: PostStatus;
@@ -39,6 +40,7 @@ export default function HelpProgress({
   onPressHelper,
   children,
 }: Props) {
+  const { user } = useAuth();
   const current = STEP_INDEX[status];
   const done = status === 'completed';
   const tone = done ? colors.accentDark : colors.secondaryDark;
@@ -80,10 +82,27 @@ export default function HelpProgress({
               <Avatar uri={helper?.avatar_url} size={28} />
             </View>
           </View>
+          {/* Says "you" when you're one of the two people involved. */}
           <Text style={styles.pairText}>
-            <Text style={styles.bold}>{firstName(helper)}</Text>
-            {done ? ' helped ' : ' is helping '}
-            <Text style={styles.bold}>{firstName(author)}</Text>
+            {user && helper?.id === user.id ? (
+              <>
+                <Text style={styles.bold}>You</Text>
+                {done ? ' helped ' : ' are helping '}
+                <Text style={styles.bold}>{firstName(author)}</Text>
+              </>
+            ) : user && author?.id === user.id ? (
+              <>
+                <Text style={styles.bold}>{firstName(helper)}</Text>
+                {done ? ' helped ' : ' is helping '}
+                <Text style={styles.bold}>you</Text>
+              </>
+            ) : (
+              <>
+                <Text style={styles.bold}>{firstName(helper)}</Text>
+                {done ? ' helped ' : ' is helping '}
+                <Text style={styles.bold}>{firstName(author)}</Text>
+              </>
+            )}
           </Text>
           {onPressHelper && <Ionicons name="chevron-forward" size={16} color={tone} />}
         </PairRow>
@@ -139,6 +158,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     padding: spacing.sm + spacing.xs,
     marginTop: spacing.sm,
+    marginBottom: spacing.xs,
     gap: spacing.sm + spacing.xs,
   },
   pairRow: {

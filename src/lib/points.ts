@@ -18,6 +18,20 @@ import { PointsHistoryEntry } from '../types';
 // several old completions for the same (now-anonymized) student suddenly
 // starting to count as several different students.
 export async function fetchHelpStats(userId: string): Promise<{ completedCount: number; studentsHelped: number }> {
+  // Totals via get_help_stats() (help_stats_public.sql) so they're correct no
+  // matter who is looking — help_history rows themselves are helper-only
+  // under RLS, so reading them directly gave everyone else 0.
+  const { data: totals, error: rpcError } = await supabase.rpc('get_help_stats', { p_user_id: userId });
+  if (!rpcError) {
+    const row = (Array.isArray(totals) ? totals[0] : totals) as
+      | { completed_count: number; students_helped: number }
+      | null
+      | undefined;
+    return { completedCount: row?.completed_count ?? 0, studentsHelped: row?.students_helped ?? 0 };
+  }
+
+  // Fallback until help_stats_public.sql has been run: correct for your own
+  // stats, 0 for anyone else's (RLS) — the previous behavior.
   const { data, error } = await supabase.from('help_history').select('is_new_student').eq('helper_id', userId);
 
   if (error) throw error;

@@ -14,6 +14,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
 import IconInput from '../../components/IconInput';
 import PrimaryButton from '../../components/PrimaryButton';
+import OnboardingSteps from '../../components/OnboardingSteps';
 import FadeInView from '../../components/FadeInView';
 import { colors, spacing, radius, fontSize, fontFamily } from '../../constants/theme';
 import { AuthStackParamList } from '../../types';
@@ -22,7 +23,7 @@ type Props = {
   navigation: NativeStackNavigationProp<AuthStackParamList, 'Register'>;
 };
 
-const JOURNEY = ['Sign up', 'Your school', 'Interests', 'Say hi 👋'];
+export const EMAIL_CONFIRMED_URL = 'newstep://email-confirmed';
 
 export default function RegisterScreen({ navigation }: Props) {
   const [fullName, setFullName] = useState('');
@@ -52,6 +53,11 @@ export default function RegisterScreen({ navigation }: Props) {
       password,
       options: {
         data: { full_name: fullName },
+        // The confirmation email's link reopens the app (LoginScreen shows
+        // "Email confirmed") instead of the project's default Site URL.
+        // Must also be listed under Supabase → Auth → URL Configuration →
+        // Redirect URLs, or Supabase falls back to the Site URL.
+        emailRedirectTo: EMAIL_CONFIRMED_URL,
       },
     });
     registeringRef.current = false;
@@ -83,19 +89,7 @@ export default function RegisterScreen({ navigation }: Props) {
           {/* A peek at the next few minutes, drawn as footprints — you're on
               the first one. Footprints, not the help tracker's dots, which
               stay reserved for help requests. */}
-          <View style={styles.journey} accessible accessibilityLabel="Step 1 of 4: sign up. Next: your school, interests, then say hi.">
-            {JOURNEY.map((step, i) => (
-              <View key={step} style={styles.journeyStep}>
-                <Ionicons
-                  name="footsteps"
-                  size={18}
-                  color={i === 0 ? colors.primary : colors.tabInactive}
-                  style={{ transform: [{ rotate: i % 2 === 0 ? '-12deg' : '12deg' }] }}
-                />
-                <Text style={[styles.journeyText, i === 0 && styles.journeyTextNow]}>{step}</Text>
-              </View>
-            ))}
-          </View>
+          <OnboardingSteps current={0} style={styles.journey} />
         </FadeInView>
 
         <FadeInView style={styles.form} delay={100}>
@@ -180,28 +174,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   journey: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignSelf: 'stretch',
     marginTop: spacing.lg,
-    backgroundColor: colors.cardBg,
-    borderRadius: radius.lg,
-    paddingVertical: spacing.sm + 2,
-    paddingHorizontal: spacing.sm,
-  },
-  journeyStep: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 4,
-  },
-  journeyText: {
-    fontFamily: fontFamily.medium,
-    fontSize: 11,
-    color: colors.textLight,
-  },
-  journeyTextNow: {
-    fontFamily: fontFamily.bold,
-    color: colors.primary,
   },
   form: {
     gap: spacing.sm,

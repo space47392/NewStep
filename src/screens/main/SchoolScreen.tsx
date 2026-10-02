@@ -510,7 +510,7 @@ export default function SchoolScreen() {
           <SectionHeader title="Find your community" />
           {gradeMates.length > 0 && (
             <View style={styles.memberRowWrap}>
-              <Text style={styles.memberRowTitle}>Students in Grade {myGrade}</Text>
+              <Text style={styles.memberRowTitle}>{myGrade} Grade students</Text>
               {renderMemberList(gradeMates, navigation)}
             </View>
           )}

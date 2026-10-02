@@ -5,8 +5,9 @@ import { useAuth } from '../../contexts/AuthContext';
 import { checkUsernameAvailable, setMyUsername } from '../../lib/username';
 import { normalizeUsername, validateUsername } from '../../lib/usernameValidation';
 import PrimaryButton from '../../components/PrimaryButton';
+import OnboardingSteps from '../../components/OnboardingSteps';
 import FadeInView from '../../components/FadeInView';
-import { colors, spacing, radius, fontSize, fontFamily } from '../../constants/theme';
+import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
 
 const DEBOUNCE_MS = 400;
 
@@ -90,13 +91,33 @@ export default function ChooseUsernameScreen({ onComplete }: Props) {
   return (
     <View style={styles.container}>
       <FadeInView style={styles.content}>
-        <View style={styles.iconCircle}>
-          <Ionicons name="at" size={32} color={colors.primary} />
+        <OnboardingSteps current={1} style={styles.steps} />
+        {/* A first-day "HELLO my name is" sticker that fills in as you type. */}
+        <View style={styles.nameTag} accessible accessibilityLabel={`Name tag preview: @${normalizeUsername(input) || 'yourname'}`}>
+          <View style={styles.nameTagTop}>
+            <Text style={styles.nameTagHello}>HELLO</Text>
+            <Text style={styles.nameTagSub}>my name is</Text>
+          </View>
+          <View style={styles.nameTagBody}>
+            <Text
+              style={[styles.nameTagName, !normalizeUsername(input) && styles.nameTagNameEmpty]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+            >
+              @{normalizeUsername(input) || 'yourname'}
+            </Text>
+          </View>
         </View>
         <Text style={styles.title}>Choose a username</Text>
         <Text style={styles.subtitle}>This is how other students will find and mention you.</Text>
 
-        <View style={styles.inputWrap}>
+        <View
+          style={[
+            styles.inputWrap,
+            status === 'available' && styles.inputWrapOk,
+            (status === 'taken' || status === 'invalid') && styles.inputWrapBad,
+          ]}
+        >
           <Text style={styles.atSign}>@</Text>
           <TextInput
             style={styles.input}
@@ -137,14 +158,56 @@ const styles = StyleSheet.create({
   content: {
     alignItems: 'center',
   },
-  iconCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: radius.full,
-    backgroundColor: colors.primaryLight,
-    justifyContent: 'center',
-    alignItems: 'center',
+  steps: {
+    marginBottom: spacing.xl,
+  },
+  nameTag: {
+    width: 220,
+    backgroundColor: colors.cardBg,
+    borderRadius: radius.md,
+    overflow: 'hidden',
     marginBottom: spacing.lg,
+    transform: [{ rotate: '-3deg' }],
+    ...shadow.card,
+  },
+  nameTagTop: {
+    backgroundColor: colors.secondary,
+    alignItems: 'center',
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xs,
+  },
+  nameTagHello: {
+    fontFamily: fontFamily.extrabold,
+    fontSize: fontSize.xl,
+    color: '#fff',
+    letterSpacing: 2,
+  },
+  nameTagSub: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.xs,
+    color: '#fff',
+    marginTop: -2,
+  },
+  nameTagBody: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    minHeight: 64,
+  },
+  nameTagName: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.xl,
+    color: colors.textDark,
+  },
+  nameTagNameEmpty: {
+    color: colors.tabInactive,
+  },
+  inputWrapOk: {
+    borderColor: colors.success,
+  },
+  inputWrapBad: {
+    borderColor: colors.error,
   },
   title: {
     fontFamily: fontFamily.bold,

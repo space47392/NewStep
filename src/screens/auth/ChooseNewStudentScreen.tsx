@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet, Alert } fr
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { setIsNewStudent } from '../../lib/profile';
+import OnboardingSteps from '../../components/OnboardingSteps';
 import FadeInView from '../../components/FadeInView';
 import { colors, spacing, radius, fontSize, fontFamily } from '../../constants/theme';
 
@@ -64,6 +65,7 @@ export default function ChooseNewStudentScreen({ onDone }: Props) {
   return (
     <View style={styles.container}>
       <FadeInView style={styles.content}>
+        <OnboardingSteps current={4} style={styles.steps} />
         <View style={styles.iconCircle}>
           <Ionicons name="school" size={32} color={colors.primary} />
         </View>
@@ -113,6 +115,9 @@ const styles = StyleSheet.create({
   },
   content: {
     alignItems: 'center',
+  },
+  steps: {
+    marginBottom: spacing.xl,
   },
   iconCircle: {
     width: 72,

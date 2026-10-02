@@ -326,6 +326,10 @@ export default function CreatePostScreen() {
       // Successful submit is an intentional exit, not an accidental one — the
       // upcoming goBack() should never trigger the discard-changes prompt.
       isDirtyRef.current = false;
+      // The upload is finished — clear the in-flight flag before leaving, or
+      // the beforeRemove guard below still sees it set (the finally block
+      // runs after goBack) and blocks with "still uploading".
+      postingRef.current = false;
       navigation.goBack();
     } catch (err) {
       // Best-effort cleanup of whatever this attempt DID manage to upload —
@@ -781,6 +785,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     padding: spacing.md,
     marginTop: spacing.md,
+    marginBottom: spacing.lg,
   },
   helpGuideTitle: {
     fontFamily: fontFamily.bold,

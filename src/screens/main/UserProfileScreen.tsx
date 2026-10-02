@@ -292,11 +292,11 @@ export default function UserProfileScreen() {
                 <Ionicons name="school-outline" size={14} color={colors.textMid} />
                 <Text style={styles.metaText}>
                   {schoolName}
-                  {profile.grade ? ` · Grade ${profile.grade}` : ''}
+                  {profile.grade ? ` · ${profile.grade} Grade` : ''}
                 </Text>
               </TouchableOpacity>
             ) : profile.grade ? (
-              <Text style={styles.metaTextPlain}>Grade {profile.grade}</Text>
+              <Text style={styles.metaTextPlain}>{profile.grade} Grade</Text>
             ) : null}
 
             {profile.interests.length > 0 && <InterestChips interests={profile.interests} />}

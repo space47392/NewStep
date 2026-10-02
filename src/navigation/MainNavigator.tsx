@@ -1,6 +1,7 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { MainStackParamList } from '../types';
 import TabNavigator from './TabNavigator';
+import { useScreenContentStyle, NO_TOP_INSET, MODAL_TOP_INSET } from './screenInsets';
 import CreatePostScreen from '../screens/main/CreatePostScreen';
 import PostDetailScreen from '../screens/main/PostDetailScreen';
 import ConversationScreen from '../screens/main/ConversationScreen';
@@ -17,10 +18,11 @@ import PhotoViewerScreen from '../screens/main/PhotoViewerScreen';
 const Stack = createNativeStackNavigator<MainStackParamList>();
 
 export default function MainNavigator() {
+  const contentStyle = useScreenContentStyle();
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Navigator screenOptions={{ headerShown: false, contentStyle }}>
       <Stack.Screen name="Tabs" component={TabNavigator} />
-      <Stack.Screen name="CreatePost" component={CreatePostScreen} options={{ presentation: 'modal' }} />
+      <Stack.Screen name="CreatePost" component={CreatePostScreen} options={{ presentation: 'modal', contentStyle: MODAL_TOP_INSET ?? contentStyle }} />
       <Stack.Screen name="PostDetail" component={PostDetailScreen} />
       <Stack.Screen name="Conversation" component={ConversationScreen} />
       <Stack.Screen name="UserProfile" component={UserProfileScreen} />
@@ -28,10 +30,18 @@ export default function MainNavigator() {
       <Stack.Screen name="Notifications" component={NotificationsScreen} />
       <Stack.Screen name="FollowList" component={FollowListScreen} />
       <Stack.Screen name="SavedPosts" component={SavedPostsScreen} />
-      <Stack.Screen name="ChooseSchool" component={ChooseSchoolScreen} options={{ presentation: 'modal' }} />
+      <Stack.Screen
+        name="ChooseSchool"
+        component={ChooseSchoolScreen}
+        options={{ presentation: 'modal', contentStyle: MODAL_TOP_INSET ?? contentStyle }}
+      />
       <Stack.Screen name="EditProfile" component={EditProfileScreen} />
-      <Stack.Screen name="StoryViewer" component={StoryViewerScreen} options={{ presentation: 'fullScreenModal' }} />
-      <Stack.Screen name="PhotoViewer" component={PhotoViewerScreen} options={{ presentation: 'fullScreenModal' }} />
+      <Stack.Screen name="StoryViewer" component={StoryViewerScreen} options={{ presentation: 'fullScreenModal', contentStyle: NO_TOP_INSET }} />
+      <Stack.Screen
+        name="PhotoViewer"
+        component={PhotoViewerScreen}
+        options={{ presentation: 'fullScreenModal', contentStyle: NO_TOP_INSET }}
+      />
     </Stack.Navigator>
   );
 }

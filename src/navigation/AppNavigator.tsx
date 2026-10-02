@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { Alert, Linking } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
 import { RootStackParamList, AuthStackParamList } from '../types';
 import LoadingScreen from '../components/LoadingScreen';
 
@@ -13,17 +15,36 @@ import ChooseUsernameScreen from '../screens/auth/ChooseUsernameScreen';
 import ChooseInterestsScreen from '../screens/auth/ChooseInterestsScreen';
 import ChooseNewStudentScreen from '../screens/auth/ChooseNewStudentScreen';
 import WelcomeScreen from '../screens/auth/WelcomeScreen';
+import ResetPasswordScreen from '../screens/auth/ResetPasswordScreen';
 import ChooseSchoolScreen from '../screens/main/ChooseSchoolScreen';
 import MainNavigator from './MainNavigator';
 import { navigationRef } from './navigationRef';
+import { useScreenContentStyle, NO_TOP_INSET } from './screenInsets';
 
 const RootStack = createNativeStackNavigator<RootStackParamList>();
+
+// Reads key=value pairs from a link's #fragment (where Supabase puts tokens)
+// or ?query (where it puts errors). Parsed by hand — RN's URLSearchParams
+// isn't fully implemented on every version.
+function linkParams(url: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  const parts = [url.split('#')[1] ?? '', (url.split('?')[1] ?? '').split('#')[0]];
+  for (const part of parts) {
+    for (const pair of part.split('&')) {
+      const eq = pair.indexOf('=');
+      if (eq > 0) out[pair.slice(0, eq)] = decodeURIComponent(pair.slice(eq + 1).replace(/\+/g, ' '));
+    }
+  }
+  return out;
+}
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 
 function AuthNavigator() {
+  const contentStyle = useScreenContentStyle();
   return (
-    <AuthStack.Navigator screenOptions={{ headerShown: false }}>
-      <AuthStack.Screen name="Login" component={LoginScreen} />
+    <AuthStack.Navigator screenOptions={{ headerShown: false, contentStyle }}>
+      {/* Vertically centered, and its intro paints behind the status bar. */}
+      <AuthStack.Screen name="Login" component={LoginScreen} options={{ contentStyle: NO_TOP_INSET }} />
       <AuthStack.Screen name="Register" component={RegisterScreen} />
       <AuthStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
     </AuthStack.Navigator>
@@ -32,6 +53,7 @@ function AuthNavigator() {
 
 export default function AppNavigator() {
   const { session, loading, username, usernameLoading } = useAuth();
+  const contentStyle = useScreenContentStyle();
 
   // All local/session-only, never persisted — see the onboarding branches
   // below for why. Reset on every actual login/logout/account switch (not on
@@ -42,6 +64,47 @@ export default function AppNavigator() {
   const [interestsOnboardingDone, setInterestsOnboardingDone] = useState(false);
   const [newStudentOnboardingDone, setNewStudentOnboardingDone] = useState(false);
   const [welcomeOnboardingDone, setWelcomeOnboardingDone] = useState(false);
+  // True while a password-reset link is being used — see the effect below.
+  const [recoveringPassword, setRecoveringPassword] = useState(false);
+  const handledLinksRef = useRef(new Set<string>());
+
+  // "Forgot password?" email link (newstep://reset-password#access_token=…).
+  // Its one-time recovery session has to be active before updateUser() may
+  // set a new password, so it's applied here and ResetPasswordScreen shows
+  // until the student saves or cancels. Lives here (not on LoginScreen)
+  // because applying the session signs in, which would unmount LoginScreen.
+  useEffect(() => {
+    const handle = async (url: string | null) => {
+      if (!url || !url.startsWith('newstep://')) return;
+      const params = linkParams(url);
+      // Also accepts a recovery link that landed on another newstep:// path
+      // (Supabase falls back to the Site URL when reset-password isn't in
+      // its Redirect URLs list) — type=recovery is what marks it.
+      const isResetLink = url.startsWith('newstep://reset-password') || params.type === 'recovery';
+      if (!isResetLink) return;
+      if (handledLinksRef.current.has(url)) return;
+      handledLinksRef.current.add(url);
+      if (params.error_description) {
+        Alert.alert("This reset link didn't work", params.error_description + ' Request a new one from "Forgot password?".');
+        return;
+      }
+      if (!params.access_token || !params.refresh_token) return;
+      setRecoveringPassword(true);
+      const { error } = await supabase.auth.setSession({
+        access_token: params.access_token,
+        refresh_token: params.refresh_token,
+      });
+      if (error) {
+        setRecoveringPassword(false);
+        Alert.alert("This reset link didn't work", error.message);
+      }
+    };
+    Linking.getInitialURL().then(handle).catch(() => {});
+    const sub = Linking.addEventListener('url', ({ url }) => {
+      handle(url);
+    });
+    return () => sub.remove();
+  }, []);
   useEffect(() => {
     setJustSignedUp(false);
     setSchoolOnboardingDone(false);
@@ -91,10 +154,14 @@ export default function AppNavigator() {
 
   return (
     <NavigationContainer ref={navigationRef}>
-      <RootStack.Navigator screenOptions={{ headerShown: false }}>
-        {!session ? (
+      <RootStack.Navigator screenOptions={{ headerShown: false, contentStyle }}>
+        {recoveringPassword && session ? (
+          <RootStack.Screen name="ResetPassword">
+            {() => <ResetPasswordScreen onDone={() => setRecoveringPassword(false)} />}
+          </RootStack.Screen>
+        ) : !session ? (
           // Logged out → show auth screens
-          <RootStack.Screen name="Auth" component={AuthNavigator as any} />
+          <RootStack.Screen name="Auth" component={AuthNavigator as any} options={{ contentStyle: NO_TOP_INSET }} />
         ) : !username ? (
           // Logged in but no username yet — covers both pre-existing accounts
           // from before this feature existed, and brand new signups (a fresh
@@ -129,7 +196,7 @@ export default function AppNavigator() {
         ) : (
           // Logged in with a username → show main app (bottom tabs + screens
           // like CreatePost pushed on top)
-          <RootStack.Screen name="Main" component={MainNavigator} />
+          <RootStack.Screen name="Main" component={MainNavigator} options={{ contentStyle: NO_TOP_INSET }} />
         )}
       </RootStack.Navigator>
     </NavigationContainer>

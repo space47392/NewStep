@@ -302,7 +302,7 @@ export default function EditProfileScreen() {
         </TouchableOpacity>
 
         <Text style={styles.label}>Full Name</Text>
-        <IconInput icon="person-outline" placeholder="Alex Johnson" value={fullName} onChangeText={setFullName} autoComplete="name" />
+        <IconInput icon="person-outline" placeholder="Alex Johnson" value={fullName} onChangeText={setFullName} autoComplete="name" maxLength={50} />
 
         <Text style={styles.label}>School</Text>
         <View style={styles.schoolCard}>

@@ -802,6 +802,7 @@ export default function ConversationScreen() {
               value={text}
               onChangeText={handleChangeText}
               multiline
+              maxLength={2000}
             />
             <TouchableOpacity
               style={[styles.sendButton, (sending || !text.trim()) && styles.buttonDisabled]}

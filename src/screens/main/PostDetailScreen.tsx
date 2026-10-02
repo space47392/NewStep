@@ -687,6 +687,7 @@ export default function PostDetailScreen() {
           value={commentText}
           onChangeText={setCommentText}
           multiline
+          maxLength={500}
         />
         <TouchableOpacity
           style={[styles.sendButton, (sending || !commentText.trim()) && styles.buttonDisabled]}

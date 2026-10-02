@@ -107,6 +107,7 @@ export default function RegisterScreen({ navigation }: Props) {
             value={fullName}
             onChangeText={setFullName}
             autoComplete="name"
+            maxLength={50}
           />
 
           <Text style={styles.label}>Email</Text>

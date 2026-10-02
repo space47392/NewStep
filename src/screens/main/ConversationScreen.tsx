@@ -58,6 +58,18 @@ const NEAR_BOTTOM_THRESHOLD = 120;
 // time passed; it only changes when messages are actually added or removed.
 // Independent of sender — a same-minute run across two different senders is
 // still one bucket (see the timestamp-visibility rule below).
+// 1–3 emoji and nothing else ("👋", "🎉🎉") — shown big and bubble-free,
+// like a sticker, instead of a tiny emoji inside a bubble.
+let EMOJI_ONLY: RegExp | null = null;
+try {
+  EMOJI_ONLY = new RegExp('^(?:\\p{Extended_Pictographic}(?:\\uFE0F|\\u200D\\p{Extended_Pictographic}|\\p{Emoji_Modifier})*\\s*){1,3}$', 'u');
+} catch {
+  // Engine without Unicode property escapes: just never use the big style.
+}
+function isEmojiOnly(text: string): boolean {
+  return !!EMOJI_ONLY && EMOJI_ONLY.test(text.trim());
+}
+
 function sameTimestampBucket(a: string, b: string): boolean {
   return Math.floor(new Date(a).getTime() / 60000) === Math.floor(new Date(b).getTime() / 60000);
 }
@@ -101,6 +113,7 @@ export default function ConversationScreen() {
   // "@username · School" under the name in the header, so you always know
   // exactly who you're talking to.
   const [otherSubtitle, setOtherSubtitle] = useState<string | null>(null);
+  const [myAvatarUrl, setMyAvatarUrl] = useState<string | null>(null);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const listRef = useRef<FlatList>(null);
   const typingRef = useRef<ReturnType<typeof subscribeToTyping> | null>(null);
@@ -154,6 +167,7 @@ export default function ConversationScreen() {
     Promise.all([fetchProfileById(user.id), fetchProfileById(otherUser.id)])
       .then(([mine, theirs]) => {
         if (cancelled) return;
+        setMyAvatarUrl(mine.avatar_url);
         const mineSet = new Set(mine.interests.map((i) => i.toLowerCase()));
         setSharedInterests(theirs.interests.filter((i) => mineSet.has(i.toLowerCase())));
         const parts = [theirs.username ? `@${theirs.username}` : null, resolveSchoolName(theirs)].filter(Boolean);
@@ -446,6 +460,21 @@ export default function ConversationScreen() {
     }
   };
 
+  const handleWave = async () => {
+    if (!user || !otherUser || sending) return;
+    setSending(true);
+    try {
+      await sendMessage({ conversationId, senderId: user.id, content: '👋', replyToMessageId: replyTarget?.id });
+      setReplyTarget(null);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Could not send.';
+      Alert.alert('Error', message);
+    } finally {
+      setSending(false);
+    }
+  };
+
   const handleLongPressMessage = (message: Message) => {
     if (message.deleted_at) return; // nothing to do on an already-deleted tombstone
     setMenuMessage(message);
@@ -604,7 +633,37 @@ export default function ConversationScreen() {
             listRef.current?.scrollToEnd({ animated: true });
           }}
           ListHeaderComponent={
-            hasMoreOlder && messages.length > 0 ? (
+            !hasMoreOlder && messages.length > 0 && otherUser ? (
+              // The very start of the conversation: who this is and what you
+              // have in common — a little "how you two connect" card.
+              <View style={styles.introCard}>
+                <View style={styles.introAvatars}>
+                  <View style={[styles.introAvatar, { transform: [{ rotate: '-6deg' }] }]}>
+                    <Avatar uri={myAvatarUrl} size={44} />
+                  </View>
+                  <Text style={styles.introWave}>👋</Text>
+                  <View style={[styles.introAvatar, { transform: [{ rotate: '6deg' }] }]}>
+                    <Avatar uri={otherUser.avatar_url ?? null} size={44} />
+                  </View>
+                </View>
+                <Text style={styles.introTitle}>
+                  The start of your chat with {otherUser.full_name?.trim().split(/\s+/)[0] ?? 'them'}
+                </Text>
+                {otherSubtitle ? <Text style={styles.introSub}>{otherSubtitle}</Text> : null}
+                {sharedInterests.length > 0 && (
+                  <View style={styles.helloChips}>
+                    <Text style={styles.introSub}>You both like</Text>
+                    {sharedInterests.slice(0, 3).map((i) => (
+                      <View key={i} style={styles.helloChip}>
+                        <Text style={styles.helloChipText}>
+                          {getInterestIcon(i)} {i}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </View>
+            ) : hasMoreOlder && messages.length > 0 ? (
               <TouchableOpacity style={styles.loadOlderButton} onPress={handleLoadOlder} disabled={loadingOlder}>
                 {loadingOlder ? (
                   <ActivityIndicator size="small" color={colors.primary} />
@@ -677,6 +736,7 @@ export default function ConversationScreen() {
             // a same-minute run across two different senders still only
             // shows one timestamp, at the end of that run.
             const showTimestamp = !nextItem || !sameTimestampBucket(item.created_at, nextItem.created_at);
+            const bigEmoji = !isDeleted && !item.reply_to_message_id && isEmojiOnly(item.content);
 
             return (
               <View>
@@ -724,6 +784,7 @@ export default function ConversationScreen() {
                         !isFirstInGroup && (isMine ? styles.bubbleJoinTopMine : styles.bubbleJoinTopTheirs),
                         !isLastInGroup && (isMine ? styles.bubbleJoinBottomMine : styles.bubbleJoinBottomTheirs),
                         isDeleted && styles.bubbleDeleted,
+                        bigEmoji && styles.bubbleEmojiOnly,
                       ]}
                     >
                       {isDeleted ? (
@@ -758,7 +819,14 @@ export default function ConversationScreen() {
                                 </TouchableOpacity>
                               );
                             })()}
-                          <Text style={isMine ? styles.bubbleTextMine : styles.bubbleTextTheirs}>{item.content}</Text>
+                          <Text
+                            style={[
+                              isMine ? styles.bubbleTextMine : styles.bubbleTextTheirs,
+                              bigEmoji && [styles.emojiOnlyText, { transform: [{ rotate: isMine ? '6deg' : '-6deg' }] }],
+                            ]}
+                          >
+                            {item.content}
+                          </Text>
                         </>
                       )}
                     </TouchableOpacity>
@@ -769,7 +837,7 @@ export default function ConversationScreen() {
                       {item.edited_at && !isDeleted ? <Text style={styles.editedLabel}>(edited)</Text> : null}
                     </View>
                     {isMine && item.id === lastMineMessageId && item.read_at && !isDeleted ? (
-                      <Text style={styles.readReceipt}>Seen ✓</Text>
+                      <Text style={styles.readReceipt}>👣 Seen</Text>
                     ) : null}
                   </View>
                 </View>
@@ -823,13 +891,26 @@ export default function ConversationScreen() {
           <View style={[styles.inputRow, { paddingBottom: spacing.md + insets.bottom }]}>
             <TextInput
               style={styles.input}
-              placeholder="Message..."
+              placeholder={editingMessage ? 'Edit message...' : 'Say something nice...'}
               placeholderTextColor={colors.textLight}
               value={text}
               onChangeText={handleChangeText}
               multiline
               maxLength={2000}
             />
+            {/* Nothing typed: the button becomes a one-tap 👋 wave instead
+                of a disabled send arrow. */}
+            {!text.trim() && !editingMessage ? (
+              <TouchableOpacity
+                style={[styles.sendButton, styles.waveButton, sending && styles.buttonDisabled]}
+                onPress={handleWave}
+                disabled={sending}
+                accessibilityRole="button"
+                accessibilityLabel="Send a wave"
+              >
+                {sending ? <ActivityIndicator color={colors.textDark} /> : <Text style={styles.waveButtonText}>👋</Text>}
+              </TouchableOpacity>
+            ) : (
             <TouchableOpacity
               style={[styles.sendButton, (sending || !text.trim()) && styles.buttonDisabled]}
               onPress={handleSend}
@@ -841,6 +922,7 @@ export default function ConversationScreen() {
                 <Ionicons name={editingMessage ? 'checkmark' : 'send'} size={18} color="#fff" />
               )}
             </TouchableOpacity>
+            )}
           </View>
         </>
       ) : (
@@ -1121,6 +1203,58 @@ const styles = StyleSheet.create({
     height: 44,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  waveButton: {
+    backgroundColor: colors.warning,
+  },
+  waveButtonText: {
+    fontSize: 20,
+  },
+  bubbleEmojiOnly: {
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    paddingHorizontal: 2,
+    paddingVertical: 0,
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  emojiOnlyText: {
+    fontSize: 44,
+    lineHeight: 54,
+  },
+  introCard: {
+    alignItems: 'center',
+    backgroundColor: colors.cardBg,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
+    gap: spacing.xs,
+  },
+  introAvatars: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+  },
+  introAvatar: {
+    borderRadius: 26,
+    borderWidth: 3,
+    borderColor: colors.primaryLight,
+  },
+  introWave: {
+    fontSize: 22,
+    marginHorizontal: spacing.sm,
+  },
+  introTitle: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.md,
+    color: colors.textDark,
+    textAlign: 'center',
+  },
+  introSub: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
+    color: colors.textMid,
+    textAlign: 'center',
   },
   buttonDisabled: {
     opacity: 0.6,

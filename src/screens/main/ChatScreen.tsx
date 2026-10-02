@@ -114,7 +114,7 @@ export default function ChatScreen() {
         return (
           <FadeInView delay={Math.min(index, 6) * 40}>
             <TouchableOpacity
-              style={styles.row}
+              style={[styles.row, item.unreadCount > 0 && styles.rowUnread]}
               activeOpacity={0.85}
               onPress={() => navigation.navigate('Conversation', { conversationId: item.id, otherUser: item.otherUser })}
             >
@@ -123,7 +123,7 @@ export default function ChatScreen() {
               </TouchableOpacity>
               <View style={styles.rowText}>
                 <TouchableOpacity style={styles.nameTouchable} onPress={goToOtherProfile} disabled={isDeletedOther}>
-                  <Text style={styles.name}>{isDeletedOther ? 'Deleted User' : (item.otherUser!.full_name ?? 'Unknown')}</Text>
+                  <Text style={[styles.name, item.unreadCount > 0 && styles.nameUnread]} numberOfLines={1}>{isDeletedOther ? 'Deleted User' : (item.otherUser!.full_name ?? 'Unknown')}</Text>
                 </TouchableOpacity>
                 <Text style={[styles.lastMessage, item.unreadCount > 0 && styles.lastMessageUnread]} numberOfLines={1}>
                   {item.last_message ?? 'Say hello!'}
@@ -131,7 +131,9 @@ export default function ChatScreen() {
               </View>
               <View style={styles.rowRight}>
                 {item.last_message_at ? (
-                  <Text style={styles.timestamp}>{formatRelativeTime(item.last_message_at)}</Text>
+                  <Text style={[styles.timestamp, item.unreadCount > 0 && styles.timestampUnread]}>
+                    {formatRelativeTime(item.last_message_at)}
+                  </Text>
                 ) : null}
                 {item.unreadCount > 0 ? (
                   <View style={styles.unreadBadge}>
@@ -175,6 +177,18 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     marginBottom: spacing.sm,
     ...shadow.card,
+  },
+  // Unread chats stand out at a glance, not only by the small count badge.
+  rowUnread: {
+    borderWidth: 1.5,
+    borderColor: colors.primaryLight,
+  },
+  nameUnread: {
+    fontFamily: fontFamily.bold,
+  },
+  timestampUnread: {
+    fontFamily: fontFamily.semibold,
+    color: colors.primary,
   },
   rowText: {
     flex: 1,

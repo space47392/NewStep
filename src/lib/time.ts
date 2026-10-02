@@ -51,3 +51,9 @@ export function formatDayLabel(dateString: string): string {
     year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
   });
 }
+
+// Clock time for chat bubbles ("3:42 PM") — the day itself is already shown
+// by the "Today" / "Yesterday" separator above each run of messages.
+export function formatClockTime(dateString: string): string {
+  return new Date(dateString).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+}

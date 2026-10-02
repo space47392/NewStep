@@ -32,7 +32,8 @@ import {
   subscribeToTyping,
   markMessagesAsRead,
 } from '../../lib/chat';
-import { formatRelativeTime, formatDayLabel, isSameDay } from '../../lib/time';
+import { formatClockTime, formatDayLabel, isSameDay } from '../../lib/time';
+import { resolveSchoolName } from '../../lib/schools';
 import Avatar from '../../components/Avatar';
 import { fetchProfileById } from '../../lib/profile';
 import { getInterestIcon } from '../../constants/interests';
@@ -97,6 +98,9 @@ export default function ConversationScreen() {
   // Shared interests for the empty-chat "say hello" prompt — a conversation
   // starter built only from what both profiles actually list.
   const [sharedInterests, setSharedInterests] = useState<string[]>([]);
+  // "@username · School" under the name in the header, so you always know
+  // exactly who you're talking to.
+  const [otherSubtitle, setOtherSubtitle] = useState<string | null>(null);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const listRef = useRef<FlatList>(null);
   const typingRef = useRef<ReturnType<typeof subscribeToTyping> | null>(null);
@@ -152,6 +156,8 @@ export default function ConversationScreen() {
         if (cancelled) return;
         const mineSet = new Set(mine.interests.map((i) => i.toLowerCase()));
         setSharedInterests(theirs.interests.filter((i) => mineSet.has(i.toLowerCase())));
+        const parts = [theirs.username ? `@${theirs.username}` : null, resolveSchoolName(theirs)].filter(Boolean);
+        setOtherSubtitle(parts.length > 0 ? parts.join(' · ') : null);
       })
       .catch(() => {
         // Optional nicety — the prompt still works without it.
@@ -546,7 +552,16 @@ export default function ConversationScreen() {
           onPress={() => otherUser && navigation.navigate('UserProfile', { userId: otherUser.id })}
         >
           <Avatar uri={otherUser?.avatar_url ?? null} size={36} />
-          <Text style={styles.headerName}>{otherUser ? (otherUser.full_name ?? 'Unknown') : 'Deleted User'}</Text>
+          <View style={styles.headerText}>
+            <Text style={styles.headerName} numberOfLines={1}>
+              {otherUser ? (otherUser.full_name ?? 'Unknown') : 'Deleted User'}
+            </Text>
+            {otherSubtitle ? (
+              <Text style={styles.headerSubtitle} numberOfLines={1}>
+                {otherSubtitle}
+              </Text>
+            ) : null}
+          </View>
         </TouchableOpacity>
       </View>
 
@@ -678,7 +693,14 @@ export default function ConversationScreen() {
                   ]}
                 >
                   {!isMine && (
-                    <View style={styles.avatarSlot}>
+                    <View
+                      style={[
+                        styles.avatarSlot,
+                        // Lines the avatar up with the bubble itself, not with
+                        // the time/edited line underneath it.
+                        (showTimestamp || (!!item.edited_at && !isDeleted)) && styles.avatarSlotAboveFooter,
+                      ]}
+                    >
                       {/* A 1:1 conversation only ever has two possible senders — "not
                           mine" always means otherUser, whether or not THIS specific
                           message's own sender_id happens to be null (Step 56); Avatar
@@ -697,6 +719,10 @@ export default function ConversationScreen() {
                         // The last bubble of a run gets a little "tail" corner
                         // pointing at whoever said it.
                         isLastInGroup && (isMine ? styles.bubbleTailMine : styles.bubbleTailTheirs),
+                        // Consecutive bubbles from the same person read as one
+                        // stack: the corners facing each other tuck in.
+                        !isFirstInGroup && (isMine ? styles.bubbleJoinTopMine : styles.bubbleJoinTopTheirs),
+                        !isLastInGroup && (isMine ? styles.bubbleJoinBottomMine : styles.bubbleJoinBottomTheirs),
                         isDeleted && styles.bubbleDeleted,
                       ]}
                     >
@@ -738,12 +764,12 @@ export default function ConversationScreen() {
                     </TouchableOpacity>
                     <View style={styles.messageFooter}>
                       {showTimestamp ? (
-                        <Text style={styles.messageTimestamp}>{formatRelativeTime(item.created_at)}</Text>
+                        <Text style={styles.messageTimestamp}>{formatClockTime(item.created_at)}</Text>
                       ) : null}
                       {item.edited_at && !isDeleted ? <Text style={styles.editedLabel}>(edited)</Text> : null}
                     </View>
                     {isMine && item.id === lastMineMessageId && item.read_at && !isDeleted ? (
-                      <Text style={styles.readReceipt}>Read</Text>
+                      <Text style={styles.readReceipt}>Seen ✓</Text>
                     ) : null}
                   </View>
                 </View>
@@ -847,8 +873,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
-    paddingBottom: spacing.sm,
+    paddingBottom: spacing.sm + 2,
     gap: spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
   },
   backButton: {
     marginRight: spacing.xs,
@@ -858,10 +886,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
+  headerText: {
+    flexShrink: 1,
+  },
   headerName: {
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.md,
     color: colors.textDark,
+  },
+  headerSubtitle: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
+    color: colors.textMid,
+    marginTop: 1,
   },
   list: {
     paddingHorizontal: spacing.lg,
@@ -937,6 +974,22 @@ const styles = StyleSheet.create({
     height: 24,
     marginRight: spacing.xs,
   },
+  // = messageFooter's marginTop (2) + one 16px text line.
+  avatarSlotAboveFooter: {
+    marginBottom: 18,
+  },
+  bubbleJoinTopMine: {
+    borderTopRightRadius: 6,
+  },
+  bubbleJoinBottomMine: {
+    borderBottomRightRadius: 6,
+  },
+  bubbleJoinTopTheirs: {
+    borderTopLeftRadius: 6,
+  },
+  bubbleJoinBottomTheirs: {
+    borderBottomLeftRadius: 6,
+  },
   bubbleCol: {
     maxWidth: '76%',
   },
@@ -996,6 +1049,7 @@ const styles = StyleSheet.create({
   messageTimestamp: {
     fontFamily: fontFamily.regular,
     fontSize: fontSize.xs,
+    lineHeight: 16,
     color: colors.textLight,
   },
   editedLabel: {
@@ -1005,9 +1059,9 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   readReceipt: {
-    fontFamily: fontFamily.regular,
+    fontFamily: fontFamily.semibold,
     fontSize: fontSize.xs,
-    color: colors.textLight,
+    color: colors.primary,
     marginTop: 1,
   },
   editingBanner: {

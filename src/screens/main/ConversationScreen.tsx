@@ -687,6 +687,16 @@ export default function ConversationScreen() {
             if (!hasScrolledOnLoadRef.current) {
               hasScrolledOnLoadRef.current = true;
               loadSettleUntilRef.current = Date.now() + 2500;
+              // maintainVisibleContentPosition can shift the list when the
+              // header card appears without a content-size event we can rely
+              // on, so also re-pin on a few short timers while settling.
+              [150, 500, 1000, 1800].forEach((ms) =>
+                setTimeout(() => {
+                  if (Date.now() < loadSettleUntilRef.current) {
+                    listRef.current?.scrollToEnd({ animated: false });
+                  }
+                }, ms)
+              );
               listRef.current?.scrollToEnd({ animated: false });
               return;
             }
@@ -965,7 +975,7 @@ export default function ConversationScreen() {
             <View style={styles.editingBanner}>
               <Ionicons name="arrow-undo-outline" size={14} color={colors.textMid} />
               <View style={styles.replyBannerText}>
-                <Text style={styles.editingBannerText} numberOfLines={1}>
+                <Text style={styles.replyBannerTitle} numberOfLines={1}>
                   Replying to {replyTarget.sender_id === user?.id ? 'yourself' : (otherUser.full_name ?? 'them')}
                 </Text>
                 <Text style={styles.replyBannerPreview} numberOfLines={1}>
@@ -1075,7 +1085,9 @@ const styles = StyleSheet.create({
   },
   list: {
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingTop: spacing.md,
+    // Breathing room so the newest bubble never sits under the composer.
+    paddingBottom: spacing.xl,
     flexGrow: 1,
   },
   loadOlderButton: {
@@ -1302,6 +1314,16 @@ const styles = StyleSheet.create({
   },
   replyBannerText: {
     flex: 1,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.primary,
+    paddingLeft: spacing.sm,
+  },
+  // No flex here: inside the column above, flex: 1 squeezed this line to
+  // zero height and "Replying to …" never showed.
+  replyBannerTitle: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.xs,
+    color: colors.primary,
   },
   replyBannerPreview: {
     fontFamily: fontFamily.regular,

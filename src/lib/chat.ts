@@ -229,3 +229,22 @@ export function subscribeToMessages(conversationId: string, onChange: (event: Me
     supabase.removeChannel(channel);
   };
 }
+
+// Remembers that this chat started from a help request (see
+// conversation_origin.sql). Best-effort: silently does nothing if the SQL
+// hasn't been run yet or the post doesn't qualify.
+export async function linkConversationToPost(conversationId: string, postId: string): Promise<void> {
+  await supabase.rpc('link_conversation_to_post', { p_conversation_id: conversationId, p_post_id: postId });
+}
+
+// The help request this chat started from, if any. Null when there isn't
+// one, the post was deleted, or conversation_origin.sql hasn't been run.
+export async function fetchConversationOriginPostId(conversationId: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('conversations')
+    .select('origin_post_id')
+    .eq('id', conversationId)
+    .maybeSingle<{ origin_post_id: string | null }>();
+  if (error || !data) return null;
+  return data.origin_post_id;
+}

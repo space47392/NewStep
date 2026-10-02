@@ -31,7 +31,9 @@ import {
   subscribeToMessages,
   subscribeToTyping,
   markMessagesAsRead,
+  fetchConversationOriginPostId,
 } from '../../lib/chat';
+import { fetchPostById } from '../../lib/posts';
 import { formatClockTime, formatDayLabel, isSameDay } from '../../lib/time';
 import { resolveSchoolName } from '../../lib/schools';
 import Avatar from '../../components/Avatar';
@@ -43,7 +45,7 @@ import TypingIndicator from '../../components/TypingIndicator';
 import ActionSheet, { ActionSheetAction } from '../../components/ActionSheet';
 import ReportSheet from '../../components/ReportSheet';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
-import { MainStackParamList, Message, ReportTargetType } from '../../types';
+import { MainStackParamList, Message, Post, ReportTargetType } from '../../types';
 
 const PAGE_SIZE = 50;
 // How close to the bottom (in px) counts as "near the bottom" for auto-scroll
@@ -68,6 +70,17 @@ try {
 }
 function isEmojiOnly(text: string): boolean {
   return !!EMOJI_ONLY && EMOJI_ONLY.test(text.trim());
+}
+
+// A quiet "· 3 hours later ·" between two messages on the same day that
+// are far apart, so a conversation picked back up doesn't read as one
+// continuous back-and-forth.
+const GAP_MARKER_MS = 60 * 60 * 1000;
+function formatGap(fromIso: string, toIso: string): string | null {
+  const ms = new Date(toIso).getTime() - new Date(fromIso).getTime();
+  if (ms < GAP_MARKER_MS) return null;
+  const hours = Math.floor(ms / (60 * 60 * 1000));
+  return hours === 1 ? '1 hour later' : `${hours} hours later`;
 }
 
 function sameTimestampBucket(a: string, b: string): boolean {
@@ -114,6 +127,24 @@ export default function ConversationScreen() {
   // exactly who you're talking to.
   const [otherSubtitle, setOtherSubtitle] = useState<string | null>(null);
   const [myAvatarUrl, setMyAvatarUrl] = useState<string | null>(null);
+  // The help request this chat started from (conversation_origin.sql), shown
+  // in the intro card — "You met through a help request".
+  const [originPost, setOriginPost] = useState<Post | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchConversationOriginPostId(conversationId)
+      .then((postId) => (postId ? fetchPostById(postId) : null))
+      .then((post) => {
+        if (!cancelled) setOriginPost(post);
+      })
+      .catch(() => {
+        // Optional nicety — the card just doesn't show.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [conversationId]);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const listRef = useRef<FlatList>(null);
   const typingRef = useRef<ReturnType<typeof subscribeToTyping> | null>(null);
@@ -151,6 +182,27 @@ export default function ConversationScreen() {
   // open at the right place. Every later content-size change (a genuinely
   // new message arriving) still scrolls smoothly as before.
   const hasScrolledOnLoadRef = useRef(false);
+  const inputRef = useRef<TextInput>(null);
+  // Reply / Edit put the cursor straight in the message box. Slight delay so
+  // the action sheet has finished closing and doesn't steal focus back.
+  const focusComposer = () => setTimeout(() => inputRef.current?.focus(), 250);
+  // For a moment after the first load, content above the messages (the intro
+  // card, its shared-interest chips, the "met through" card) can still arrive
+  // and change the height. Until then, keep snapping to the newest message
+  // regardless of scroll position, so the chat never opens half-scrolled.
+  const loadSettleUntilRef = useRef(0);
+
+  // The intro card's details (profile, shared interests, help-request origin)
+  // arrive after the messages, growing the list from the top. Re-pin to the
+  // newest message once they land — but only right after opening, never
+  // while someone is reading back through history.
+  useEffect(() => {
+    if (!hasScrolledOnLoadRef.current || Date.now() > loadSettleUntilRef.current) return;
+    const timers = [60, 300].map((ms) =>
+      setTimeout(() => listRef.current?.scrollToEnd({ animated: false }), ms)
+    );
+    return () => timers.forEach(clearTimeout);
+  }, [otherSubtitle, sharedInterests, originPost, myAvatarUrl]);
 
   // Only the very last bubble I sent ever shows a read receipt — matching how
   // iMessage/Instagram DMs do it, instead of stamping every message.
@@ -489,6 +541,7 @@ export default function ConversationScreen() {
     setReplyTarget(null); // mutually exclusive with editing — only one banner at a time
     setEditingMessage(message);
     setText(message.content);
+    focusComposer();
   };
 
   const handleCancelEdit = () => {
@@ -499,6 +552,7 @@ export default function ConversationScreen() {
   const handleReplyMessage = (message: Message) => {
     setEditingMessage(null); // mutually exclusive with editing — only one banner at a time
     setReplyTarget(message);
+    focusComposer();
   };
 
   const handleCancelReply = () => setReplyTarget(null);
@@ -619,6 +673,11 @@ export default function ConversationScreen() {
           keyboardDismissMode="on-drag"
           onContentSizeChange={() => {
             if (isLoadingOlderRef.current) return;
+            if (Date.now() < loadSettleUntilRef.current) {
+              isNearBottomRef.current = true;
+              listRef.current?.scrollToEnd({ animated: false });
+              return;
+            }
             // Only auto-scroll while already near the bottom (Step 63) — a
             // message arriving while someone is scrolled up reading older
             // history shouldn't yank them back down. Sending your own
@@ -627,6 +686,7 @@ export default function ConversationScreen() {
             if (!isNearBottomRef.current) return;
             if (!hasScrolledOnLoadRef.current) {
               hasScrolledOnLoadRef.current = true;
+              loadSettleUntilRef.current = Date.now() + 2500;
               listRef.current?.scrollToEnd({ animated: false });
               return;
             }
@@ -650,6 +710,24 @@ export default function ConversationScreen() {
                   The start of your chat with {otherUser.full_name?.trim().split(/\s+/)[0] ?? 'them'}
                 </Text>
                 {otherSubtitle ? <Text style={styles.introSub}>{otherSubtitle}</Text> : null}
+                {originPost ? (
+                  <TouchableOpacity
+                    style={styles.originCard}
+                    activeOpacity={0.8}
+                    onPress={() => navigation.navigate('PostDetail', { post: originPost })}
+                    accessibilityRole="button"
+                    accessibilityLabel={`You met through a help request: ${originPost.content}`}
+                  >
+                    <Text style={styles.originEmoji}>🤝</Text>
+                    <View style={styles.originText}>
+                      <Text style={styles.originLabel}>You met through a help request</Text>
+                      <Text style={styles.originContent} numberOfLines={2}>
+                        "{originPost.content}"
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={16} color={colors.secondaryDark} />
+                  </TouchableOpacity>
+                ) : null}
                 {sharedInterests.length > 0 && (
                   <View style={styles.helloChips}>
                     <Text style={styles.introSub}>You both like</Text>
@@ -742,9 +820,12 @@ export default function ConversationScreen() {
               <View>
                 {showDaySeparator && (
                   <View style={styles.daySeparator}>
-                    <Text style={styles.daySeparatorText}>{formatDayLabel(item.created_at)}</Text>
+                    <Text style={styles.daySeparatorText}>👣 {formatDayLabel(item.created_at)}</Text>
                   </View>
                 )}
+                {!showDaySeparator && prevItem && formatGap(prevItem.created_at, item.created_at) ? (
+                  <Text style={styles.gapMarker}>· {formatGap(prevItem.created_at, item.created_at)} ·</Text>
+                ) : null}
                 <View
                   style={[
                     styles.bubbleRow,
@@ -802,17 +883,26 @@ export default function ConversationScreen() {
                               return (
                                 <TouchableOpacity
                                   style={[styles.replyQuote, isMine ? styles.replyQuoteMine : styles.replyQuoteTheirs]}
+                                  accessibilityLabel="Jump to the replied message"
                                   onPress={(e) => {
                                     e.stopPropagation();
                                     handleJumpToMessage(repliedTo.id);
                                   }}
                                 >
                                   <Text
+                                    style={[styles.replyQuoteName, isMine ? styles.replyQuoteNameMine : styles.replyQuoteNameTheirs]}
+                                    numberOfLines={1}
+                                  >
+                                    {repliedTo.sender_id === user?.id
+                                      ? 'You'
+                                      : (otherUser?.full_name?.trim().split(/\s+/)[0] ?? 'Them')}
+                                  </Text>
+                                  <Text
                                     style={[
                                       styles.replyQuoteText,
                                       isMine ? styles.replyQuoteTextMine : styles.replyQuoteTextTheirs,
                                     ]}
-                                    numberOfLines={1}
+                                    numberOfLines={2}
                                   >
                                     {repliedTo.deleted_at ? 'Original message deleted' : repliedTo.content}
                                   </Text>
@@ -890,6 +980,7 @@ export default function ConversationScreen() {
 
           <View style={[styles.inputRow, { paddingBottom: spacing.md + insets.bottom }]}>
             <TextInput
+              ref={inputRef}
               style={styles.input}
               placeholder={editingMessage ? 'Edit message...' : 'Say something nice...'}
               placeholderTextColor={colors.textLight}
@@ -997,16 +1088,65 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.primary,
   },
+  // A small inset card inside the bubble — who said it, then what.
   replyQuote: {
-    borderLeftWidth: 2,
-    paddingLeft: spacing.sm,
-    marginBottom: 4,
+    borderLeftWidth: 3,
+    borderRadius: radius.sm,
+    paddingVertical: 4,
+    paddingHorizontal: spacing.sm,
+    marginBottom: 6,
   },
   replyQuoteMine: {
-    borderLeftColor: 'rgba(255,255,255,0.6)',
+    borderLeftColor: '#fff',
+    backgroundColor: 'rgba(255,255,255,0.18)',
   },
   replyQuoteTheirs: {
     borderLeftColor: colors.primary,
+    backgroundColor: colors.primaryLight,
+  },
+  replyQuoteName: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.xs,
+  },
+  replyQuoteNameMine: {
+    color: '#fff',
+  },
+  replyQuoteNameTheirs: {
+    color: colors.primary,
+  },
+  gapMarker: {
+    alignSelf: 'center',
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.xs,
+    color: colors.textLight,
+    marginVertical: spacing.sm,
+  },
+  originCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    alignSelf: 'stretch',
+    backgroundColor: colors.secondaryLight,
+    borderRadius: radius.md,
+    padding: spacing.sm + 2,
+    marginTop: spacing.sm,
+  },
+  originEmoji: {
+    fontSize: 22,
+  },
+  originText: {
+    flex: 1,
+  },
+  originLabel: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.xs,
+    color: colors.secondaryDark,
+  },
+  originContent: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    color: colors.textDark,
+    marginTop: 1,
   },
   replyQuoteText: {
     fontFamily: fontFamily.regular,

@@ -22,7 +22,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { fetchComments, addComment, subscribeToComments } from '../../lib/comments';
 import { volunteerToHelp, markPostCompleted, fetchPostById, deletePost } from '../../lib/posts';
-import { getOrCreateConversation } from '../../lib/chat';
+import { getOrCreateConversation, linkConversationToPost } from '../../lib/chat';
 import { fetchLikedPostIds } from '../../lib/likes';
 import { fetchSavedPostIds, savePost, unsavePost } from '../../lib/postSaves';
 import { fetchInterestedPostIds } from '../../lib/eventInterests';
@@ -362,6 +362,9 @@ export default function PostDetailScreen() {
     setMessaging(true);
     try {
       const conversationId = await getOrCreateConversation(otherUser.id);
+      // Best-effort "you met through this request" link for the chat's
+      // intro card — never blocks opening the chat.
+      await linkConversationToPost(conversationId, post.id).catch(() => {});
       if (!isMountedRef.current) return;
       navigation.navigate('Conversation', {
         conversationId,

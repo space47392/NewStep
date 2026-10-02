@@ -29,6 +29,9 @@ export default function RegisterScreen({ navigation }: Props) {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  // Typed twice so a typo can't lock a brand-new account out of its own
+  // password before the student has even signed in once.
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   // Synchronous re-entrancy guard — same reasoning as LoginScreen's
   // loggingInRef: `loading` state alone leaves a brief window for a rapid
@@ -37,7 +40,7 @@ export default function RegisterScreen({ navigation }: Props) {
 
   const handleRegister = async () => {
     if (registeringRef.current) return;
-    if (!fullName || !email || !password) {
+    if (!fullName.trim() || !email.trim() || !password || !confirmPassword) {
       Alert.alert('Missing fields', 'Please fill in all fields.');
       return;
     }
@@ -45,14 +48,18 @@ export default function RegisterScreen({ navigation }: Props) {
       Alert.alert('Weak password', 'Password must be at least 6 characters.');
       return;
     }
+    if (password !== confirmPassword) {
+      Alert.alert("Passwords don't match", 'Type the same password in both boxes.');
+      return;
+    }
 
     registeringRef.current = true;
     setLoading(true);
     const { error } = await supabase.auth.signUp({
-      email,
+      email: email.trim(),
       password,
       options: {
-        data: { full_name: fullName },
+        data: { full_name: fullName.trim() },
         // The confirmation email's link reopens the app (LoginScreen shows
         // "Email confirmed") instead of the project's default Site URL.
         // Must also be listed under Supabase → Auth → URL Configuration →
@@ -123,6 +130,21 @@ export default function RegisterScreen({ navigation }: Props) {
             autoComplete="new-password"
           />
 
+          <Text style={styles.label}>Confirm Password</Text>
+          <IconInput
+            icon="lock-closed-outline"
+            placeholder="Type it again"
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            secureTextEntry
+            autoComplete="new-password"
+          />
+          {confirmPassword.length > 0 && (
+            <Text style={[styles.matchHint, password === confirmPassword ? styles.matchOk : styles.matchBad]}>
+              {password === confirmPassword ? '✓ Passwords match' : "Passwords don't match yet"}
+            </Text>
+          )}
+
           <PrimaryButton title="Create Account" onPress={handleRegister} loading={loading} style={styles.button} />
         </FadeInView>
 
@@ -184,6 +206,17 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.textDark,
     marginTop: spacing.sm,
+  },
+  matchHint: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.xs,
+    marginTop: -2,
+  },
+  matchOk: {
+    color: colors.success,
+  },
+  matchBad: {
+    color: colors.error,
   },
   button: {
     marginTop: spacing.lg,

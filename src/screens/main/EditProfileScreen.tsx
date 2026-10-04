@@ -26,6 +26,7 @@ import IconInput from '../../components/IconInput';
 import InterestPicker from '../../components/InterestPicker';
 import PrimaryButton from '../../components/PrimaryButton';
 import StudentCard from '../../components/StudentCard';
+import NSIcon from '../../components/NSIcon';
 import LoadingScreen from '../../components/LoadingScreen';
 import FadeInView from '../../components/FadeInView';
 import { colors, spacing, radius, fontSize, fontFamily } from '../../constants/theme';
@@ -307,7 +308,7 @@ export default function EditProfileScreen() {
         <Text style={styles.label}>School</Text>
         <View style={styles.schoolCard}>
           <View style={styles.schoolCardRow}>
-            <Text style={styles.schoolCardIcon}>🏫</Text>
+            <NSIcon name="school" size={30} />
             <View style={styles.schoolCardText}>
               {selectedSchool ? (
                 <>

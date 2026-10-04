@@ -18,6 +18,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import ConfettiBurst from '../../components/ConfettiBurst';
+import NSIcon from '../../components/NSIcon';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { fetchComments, addComment, subscribeToComments } from '../../lib/comments';
@@ -549,11 +550,14 @@ export default function PostDetailScreen() {
                 }
               >
                 {post.status === 'completed' && post.helper && (
-                  <Text style={styles.doneText}>
-                    {post.helper.id === user?.id
-                      ? '🎉 Done! You earned a Community Point for helping.'
-                      : `🎉 Done! ${post.helper.full_name?.split(' ')[0] ?? 'They'} earned a Community Point for helping.`}
-                  </Text>
+                  <View style={styles.doneRow}>
+                    <NSIcon name="party" size={26} />
+                    <Text style={styles.doneText}>
+                      {post.helper.id === user?.id
+                        ? 'Done! You earned a Community Point for helping.'
+                        : `Done! ${post.helper.full_name?.split(' ')[0] ?? 'They'} earned a Community Point for helping.`}
+                    </Text>
+                  </View>
                 )}
                 {post.status === 'completed' && contribution && (
                   <View style={styles.contributionRow}>
@@ -651,7 +655,7 @@ export default function PostDetailScreen() {
           ) : (
             <EmptyState
               icon="chatbubbles-outline"
-              emoji="💬"
+              nsIcon="chat"
               tint={colors.accentLight}
               title="Be the first to reply"
               subtitle={post.category === 'Need Help' || post.category === 'School Question' ? "Know the answer? Even a small tip helps." : "Say something nice to get things going."}
@@ -760,7 +764,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 1,
   },
+  doneRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
   doneText: {
+    flex: 1,
     fontFamily: fontFamily.bold,
     fontSize: fontSize.sm,
     color: colors.accentDark,

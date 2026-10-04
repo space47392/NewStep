@@ -33,6 +33,7 @@ import EmptyState from '../../components/EmptyState';
 import ErrorState from '../../components/ErrorState';
 import { Skeleton, PostCardSkeleton } from '../../components/Skeleton';
 import FadeInView from '../../components/FadeInView';
+import NSIcon from '../../components/NSIcon';
 import PostPreviewCard from '../../components/PostPreviewCard';
 import SectionHeader from '../../components/SectionHeader';
 import ContributorRow from '../../components/ContributorRow';
@@ -319,7 +320,12 @@ export default function SchoolScreen() {
 
       <FadeInView style={styles.header}>
         <View style={styles.pennant}>
-          <Text style={styles.schoolName}>🏫 {directorySchool?.name ?? schoolName}</Text>
+          <View style={styles.schoolNameRow}>
+            <View style={styles.schoolNameIcon}>
+              <NSIcon name="school" size={34} />
+            </View>
+            <Text style={[styles.schoolName, styles.schoolNameFlex]}>{directorySchool?.name ?? schoolName}</Text>
+          </View>
           {directorySchool?.city ? (
             <Text style={styles.schoolLocation}>
               {directorySchool.city}
@@ -570,6 +576,24 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.bold,
     fontSize: fontSize.xxl,
     color: '#fff',
+  },
+  schoolNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  // A white disc so the ink-outlined icon reads on the purple pennant.
+  schoolNameIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    transform: [{ rotate: '-6deg' }],
+  },
+  schoolNameFlex: {
+    flex: 1,
   },
   schoolLocation: {
     fontFamily: fontFamily.medium,

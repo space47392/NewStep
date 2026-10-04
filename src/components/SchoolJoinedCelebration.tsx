@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { View, Text, Animated, Easing, Modal, TouchableWithoutFeedback, StyleSheet } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import NSIcon from './NSIcon';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../constants/theme';
 
 type Props = {
@@ -60,9 +61,14 @@ export default function SchoolJoinedCelebration({ schoolName, onDone }: Props) {
         >
           <View style={styles.pennant}>
             <Text style={styles.kicker}>YOU'RE IN!</Text>
-            <Text style={styles.schoolName} numberOfLines={2}>
-              🏫 {schoolName}
-            </Text>
+            <View style={styles.schoolRow}>
+              <View style={styles.schoolIcon}>
+                <NSIcon name="school" size={30} />
+              </View>
+              <Text style={[styles.schoolName, styles.schoolFlex]} numberOfLines={2}>
+                {schoolName}
+              </Text>
+            </View>
           </View>
           <View style={styles.bunting}>
             {flags.map((f, i) => (
@@ -134,6 +140,25 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.bold,
     fontSize: fontSize.xl,
     color: '#fff',
+  },
+  schoolRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.xs,
+  },
+  schoolIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    transform: [{ rotate: '-6deg' }],
+  },
+  schoolFlex: {
+    flex: 1,
+    marginTop: 0,
   },
   bunting: {
     flexDirection: 'row',

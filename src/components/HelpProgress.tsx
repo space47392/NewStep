@@ -2,6 +2,7 @@ import { Fragment, ReactNode, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, Animated, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Avatar from './Avatar';
+import NSIcon from './NSIcon';
 import { useAuth } from '../contexts/AuthContext';
 import { colors, spacing, radius, fontSize, fontFamily } from '../constants/theme';
 import { PostStatus } from '../types';
@@ -76,7 +77,7 @@ export default function HelpProgress({
               <Avatar uri={author?.avatar_url} size={28} />
             </View>
             <View style={styles.pairLink}>
-              <Text style={styles.pairLinkEmoji}>{done ? '💙' : '🤝'}</Text>
+              <NSIcon name={done ? 'thanks' : 'help'} size={18} />
             </View>
             <View style={styles.pairAvatar}>
               <Avatar uri={helper?.avatar_url} size={28} />

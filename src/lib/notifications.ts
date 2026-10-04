@@ -4,6 +4,7 @@ import Constants from 'expo-constants';
 import { supabase } from './supabase';
 import { colors } from '../constants/theme';
 import { AppNotification, ChatProfile, NotificationType } from '../types';
+import type { NSIconName } from '../components/NSIcon';
 
 // expo-notifications runs native event-emitter setup as soon as it's imported —
 // NotificationsEmitter.js and TokenEmitter.js both do this unconditionally at
@@ -437,6 +438,30 @@ export function formatGroupedNotificationMessage(group: NotificationGroup): stri
       return `${actorName} and ${suffix} started following you`;
     default:
       return formatNotificationMessage(group);
+  }
+}
+
+// NewStep sticker icon for a notification type, where one exists — the
+// emoji from getNotificationIcon() is the fallback for the rest.
+export function getNotificationNSIcon(type: NotificationType): NSIconName | null {
+  switch (type) {
+    case 'comment':
+    case 'message':
+      return 'chat';
+    case 'volunteer':
+      return 'help';
+    case 'help_completed':
+      return 'party';
+    case 'points_earned':
+    case 'achievement_earned':
+      return 'star';
+    case 'follow':
+    case 'story_wave':
+      return 'wave';
+    case 'thanks_received':
+      return 'thanks';
+    default:
+      return null;
   }
 }
 

@@ -32,6 +32,7 @@ import EmptyState from '../../components/EmptyState';
 import ErrorState from '../../components/ErrorState';
 import { PostCardSkeleton } from '../../components/Skeleton';
 import FadeInView from '../../components/FadeInView';
+import NSIcon from '../../components/NSIcon';
 import PrimaryButton from '../../components/PrimaryButton';
 import ActionSheet, { ActionSheetAction } from '../../components/ActionSheet';
 import ReportSheet from '../../components/ReportSheet';
@@ -762,7 +763,10 @@ export default function FeedScreen() {
             <View style={styles.greetingText}>
             {myFirstName ? (
               <>
-                <Text style={styles.brandLabel}>👣 NewStep</Text>
+                <View style={styles.brandRow}>
+                  <NSIcon name="steps" size={16} />
+                  <Text style={styles.brandLabel}>NewStep</Text>
+                </View>
                 <Text style={styles.greeting} numberOfLines={1}>
                   Hi, {myFirstName} 👋
                 </Text>
@@ -788,9 +792,10 @@ export default function FeedScreen() {
                     navigation.navigate('School', { schoolId: mySchoolId ?? undefined, schoolName: mySchoolName })
                   }
                 >
-                  <Text style={styles.identityText} numberOfLines={1}>
-                    {`🏫 ${mySchoolName} · ${mySchoolStudentCount} ${mySchoolStudentCount === 1 ? 'student' : 'students'}${
-                      openHelpCount > 0 ? ` · 🤝 ${openHelpCount} need help` : ''
+                  <NSIcon name="school" size={22} />
+                  <Text style={[styles.identityText, styles.identityTextShrink]} numberOfLines={1}>
+                    {`${mySchoolName} · ${mySchoolStudentCount} ${mySchoolStudentCount === 1 ? 'student' : 'students'}${
+                      openHelpCount > 0 ? ` · ${openHelpCount} need help` : ''
                     }`}
                   </Text>
                   <Ionicons name="chevron-forward" size={14} color={colors.primary} />
@@ -808,7 +813,10 @@ export default function FeedScreen() {
 
             {!mySchoolName && (
               <View style={styles.chooseSchoolCard}>
-                <Text style={styles.chooseSchoolTitle}>🏫 Choose your school</Text>
+                <View style={styles.brandRow}>
+                  <NSIcon name="school" size={24} />
+                  <Text style={styles.chooseSchoolTitle}>Choose your school</Text>
+                </View>
                 <Text style={styles.chooseSchoolSubtitle}>See your school community, stories, and events.</Text>
                 <PrimaryButton
                   title="Choose School"
@@ -1300,6 +1308,14 @@ const styles = StyleSheet.create({
   },
   greetingText: {
     flex: 1,
+  },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  identityTextShrink: {
+    flexShrink: 1,
   },
   brandLabel: {
     fontFamily: fontFamily.bold,

@@ -10,6 +10,7 @@ import {
   markNotificationsRead,
   formatGroupedNotificationMessage,
   getNotificationIcon,
+  getNotificationNSIcon,
   getNotificationCategoryColor,
   resolveNotificationTarget,
   groupNotifications,
@@ -18,6 +19,7 @@ import {
 import { fetchPostById } from '../../lib/posts';
 import { formatRelativeTime } from '../../lib/time';
 import Avatar from '../../components/Avatar';
+import NSIcon from '../../components/NSIcon';
 import EmptyState from '../../components/EmptyState';
 import ErrorState from '../../components/ErrorState';
 import LoadingScreen from '../../components/LoadingScreen';
@@ -355,13 +357,23 @@ export default function NotificationsScreen() {
                 {item.actor ? (
                   <View style={styles.avatarWrap}>
                     <Avatar uri={item.actor.avatar_url} size={44} />
-                    <View style={[styles.typeBadge, { backgroundColor: getNotificationCategoryColor(item.type) }]}>
-                      <Text style={styles.typeBadgeText}>{getNotificationIcon(item.type)}</Text>
-                    </View>
+                    {getNotificationNSIcon(item.type) ? (
+                      <View style={[styles.typeBadge, styles.typeBadgeSticker]}>
+                        <NSIcon name={getNotificationNSIcon(item.type)!} size={22} />
+                      </View>
+                    ) : (
+                      <View style={[styles.typeBadge, { backgroundColor: getNotificationCategoryColor(item.type) }]}>
+                        <Text style={styles.typeBadgeText}>{getNotificationIcon(item.type)}</Text>
+                      </View>
+                    )}
                   </View>
                 ) : (
                   <View style={[styles.iconAvatar, { backgroundColor: colors.warningLight }]}>
-                    <Text style={styles.iconAvatarText}>{getNotificationIcon(item.type)}</Text>
+                    {getNotificationNSIcon(item.type) ? (
+                      <NSIcon name={getNotificationNSIcon(item.type)!} size={30} />
+                    ) : (
+                      <Text style={styles.iconAvatarText}>{getNotificationIcon(item.type)}</Text>
+                    )}
                   </View>
                 )}
                 <View style={styles.rowText}>
@@ -464,6 +476,16 @@ const styles = StyleSheet.create({
     borderColor: colors.cardBg,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  // Sticker icons bring their own outline, so no colored disc behind them.
+  typeBadgeSticker: {
+    right: -7,
+    bottom: -7,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 0,
+    backgroundColor: 'transparent',
   },
   typeBadgeText: {
     fontSize: 11,

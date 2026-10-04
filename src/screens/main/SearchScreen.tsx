@@ -32,6 +32,7 @@ import PrimaryButton from '../../components/PrimaryButton';
 import SectionHeader from '../../components/SectionHeader';
 import ContributorRow from '../../components/ContributorRow';
 import AuthorRow from '../../components/AuthorRow';
+import NSIcon from '../../components/NSIcon';
 import { PostCardSkeleton } from '../../components/Skeleton';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
 import { getInterestIcon } from '../../constants/interests';
@@ -719,7 +720,7 @@ export default function SearchScreen() {
                       style={styles.schoolRow}
                       onPress={() => handleSelectSchool(school.schoolName)}
                     >
-                      <Text style={styles.schoolEmoji}>🏫</Text>
+                      <NSIcon name="school" size={28} />
                       <View style={styles.resultText}>
                         <Text style={styles.resultName}>{school.schoolName}</Text>
                         <Text style={styles.resultMeta}>

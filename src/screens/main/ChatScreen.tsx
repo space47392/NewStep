@@ -95,7 +95,7 @@ export default function ChatScreen() {
         ) : (
           <EmptyState
             icon="chatbubbles-outline"
-            emoji="👋"
+            nsIcon="wave"
             tint={colors.warningLight}
             title="No chats yet"
             subtitle="Say hi to someone from your school, or offer to help with a request — every friendship starts with a wave."

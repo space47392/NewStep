@@ -4,6 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { fetchProfileById, PublicProfile } from '../../lib/profile';
 import { fetchSchoolById } from '../../lib/schools';
 import StudentCard from '../../components/StudentCard';
+import NSIcon from '../../components/NSIcon';
 import PrimaryButton from '../../components/PrimaryButton';
 import LoadingScreen from '../../components/LoadingScreen';
 import FadeInView from '../../components/FadeInView';
@@ -75,17 +76,17 @@ export default function WelcomeScreen({ onDone }: Props) {
 
         <View style={styles.actionList}>
           <View style={styles.actionRow}>
-            <Text style={styles.actionIcon}>🏫</Text>
+            <NSIcon name="school" size={26} />
             <Text style={styles.actionText}>
               {hasSchool ? "Discover what's happening at your school" : 'Discover what other students are up to'}
             </Text>
           </View>
           <View style={styles.actionRow}>
-            <Text style={styles.actionIcon}>👋</Text>
+            <NSIcon name="wave" size={26} />
             <Text style={styles.actionText}>Meet people {hasSchool ? 'at your school' : 'on NewStep'}</Text>
           </View>
           <View style={styles.actionRow}>
-            <Text style={styles.actionIcon}>🤝</Text>
+            <NSIcon name="help" size={26} />
             <Text style={styles.actionText}>Ask for or offer help</Text>
           </View>
         </View>

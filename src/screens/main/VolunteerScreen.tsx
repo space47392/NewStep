@@ -173,7 +173,7 @@ export default function VolunteerScreen() {
         <View>
         <EmptyState
           icon="star-outline"
-          emoji={hasSchool ? '🌟' : '🏫'}
+          nsIcon={hasSchool ? 'star' : 'school'}
           tint={colors.warningLight}
           title={hasSchool ? 'No community contributors yet' : 'Add your school to see contributors'}
           subtitle={

@@ -23,6 +23,7 @@ import FadeInView from '../../components/FadeInView';
 import Avatar from '../../components/Avatar';
 import InterestChips from '../../components/InterestChips';
 import AchievementStickers from '../../components/AchievementStickers';
+import NSIcon from '../../components/NSIcon';
 import AchievementUnlockModal from '../../components/AchievementUnlockModal';
 import { getCelebratedAchievementIds, markAchievementCelebrated } from '../../lib/achievementPrefs';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
@@ -288,7 +289,8 @@ export default function ProfileScreen() {
               onPress={() => navigation.navigate('ChooseSchool')}
               accessibilityRole="button"
             >
-              <Text style={styles.addSchoolText}>🏫 Add your school</Text>
+              <NSIcon name="school" size={18} />
+              <Text style={styles.addSchoolText}>Add your school</Text>
               <Ionicons name="chevron-forward" size={14} color={colors.primary} />
             </TouchableOpacity>
           </>

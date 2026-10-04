@@ -42,6 +42,7 @@ import { getInterestIcon } from '../../constants/interests';
 import ErrorState from '../../components/ErrorState';
 import { MessageSkeleton } from '../../components/Skeleton';
 import TypingIndicator from '../../components/TypingIndicator';
+import NSIcon from '../../components/NSIcon';
 import ActionSheet, { ActionSheetAction } from '../../components/ActionSheet';
 import ReportSheet from '../../components/ReportSheet';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
@@ -711,7 +712,9 @@ export default function ConversationScreen() {
                   <View style={[styles.introAvatar, { transform: [{ rotate: '-6deg' }] }]}>
                     <Avatar uri={myAvatarUrl} size={44} />
                   </View>
-                  <Text style={styles.introWave}>👋</Text>
+                  <View style={styles.introWave}>
+                    <NSIcon name="wave" size={30} />
+                  </View>
                   <View style={[styles.introAvatar, { transform: [{ rotate: '6deg' }] }]}>
                     <Avatar uri={otherUser.avatar_url ?? null} size={44} />
                   </View>
@@ -764,7 +767,9 @@ export default function ConversationScreen() {
           ListEmptyComponent={
             <View style={styles.hello}>
               <View style={styles.helloCircle}>
-                <Text style={styles.helloEmoji}>👋</Text>
+                <View style={styles.helloSticker}>
+                  <NSIcon name="wave" size={54} />
+                </View>
               </View>
               <Text style={styles.helloTitle}>
                 Say hello{otherUser?.full_name ? ` to ${otherUser.full_name.trim().split(/\s+/)[0]}` : ''}!
@@ -830,7 +835,10 @@ export default function ConversationScreen() {
               <View>
                 {showDaySeparator && (
                   <View style={styles.daySeparator}>
-                    <Text style={styles.daySeparatorText}>👣 {formatDayLabel(item.created_at)}</Text>
+                    <View style={styles.daySeparatorPill}>
+                      <NSIcon name="steps" size={14} />
+                      <Text style={styles.daySeparatorText}>{formatDayLabel(item.created_at)}</Text>
+                    </View>
                   </View>
                 )}
                 {!showDaySeparator && prevItem && formatGap(prevItem.created_at, item.created_at) ? (
@@ -937,7 +945,10 @@ export default function ConversationScreen() {
                       {item.edited_at && !isDeleted ? <Text style={styles.editedLabel}>(edited)</Text> : null}
                     </View>
                     {isMine && item.id === lastMineMessageId && item.read_at && !isDeleted ? (
-                      <Text style={styles.readReceipt}>👣 Seen</Text>
+                      <View style={styles.readReceiptRow}>
+                        <NSIcon name="steps" size={12} />
+                        <Text style={styles.readReceipt}>Seen</Text>
+                      </View>
                     ) : null}
                   </View>
                 </View>
@@ -1009,7 +1020,7 @@ export default function ConversationScreen() {
                 accessibilityRole="button"
                 accessibilityLabel="Send a wave"
               >
-                {sending ? <ActivityIndicator color={colors.textDark} /> : <Text style={styles.waveButtonText}>👋</Text>}
+                {sending ? <ActivityIndicator color={colors.textDark} /> : <NSIcon name="wave" size={28} />}
               </TouchableOpacity>
             ) : (
             <TouchableOpacity
@@ -1174,15 +1185,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginVertical: spacing.md,
   },
-  daySeparatorText: {
-    fontFamily: fontFamily.semibold,
-    fontSize: fontSize.xs,
-    color: colors.textLight,
+  daySeparatorPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     backgroundColor: colors.border,
     paddingHorizontal: spacing.sm,
     paddingVertical: 4,
     borderRadius: radius.full,
-    overflow: 'hidden',
+  },
+  daySeparatorText: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.xs,
+    color: colors.textLight,
   },
   bubbleRow: {
     flexDirection: 'row',
@@ -1291,6 +1306,13 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
     color: colors.textLight,
     fontStyle: 'italic',
+  },
+  readReceiptRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-end',
+    gap: 3,
+    marginTop: 1,
   },
   readReceipt: {
     fontFamily: fontFamily.semibold,
@@ -1449,6 +1471,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.md,
+  },
+  helloSticker: {
+    transform: [{ rotate: '-10deg' }],
   },
   helloEmoji: {
     fontSize: 42,

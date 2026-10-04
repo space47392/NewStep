@@ -1,5 +1,6 @@
 import { View, Text, StyleSheet, StyleProp, ViewStyle } from 'react-native';
 import Avatar from './Avatar';
+import NSIcon from './NSIcon';
 import { getInterestIcon } from '../constants/interests';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../constants/theme';
 
@@ -20,7 +21,9 @@ export default function StudentCard({ name, avatarUri, schoolName, grade, intere
     <View style={[styles.card, style]}>
       <View style={styles.strip}>
         <Text style={styles.stripText}>NEWSTEP STUDENT</Text>
-        <Text style={styles.stripText}>👣</Text>
+        <View style={styles.stripIcon}>
+          <NSIcon name="steps" size={18} />
+        </View>
       </View>
       <View style={styles.body}>
         <View style={styles.avatar}>
@@ -31,9 +34,12 @@ export default function StudentCard({ name, avatarUri, schoolName, grade, intere
             {name?.trim() || 'New student'}
           </Text>
           {schoolName ? (
-            <Text style={styles.school} numberOfLines={2}>
-              🏫 {schoolName}
-            </Text>
+            <View style={styles.schoolRow}>
+              <NSIcon name="school" size={18} />
+              <Text style={[styles.school, styles.schoolFlex]} numberOfLines={2}>
+                {schoolName}
+              </Text>
+            </View>
           ) : null}
           {grade?.trim() ? <Text style={styles.meta}>🎓 {grade.trim()} Grade</Text> : null}
         </View>
@@ -84,6 +90,21 @@ const styles = StyleSheet.create({
     borderRadius: 34,
     borderWidth: 3,
     borderColor: colors.primaryLight,
+  },
+  stripIcon: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 2,
+  },
+  schoolRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
+  },
+  schoolFlex: {
+    flex: 1,
+    marginTop: 0,
   },
   info: {
     flex: 1,

@@ -176,7 +176,7 @@ export default function HelpScreen() {
             <View>
               <EmptyState
                 icon="hand-left-outline"
-                emoji={hasSchool ? '🙌' : '🏫'}
+                nsIcon={hasSchool ? 'help' : 'school'}
                 tint={colors.secondaryLight}
                 title={hasSchool ? 'No one needs a hand right now' : 'Add your school to see help requests'}
                 subtitle={

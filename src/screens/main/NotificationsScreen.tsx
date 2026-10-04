@@ -201,6 +201,16 @@ export default function NotificationsScreen() {
     }
   };
 
+  // Only what's loaded is marked — the list is the student's view of
+  // "all", and older pages they haven't scrolled to stay as they are.
+  const handleMarkAllRead = () => {
+    const unreadIds = notifications.filter((n) => !n.read_at).map((n) => n.id);
+    if (unreadIds.length === 0) return;
+    const now = new Date().toISOString();
+    setNotifications((prev) => prev.map((n) => (n.read_at ? n : { ...n, read_at: now })));
+    markNotificationsRead(unreadIds).catch(() => showToast("Couldn't mark everything as read"));
+  };
+
   const handlePress = async (group: NotificationGroup) => {
     if (openingGroupIdRef.current === group.id) return;
     openingGroupIdRef.current = group.id;
@@ -297,7 +307,22 @@ export default function NotificationsScreen() {
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />}
-        ListHeaderComponent={<Text style={styles.title}>Notifications</Text>}
+        ListHeaderComponent={
+          <View style={styles.titleRow}>
+            <Text style={styles.title}>Notifications</Text>
+            {notifications.some((n) => !n.read_at) && (
+              <TouchableOpacity
+                style={styles.markAllButton}
+                onPress={handleMarkAllRead}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole="button"
+              >
+                <Ionicons name="checkmark-done" size={16} color={colors.primary} />
+                <Text style={styles.markAllText}>Mark all read</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        }
         ListEmptyComponent={
           loadFailed ? (
             <ErrorState onRetry={handleRetry} retrying={retrying} />
@@ -321,7 +346,6 @@ export default function NotificationsScreen() {
                 style={[
                   styles.row,
                   unread && styles.rowUnread,
-                  { borderLeftColor: getNotificationCategoryColor(item.type) },
                 ]}
                 activeOpacity={0.85}
                 disabled={openingId === item.id}
@@ -329,15 +353,20 @@ export default function NotificationsScreen() {
               >
                 {unread && <View style={styles.unreadDot} />}
                 {item.actor ? (
-                  <Avatar uri={item.actor.avatar_url} size={44} />
+                  <View style={styles.avatarWrap}>
+                    <Avatar uri={item.actor.avatar_url} size={44} />
+                    <View style={[styles.typeBadge, { backgroundColor: getNotificationCategoryColor(item.type) }]}>
+                      <Text style={styles.typeBadgeText}>{getNotificationIcon(item.type)}</Text>
+                    </View>
+                  </View>
                 ) : (
-                  <View style={styles.iconAvatar}>
+                  <View style={[styles.iconAvatar, { backgroundColor: colors.warningLight }]}>
                     <Text style={styles.iconAvatarText}>{getNotificationIcon(item.type)}</Text>
                   </View>
                 )}
                 <View style={styles.rowText}>
                   <Text style={[styles.message, unread && styles.messageUnread]}>
-                    {getNotificationIcon(item.type)} {formatGroupedNotificationMessage(item)}
+                    {formatGroupedNotificationMessage(item)}
                   </Text>
                   <Text style={styles.timestamp}>{formatRelativeTime(item.created_at)}</Text>
                 </View>
@@ -389,11 +418,55 @@ const styles = StyleSheet.create({
   list: {
     padding: spacing.lg,
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.lg,
+  },
   title: {
     fontFamily: fontFamily.bold,
     fontSize: fontSize.xxl,
     color: colors.textDark,
-    marginBottom: spacing.lg,
+  },
+  markAllButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.primaryLight,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: 6,
+  },
+  markAllText: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.xs,
+    color: colors.primary,
+  },
+  avatarWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.cardBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // Small tinted circle on the avatar's corner saying what kind of
+  // notification this is (help / message / social / achievement).
+  typeBadge: {
+    position: 'absolute',
+    right: -4,
+    bottom: -4,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: colors.cardBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  typeBadgeText: {
+    fontSize: 11,
   },
   row: {
     position: 'relative',
@@ -402,7 +475,6 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     backgroundColor: colors.cardBg,
     borderRadius: radius.lg,
-    borderLeftWidth: 4,
     padding: spacing.md,
     marginBottom: spacing.sm,
     ...shadow.card,

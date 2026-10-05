@@ -13,6 +13,7 @@ import ErrorState from '../../components/ErrorState';
 import PrimaryButton from '../../components/PrimaryButton';
 import { PostCardSkeleton } from '../../components/Skeleton';
 import FadeInView from '../../components/FadeInView';
+import NSIcon from '../../components/NSIcon';
 import { colors, spacing, radius, fontSize, fontFamily } from '../../constants/theme';
 import { MainStackParamList, Post } from '../../types';
 
@@ -156,13 +157,21 @@ export default function HelpScreen() {
               )}
             </View>
             <Text style={styles.subtitle}>Open requests from your school community</Text>
-            {posts.length > 0 && <Text style={styles.sectionLabel}>🙋 Waiting for a helper</Text>}
+            {posts.length > 0 && (
+              <View style={styles.sectionRow}>
+                <NSIcon name="ask" size={20} />
+                <Text style={[styles.sectionLabel, styles.sectionLabelInline]}>Waiting for a helper</Text>
+              </View>
+            )}
           </View>
         }
         ListFooterComponent={
           inProgress.length > 0 ? (
             <View style={styles.inProgressSection}>
-              <Text style={styles.sectionLabel}>🤝 In progress</Text>
+              <View style={styles.sectionRow}>
+                <NSIcon name="help" size={20} />
+                <Text style={[styles.sectionLabel, styles.sectionLabelInline]}>In progress</Text>
+              </View>
               {inProgress.map((item) => (
                 <PostPreviewCard key={item.id} post={item} showCategory={false} onPress={() => handleOpenPost(item)} />
               ))}
@@ -262,6 +271,17 @@ const styles = StyleSheet.create({
     color: colors.textMid,
     marginTop: spacing.lg,
     marginBottom: spacing.sm,
+  },
+  sectionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  sectionLabelInline: {
+    marginTop: 0,
+    marginBottom: 0,
   },
   inProgressSection: {
     marginTop: spacing.sm,

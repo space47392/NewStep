@@ -648,7 +648,7 @@ export default function SearchScreen() {
             upcomingEvents.length === 0 && (
               <EmptyState
                 icon="search-outline"
-                emoji="🔎"
+                nsIcon="search"
                 tint={colors.accentLight}
                 title="Search for students, posts, or schools"
                 subtitle="Find classmates by name, username, school, or interest."

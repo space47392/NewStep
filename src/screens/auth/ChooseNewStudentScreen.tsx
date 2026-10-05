@@ -5,13 +5,14 @@ import { useAuth } from '../../contexts/AuthContext';
 import { setIsNewStudent } from '../../lib/profile';
 import OnboardingSteps from '../../components/OnboardingSteps';
 import FadeInView from '../../components/FadeInView';
+import NSIcon from '../../components/NSIcon';
 import { colors, spacing, radius, fontSize, fontFamily } from '../../constants/theme';
 
 // One tap answers and moves on, same as the old two buttons.
 const CHOICES = [
   {
     value: true,
-    emoji: '🎒',
+    icon: 'backpack' as const,
     tilt: '-8deg',
     tint: colors.primaryLight,
     title: "Yes, I'm new",
@@ -19,7 +20,7 @@ const CHOICES = [
   },
   {
     value: false,
-    emoji: '🏫',
+    icon: 'school' as const,
     tilt: '6deg',
     tint: colors.accentLight,
     title: 'Not right now',
@@ -88,7 +89,9 @@ export default function ChooseNewStudentScreen({ onDone }: Props) {
             accessibilityRole="button"
             accessibilityLabel={`${choice.title}. ${choice.body}`}
           >
-            <Text style={[styles.choiceEmoji, { transform: [{ rotate: choice.tilt }] }]}>{choice.emoji}</Text>
+            <View style={{ transform: [{ rotate: choice.tilt }] }}>
+              <NSIcon name={choice.icon} size={44} />
+            </View>
             <View style={styles.choiceText}>
               <Text style={styles.choiceTitle}>{choice.title}</Text>
               <Text style={styles.choiceBody}>{choice.body}</Text>

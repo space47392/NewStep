@@ -41,7 +41,12 @@ export default function StudentCard({ name, avatarUri, schoolName, grade, intere
               </Text>
             </View>
           ) : null}
-          {grade?.trim() ? <Text style={styles.meta}>🎓 {grade.trim()} Grade</Text> : null}
+          {grade?.trim() ? (
+            <View style={styles.schoolRow}>
+              <NSIcon name="cap" size={18} />
+              <Text style={[styles.meta, styles.metaFlex]}>{grade.trim()} Grade</Text>
+            </View>
+          ) : null}
         </View>
       </View>
       {interests.length > 0 && (
@@ -104,6 +109,9 @@ const styles = StyleSheet.create({
   },
   schoolFlex: {
     flex: 1,
+    marginTop: 0,
+  },
+  metaFlex: {
     marginTop: 0,
   },
   info: {

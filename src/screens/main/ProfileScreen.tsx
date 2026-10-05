@@ -376,7 +376,10 @@ export default function ProfileScreen() {
           {achievements.length > 0 && (
             <>
               <View style={styles.achievementsDivider} />
-              <Text style={styles.achievementsTitle}>🏆 Achievements</Text>
+              <View style={styles.achievementsTitleRow}>
+                <NSIcon name="trophy" size={22} />
+                <Text style={[styles.achievementsTitle, styles.achievementsTitleText]}>Achievements</Text>
+              </View>
               <AchievementStickers achievements={achievements} showHints />
             </>
           )}
@@ -631,6 +634,15 @@ const styles = StyleSheet.create({
     backgroundColor: colors.border,
     marginTop: spacing.md,
     marginBottom: spacing.sm,
+  },
+  achievementsTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: spacing.sm,
+  },
+  achievementsTitleText: {
+    marginBottom: 0,
   },
   achievementsTitle: {
     fontFamily: fontFamily.semibold,

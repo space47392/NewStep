@@ -18,6 +18,7 @@ import { resolveSchoolName } from '../../lib/schools';
 import Avatar from '../../components/Avatar';
 import InterestChips from '../../components/InterestChips';
 import AchievementStickers from '../../components/AchievementStickers';
+import NSIcon from '../../components/NSIcon';
 import EmptyState from '../../components/EmptyState';
 import LoadingScreen from '../../components/LoadingScreen';
 import PrimaryButton from '../../components/PrimaryButton';
@@ -383,7 +384,10 @@ export default function UserProfileScreen() {
               {earnedAchievements.length > 0 && (
                 <>
                   <View style={styles.achievementsDivider} />
-                  <Text style={styles.achievementsTitle}>🏆 Achievements</Text>
+                  <View style={styles.achievementsTitleRow}>
+                    <NSIcon name="trophy" size={22} />
+                    <Text style={[styles.achievementsTitle, styles.achievementsTitleText]}>Achievements</Text>
+                  </View>
                   <AchievementStickers achievements={earnedAchievements} />
                 </>
               )}
@@ -550,6 +554,15 @@ const styles = StyleSheet.create({
     backgroundColor: colors.border,
     marginTop: spacing.md,
     marginBottom: spacing.sm,
+  },
+  achievementsTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: spacing.sm,
+  },
+  achievementsTitleText: {
+    marginBottom: 0,
   },
   achievementsTitle: {
     fontFamily: fontFamily.semibold,

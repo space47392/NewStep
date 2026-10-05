@@ -220,7 +220,7 @@ export default function SavedPostsScreen() {
             <View>
               <EmptyState
                 icon="bookmark-outline"
-                emoji="🔖"
+                nsIcon="bookmark"
                 title="No saved posts yet"
                 subtitle="Save posts to find them here later."
               />

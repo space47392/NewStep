@@ -13,6 +13,7 @@ import ErrorState from '../../components/ErrorState';
 import LoadingScreen from '../../components/LoadingScreen';
 import FadeInView from '../../components/FadeInView';
 import ContributorRow from '../../components/ContributorRow';
+import NSIcon from '../../components/NSIcon';
 import PrimaryButton from '../../components/PrimaryButton';
 import { MainStackParamList, SchoolContributor } from '../../types';
 import { colors, spacing, radius, fontSize, fontFamily } from '../../constants/theme';
@@ -23,9 +24,9 @@ const CONTRIBUTOR_LIMIT = 20;
 // with at least one thank-you (fetchSchoolContributors), so the last step is
 // exactly that — no promise this screen can't keep.
 const HOW_TO_STEPS = [
-  { emoji: '🙋', tint: colors.secondaryLight, text: 'Find a request in Help' },
-  { emoji: '🤝', tint: colors.primaryLight, text: 'Offer to help out' },
-  { emoji: '💙', tint: colors.accentLight, text: 'Get a thank-you' },
+  { icon: 'ask' as const, tint: colors.secondaryLight, text: 'Find a request in Help' },
+  { icon: 'help' as const, tint: colors.primaryLight, text: 'Offer to help out' },
+  { icon: 'thanks' as const, tint: colors.accentLight, text: 'Get a thank-you' },
 ];
 
 // A contributor plus their "students helped" count — computed per-contributor
@@ -200,7 +201,7 @@ export default function VolunteerScreen() {
               {HOW_TO_STEPS.map((step) => (
                 <View key={step.text} style={styles.howToStep}>
                   <View style={[styles.howToCircle, { backgroundColor: step.tint }]}>
-                    <Text style={styles.howToEmoji}>{step.emoji}</Text>
+                    <NSIcon name={step.icon} size={30} />
                   </View>
                   <Text style={styles.howToText}>{step.text}</Text>
                 </View>

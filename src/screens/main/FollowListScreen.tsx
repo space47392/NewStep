@@ -298,7 +298,7 @@ export default function FollowListScreen() {
             <View>
               <EmptyState
                 icon="people-outline"
-                emoji={mode === 'followers' ? '🌱' : '🔭'}
+                nsIcon={mode === 'followers' ? 'sprout' : 'search'}
                 tint={mode === 'followers' ? colors.accentLight : colors.primaryLight}
                 title={mode === 'followers' ? 'No followers yet' : "You're not following anyone yet"}
                 subtitle={

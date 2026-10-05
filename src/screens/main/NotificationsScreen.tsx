@@ -331,7 +331,7 @@ export default function NotificationsScreen() {
           ) : (
             <EmptyState
               icon="notifications-outline"
-              emoji="✨"
+              nsIcon="sparkles"
               title="You're all caught up"
               subtitle="No new activity yet."
             />

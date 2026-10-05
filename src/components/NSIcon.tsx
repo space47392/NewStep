@@ -7,7 +7,23 @@ import { colors } from '../constants/theme';
 // app speaks in its own voice (help, waves, thanks, school...). Platform
 // emoji look different on every phone; these look the same everywhere.
 
-export type NSIconName = 'wave' | 'help' | 'chat' | 'thanks' | 'party' | 'school' | 'steps' | 'star';
+export type NSIconName =
+  | 'wave'
+  | 'help'
+  | 'chat'
+  | 'thanks'
+  | 'party'
+  | 'school'
+  | 'steps'
+  | 'star'
+  | 'bookmark'
+  | 'search'
+  | 'trophy'
+  | 'backpack'
+  | 'sparkles'
+  | 'ask'
+  | 'sprout'
+  | 'cap';
 
 type Props = {
   name: NSIconName;
@@ -194,7 +210,143 @@ function Star() {
   );
 }
 
+function sparkle(cx: number, cy: number, r: number, fill: string, key: string) {
+  const k = r * 0.28;
+  return (
+    <Path
+      key={key}
+      d={`M${cx} ${cy - r} L${cx + k} ${cy - k} L${cx + r} ${cy} L${cx + k} ${cy + k} L${cx} ${cy + r} L${cx - k} ${cy + k} L${cx - r} ${cy} L${cx - k} ${cy - k} Z`}
+      fill={fill}
+      stroke={INK}
+      strokeWidth={SW * 0.8}
+      strokeLinejoin="round"
+    />
+  );
+}
+
+function Bookmark() {
+  return (
+    <G rotation={-6} origin="24, 24">
+      <Path
+        d="M14 5 h20 a3 3 0 0 1 3 3 v35 l-13 -9 l-13 9 v-35 a3 3 0 0 1 3 -3 z"
+        fill={PINK}
+        stroke={INK}
+        strokeWidth={SW}
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M24 25 C18 21 17.5 18 17.5 16.5 a3.3 3.3 0 0 1 6.5 -1 a3.3 3.3 0 0 1 6.5 1 c0 1.5 -0.5 4.5 -6.5 8.5 z"
+        fill="#FFFFFF"
+        stroke={INK}
+        strokeWidth={SW * 0.7}
+        strokeLinejoin="round"
+      />
+    </G>
+  );
+}
+
+function Search() {
+  return (
+    <G>
+      {capsuleInk(30, 30, 40, 40, 6, 'hi')}
+      {capsuleFill(30, 30, 40, 40, 6, YELLOW, 'hf')}
+      <Circle cx={21} cy={20} r={13} fill="#DDEBFF" stroke={INK} strokeWidth={SW} />
+      <Path d="M13.5 17 a8 8 0 0 1 6 -5.5" stroke="#FFFFFF" strokeWidth={3} fill="none" strokeLinecap="round" />
+      {/* a little footprint being looked for */}
+      <Ellipse cx={22} cy={23} rx={2.6} ry={3.6} fill={LILAC} stroke={INK} strokeWidth={SW * 0.5} />
+      <Circle cx={19.8} cy={17.6} r={0.9} fill={INK} />
+      <Circle cx={22} cy={17} r={0.9} fill={INK} />
+      <Circle cx={24.2} cy={17.6} r={0.9} fill={INK} />
+    </G>
+  );
+}
+
+function Trophy() {
+  return (
+    <G>
+      <Path d="M14 12 h-4 a5 5 0 0 0 5 9" stroke={INK} strokeWidth={SW} fill="none" strokeLinecap="round" />
+      <Path d="M34 12 h4 a5 5 0 0 1 -5 9" stroke={INK} strokeWidth={SW} fill="none" strokeLinecap="round" />
+      <Path d="M13 7 h22 v10 a11 11 0 0 1 -22 0 z" fill={YELLOW} stroke={INK} strokeWidth={SW} strokeLinejoin="round" />
+      <Rect x={21} y={27} width={6} height={7} fill={YELLOW} stroke={INK} strokeWidth={SW} />
+      <Rect x={13} y={34} width={22} height={8} rx={2.5} fill={LILAC} stroke={INK} strokeWidth={SW} />
+      <Path d={starPoints(24, 16.5, 5.5, 2.6)} fill="#FFFFFF" stroke={INK} strokeWidth={SW * 0.6} strokeLinejoin="round" />
+      {sparkle(42, 6, 3.5, PINK, 's1')}
+    </G>
+  );
+}
+
+function Backpack() {
+  return (
+    <G rotation={-6} origin="24, 26">
+      <Path d="M19 12 a5 5 0 0 1 10 0" stroke={INK} strokeWidth={SW} fill="none" strokeLinecap="round" />
+      <Rect x={10} y={11} width={28} height={32} rx={10} fill={MINT} stroke={INK} strokeWidth={SW} />
+      <Path d="M10 22 q14 5 28 0" stroke={INK} strokeWidth={SW * 0.8} fill="none" strokeLinecap="round" />
+      <Rect x={16} y={28} width={16} height={11} rx={3.5} fill={YELLOW} stroke={INK} strokeWidth={SW} />
+      <Line x1={20} y1={31.5} x2={28} y2={31.5} stroke={INK} strokeWidth={SW * 0.6} strokeLinecap="round" />
+      <Circle cx={31} cy={17} r={2.6} fill={PINK} stroke={INK} strokeWidth={SW * 0.6} />
+    </G>
+  );
+}
+
+function Sparkles() {
+  return (
+    <G>
+      {sparkle(20, 25, 14, YELLOW, 'a')}
+      {sparkle(37, 11, 7, PINK, 'b')}
+      {sparkle(37, 37, 5.5, LILAC, 'c')}
+    </G>
+  );
+}
+
+function Ask() {
+  return (
+    <G rotation={6} origin="24, 24">
+      <Path
+        d="M11 8 h26 a7 7 0 0 1 7 7 v13 a7 7 0 0 1 -7 7 h-3 v7 l-9 -7 h-14 a7 7 0 0 1 -7 -7 v-13 a7 7 0 0 1 7 -7 z"
+        fill={LILAC}
+        stroke={INK}
+        strokeWidth={SW}
+        strokeLinejoin="round"
+      />
+      <Path d="M19.5 17 a4.5 4.5 0 1 1 6.5 4 c-1.6 0.9 -2 1.8 -2 3.2" stroke={INK} strokeWidth={SW * 1.1} fill="none" strokeLinecap="round" />
+      <Circle cx={24} cy={29} r={1.8} fill={INK} />
+    </G>
+  );
+}
+
+function Sprout() {
+  return (
+    <G>
+      <Path d="M8 42 q16 -9 32 0 z" fill="#E7C9A4" stroke={INK} strokeWidth={SW} strokeLinejoin="round" />
+      <Path d="M24 39 C24 31 24 26 25 20" stroke={INK} strokeWidth={SW} fill="none" strokeLinecap="round" />
+      <Path d="M24.5 23 C16 24 11 18 10 11 C18 10 24 15 24.5 23 z" fill={MINT} stroke={INK} strokeWidth={SW} strokeLinejoin="round" />
+      <Path d="M25.5 20 C27 12 33 8 40 9 C40 17 34 21 25.5 20 z" fill={MINT} stroke={INK} strokeWidth={SW} strokeLinejoin="round" />
+      {sparkle(39, 30, 3.5, YELLOW, 's')}
+    </G>
+  );
+}
+
+function Cap() {
+  return (
+    <G rotation={-6} origin="24, 24">
+      <Path d="M13 24 v8 q11 7 22 0 v-8" fill={LILAC} stroke={INK} strokeWidth={SW} strokeLinejoin="round" />
+      <Path d="M4 19 L24 10 L44 19 L24 28 Z" fill={colors.primary} stroke={INK} strokeWidth={SW} strokeLinejoin="round" />
+      <Path d="M24 19 L38 23 L38 33" stroke={YELLOW} strokeWidth={2.4} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      <Circle cx={38} cy={35} r={2.8} fill={YELLOW} stroke={INK} strokeWidth={SW * 0.6} />
+      <Circle cx={24} cy={19} r={1.8} fill={YELLOW} stroke={INK} strokeWidth={SW * 0.5} />
+    </G>
+  );
+}
+
 const ICONS: Record<NSIconName, () => React.JSX.Element> = {
+  bookmark: Bookmark,
+  search: Search,
+  trophy: Trophy,
+  backpack: Backpack,
+  sparkles: Sparkles,
+  ask: Ask,
+  sprout: Sprout,
+  cap: Cap,
   wave: Wave,
   help: Help,
   chat: Chat,

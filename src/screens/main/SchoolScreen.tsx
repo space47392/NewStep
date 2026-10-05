@@ -343,22 +343,25 @@ export default function SchoolScreen() {
         <View style={styles.headerBody}>
           <View style={styles.quickChips}>
             <View style={[styles.quickChip, { backgroundColor: colors.primaryLight }]}>
+              <NSIcon name="backpack" size={16} />
               <Text style={styles.quickChipText}>
-                🎒 {studentCount} {studentCount === 1 ? 'student' : 'students'}
+                {studentCount} {studentCount === 1 ? 'student' : 'students'}
               </Text>
             </View>
             {openHelpPosts.length > 0 && (
               <View style={[styles.quickChip, { backgroundColor: colors.secondaryLight }]}>
+                <NSIcon name="ask" size={16} />
                 <Text style={styles.quickChipText}>
-                  🙋 {openHelpPosts.length}
+                  {openHelpPosts.length}
                   {openHelpPosts.length >= SECTION_LIMIT ? '+' : ''} need help
                 </Text>
               </View>
             )}
             {upcomingEvents.length > 0 && (
               <View style={[styles.quickChip, { backgroundColor: colors.warningLight }]}>
+                <NSIcon name="party" size={16} />
                 <Text style={styles.quickChipText}>
-                  🎉 {upcomingEvents.length}
+                  {upcomingEvents.length}
                   {upcomingEvents.length >= SECTION_LIMIT ? '+' : ''}{' '}
                   {upcomingEvents.length === 1 ? 'event' : 'events'}
                 </Text>
@@ -628,6 +631,9 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   quickChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     borderRadius: radius.full,
     paddingHorizontal: spacing.sm + 2,
     paddingVertical: 4,

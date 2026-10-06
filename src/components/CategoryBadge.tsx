@@ -1,8 +1,8 @@
 import { View, Text, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { CATEGORY_STYLES } from '../constants/categoryStyles';
 import { spacing, radius, fontSize, fontFamily } from '../constants/theme';
 import { PostCategory } from '../types';
+import NSIcon from './NSIcon';
 
 type Props = {
   category: PostCategory;
@@ -20,7 +20,7 @@ export default function CategoryBadge({ category, size = 'md' }: Props) {
 
   return (
     <View style={[styles.badge, compact && styles.badgeCompact, { backgroundColor: style.bg }]}>
-      <Ionicons name={style.icon} size={compact ? 11 : 12} color={style.text} />
+      <NSIcon name={style.nsIcon} size={compact ? 15 : 17} />
       <Text style={[styles.text, compact && styles.textCompact, { color: style.text }]}>{category}</Text>
     </View>
   );

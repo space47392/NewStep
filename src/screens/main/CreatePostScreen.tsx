@@ -26,6 +26,7 @@ import { createPost, editPost } from '../../lib/posts';
 import { uploadPostPhoto, removePostPhotos } from '../../lib/postPhotos';
 import PrimaryButton from '../../components/PrimaryButton';
 import FadeInView from '../../components/FadeInView';
+import NSIcon from '../../components/NSIcon';
 import { colors, spacing, radius, fontSize, fontFamily } from '../../constants/theme';
 import { CATEGORY_STYLES } from '../../constants/categoryStyles';
 import { MainStackParamList, PostCategory } from '../../types';
@@ -397,7 +398,7 @@ export default function CreatePostScreen() {
                 onPress={() => setCategory(c)}
                 hitSlop={{ top: 8, bottom: 8 }}
               >
-                <Ionicons name={style.icon} size={14} color={selected ? '#fff' : style.text} />
+                <NSIcon name={style.nsIcon} size={20} />
                 <Text style={[styles.chipText, { color: selected ? '#fff' : style.text }]}>{c}</Text>
               </TouchableOpacity>
             );

@@ -150,8 +150,10 @@ export default function VolunteerScreen() {
       ListHeaderComponent={
         <View style={styles.header}>
           <View style={styles.titleRow}>
-            <NSIcon name="star" size={34} />
-            <Text style={styles.title}>Community Contributors</Text>
+            <NSIcon name="star" size={30} />
+            <Text style={styles.title} numberOfLines={2}>
+              Community Contributors
+            </Text>
             {/* Presentation-only — contributors.length is already in local
                 state (Step 10A). Matches Help's existing "N open" badge
                 pattern (same shape/spacing), so a sparse Community screen
@@ -224,8 +226,16 @@ export default function VolunteerScreen() {
             user={item}
             stat={
               <View style={styles.statsRow}>
-                <Text style={styles.statText}>💙 {item.thanks_received_count} Thanks Received</Text>
-                {item.studentsHelped > 0 && <Text style={styles.statText}>🤝 {item.studentsHelped} Helped</Text>}
+                <View style={styles.statItem}>
+                  <NSIcon name="thanks" size={16} />
+                  <Text style={styles.statText}>{item.thanks_received_count} Thanks Received</Text>
+                </View>
+                {item.studentsHelped > 0 && (
+                  <View style={styles.statItem}>
+                    <NSIcon name="help" size={16} />
+                    <Text style={styles.statText}>{item.studentsHelped} Helped</Text>
+                  </View>
+                )}
               </View>
             }
             onPress={() => navigation.navigate('UserProfile', { userId: item.id })}
@@ -254,7 +264,6 @@ const styles = StyleSheet.create({
   // scroll (Step 10A).
   titleRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     alignItems: 'center',
     gap: spacing.sm,
   },
@@ -332,6 +341,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.md,
     marginTop: 2,
+  },
+  statItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   statText: {
     fontFamily: fontFamily.medium,

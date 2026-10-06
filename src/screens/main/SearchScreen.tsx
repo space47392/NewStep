@@ -552,7 +552,12 @@ export default function SearchScreen() {
                       onPress={() => navigation.navigate('UserProfile', { userId: person.id })}
                       meta={
                         <>
-                          {person.grade ? <Text style={styles.resultMeta}>🎓 {person.grade} Grade</Text> : null}
+                          {person.grade ? (
+                            <View style={styles.statInline}>
+                              <NSIcon name="cap" size={16} />
+                              <Text style={styles.resultMeta}>{person.grade} Grade</Text>
+                            </View>
+                          ) : null}
                           {/* Plain-language reason, backed only by data this query actually
                               guarantees: every suggestion here is already same-school, and
                               the shared count comes straight from sharedInterests() above —
@@ -581,6 +586,7 @@ export default function SearchScreen() {
                       icon="person-add-outline"
                       onPress={() => handleFollow(person)}
                       loading={pending}
+                      size="sm"
                       style={styles.followButton}
                     />
                   </View>
@@ -602,7 +608,12 @@ export default function SearchScreen() {
                   <ContributorRow
                     variant="rail"
                     user={item}
-                    stat={<Text style={styles.contributorMeta}>💙 {item.thanks_received_count}</Text>}
+                    stat={
+                    <View style={styles.statInline}>
+                      <NSIcon name="thanks" size={14} />
+                      <Text style={styles.contributorMeta}>{item.thanks_received_count}</Text>
+                    </View>
+                  }
                     onPress={() => navigation.navigate('UserProfile', { userId: item.id })}
                   />
                 )}
@@ -901,7 +912,12 @@ const styles = StyleSheet.create({
   // UserProfileScreen) — just narrower, so it fits inline in a person row
   // instead of stretching full-width.
   followButton: {
-    width: 104,
+    width: 96,
+  },
+  statInline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
   },
   contributorMeta: {
     fontFamily: fontFamily.semibold,

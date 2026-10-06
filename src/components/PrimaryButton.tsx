@@ -22,6 +22,8 @@ type Props = {
   variant?: Variant;
   icon?: keyof typeof Ionicons.glyphMap;
   style?: StyleProp<ViewStyle>;
+  // 'sm' — a compact pill for inline actions in list rows (e.g. Follow).
+  size?: 'md' | 'sm';
 };
 
 const VARIANT_STYLES: Record<Variant, { bg: string; text: string; border?: string }> = {
@@ -40,6 +42,7 @@ export default function PrimaryButton({
   variant = 'primary',
   icon,
   style,
+  size = 'md',
 }: Props) {
   const scale = useRef(new Animated.Value(1)).current;
   const v = VARIANT_STYLES[variant];
@@ -57,6 +60,7 @@ export default function PrimaryButton({
       <TouchableOpacity
         style={[
           styles.button,
+          size === 'sm' && styles.buttonSm,
           // A soft lift on filled variants only — outline buttons stay flat,
           // so the primary action reads as more prominent/pressable than a
           // secondary one, on top of (not instead of) the existing color
@@ -74,8 +78,8 @@ export default function PrimaryButton({
           <ActivityIndicator color={v.text} />
         ) : (
           <>
-            {icon ? <Ionicons name={icon} size={18} color={v.text} style={styles.icon} /> : null}
-            <Text style={[styles.text, { color: v.text }]}>{title}</Text>
+            {icon ? <Ionicons name={icon} size={size === 'sm' ? 15 : 18} color={v.text} style={styles.icon} /> : null}
+            <Text style={[styles.text, size === 'sm' && styles.textSm, { color: v.text }]}>{title}</Text>
           </>
         )}
       </TouchableOpacity>
@@ -91,6 +95,13 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  buttonSm: {
+    paddingVertical: spacing.xs + 3,
+    borderRadius: radius.full,
+  },
+  textSm: {
+    fontSize: fontSize.sm,
   },
   icon: {
     marginRight: spacing.xs,

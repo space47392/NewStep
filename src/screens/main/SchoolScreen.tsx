@@ -507,7 +507,12 @@ export default function SchoolScreen() {
                 avatarSize={56}
                 itemWidth={64}
                 user={item}
-                stat={<Text style={styles.contributorMeta}>💙 {item.thanks_received_count}</Text>}
+                stat={
+                  <View style={styles.statInline}>
+                      <NSIcon name="thanks" size={14} />
+                      <Text style={styles.contributorMeta}>{item.thanks_received_count}</Text>
+                    </View>
+                }
                 onPress={() => navigation.navigate('UserProfile', { userId: item.id })}
               />
             )}
@@ -662,6 +667,11 @@ const styles = StyleSheet.create({
     color: colors.textLight,
     marginTop: -spacing.xs,
     marginBottom: spacing.sm,
+  },
+  statInline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
   },
   contributorMeta: {
     fontFamily: fontFamily.semibold,

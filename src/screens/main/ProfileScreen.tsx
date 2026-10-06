@@ -354,6 +354,21 @@ export default function ProfileScreen() {
             <NSIcon name="star" size={20} />
             <Text style={[styles.communityTitle, styles.communityTitleText]}>Community</Text>
           </View>
+          {points === 0 && studentsHelped === 0 && thanksReceived === 0 ? (
+            // Same friendly empty line as another student's profile, plus a
+            // nudge toward where helping actually starts.
+            <TouchableOpacity
+              style={styles.communityEmpty}
+              onPress={() => navigation.navigate('Tabs', { screen: 'Help' })}
+              accessibilityRole="button"
+            >
+              <NSIcon name="sprout" size={36} />
+              <Text style={styles.communityEmptyText}>
+                You haven't helped anyone yet. See who needs a hand in Help.
+              </Text>
+              <Ionicons name="chevron-forward" size={16} color={colors.primary} />
+            </TouchableOpacity>
+          ) : (
           <View style={styles.communityStatsRow}>
             <View style={styles.communityStat}>
               <NSIcon name="star" size={28} />
@@ -375,6 +390,7 @@ export default function ProfileScreen() {
               <Text style={styles.communityStatLabel}>Thanks Received</Text>
             </View>
           </View>
+          )}
 
           {achievements.length > 0 && (
             <>
@@ -614,6 +630,18 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.textMid,
     marginBottom: spacing.sm,
+  },
+  communityEmpty: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  communityEmptyText: {
+    flex: 1,
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
+    color: colors.textMid,
   },
   communityStatsRow: {
     flexDirection: 'row',

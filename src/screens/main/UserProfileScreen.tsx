@@ -52,6 +52,7 @@ export default function UserProfileScreen() {
   const [followCounts, setFollowCounts] = useState({ followers: 0, following: 0 });
   const [isFollowingUser, setIsFollowingUser] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
+  const [myInterests, setMyInterests] = useState<string[]>([]);
 
   const isOwnProfile = user?.id === userId;
 
@@ -68,13 +69,16 @@ export default function UserProfileScreen() {
               ? fetchBlockedUserIds(user.id).catch(() => new Set<string>())
               : Promise.resolve(new Set<string>());
 
-          const [profileData, postsData, helpStats, achievementProgress, viewerBlockedIds] = await Promise.all([
+          const [profileData, postsData, helpStats, achievementProgress, viewerBlockedIds, viewerProfile] = await Promise.all([
             fetchProfileById(userId),
             fetchPostsByAuthor(userId),
             fetchHelpStats(userId),
             fetchAchievementProgress(userId),
             viewerBlockedIdsPromise,
+            // Only for the "You both like" highlight — never blocks the page.
+            user && user.id !== userId ? fetchProfileById(user.id).catch(() => null) : Promise.resolve(null),
           ]);
+          setMyInterests(viewerProfile?.interests ?? []);
 
           // Depends on viewerBlockedIds, so this one query has to wait for it —
           // everything above it still ran in parallel. Excludes exactly the
@@ -290,7 +294,7 @@ export default function UserProfileScreen() {
                 style={styles.metaRow}
                 onPress={() => navigation.navigate('School', { schoolId: profile.school_id ?? undefined, schoolName })}
               >
-                <Ionicons name="school-outline" size={14} color={colors.textMid} />
+                <NSIcon name="school" size={20} />
                 <Text style={styles.metaText}>
                   {schoolName}
                   {profile.grade ? ` · ${profile.grade} Grade` : ''}
@@ -300,7 +304,9 @@ export default function UserProfileScreen() {
               <Text style={styles.metaTextPlain}>{profile.grade} Grade</Text>
             ) : null}
 
-            {profile.interests.length > 0 && <InterestChips interests={profile.interests} />}
+            {profile.interests.length > 0 && (
+              <InterestChips interests={profile.interests} shared={isOwnProfile ? undefined : myInterests} />
+            )}
 
             {/* Identity -> School/Grade -> Social stats -> Community
                 contribution (below) -> Achievements — same reorder as
@@ -362,15 +368,26 @@ export default function UserProfileScreen() {
                 <NSIcon name="star" size={20} />
                 <Text style={[styles.communityTitle, styles.communityTitleText]}>Community</Text>
               </View>
+              {profile.points === 0 && studentsHelped === 0 && profile.thanks_received_count === 0 ? (
+                // Nothing yet — a friendly line instead of three big zeros.
+                <View style={styles.communityEmpty}>
+                  <NSIcon name="sprout" size={36} />
+                  <Text style={styles.communityEmptyText}>
+                    {isOwnProfile
+                      ? "You haven't helped anyone yet. Your first one will show up here."
+                      : `${profile.full_name?.trim().split(/\s+/)[0] ?? 'They'} hasn't helped on NewStep yet.`}
+                  </Text>
+                </View>
+              ) : (
               <View style={styles.communityStatsRow}>
                 <View style={styles.communityStat}>
-                  <Ionicons name="star" size={20} color={colors.primary} />
+                  <NSIcon name="star" size={28} />
                   <Text style={styles.communityStatNumber}>{profile.points}</Text>
                   <Text style={styles.communityStatLabel}>{profile.points === 1 ? 'Point' : 'Points'}</Text>
                 </View>
                 <View style={styles.communityStatDivider} />
                 <View style={styles.communityStat}>
-                  <Ionicons name="people" size={20} color={colors.success} />
+                  <NSIcon name="help" size={28} />
                   <Text style={styles.communityStatNumber}>{studentsHelped}</Text>
                   <Text style={styles.communityStatLabel}>
                     Helped {studentsHelped === 1 ? 'Student' : 'Students'}
@@ -378,11 +395,12 @@ export default function UserProfileScreen() {
                 </View>
                 <View style={styles.communityStatDivider} />
                 <View style={styles.communityStat}>
-                  <Ionicons name="heart" size={20} color={colors.secondary} />
+                  <NSIcon name="thanks" size={28} />
                   <Text style={styles.communityStatNumber}>{profile.thanks_received_count}</Text>
                   <Text style={styles.communityStatLabel}>Thanks Received</Text>
                 </View>
               </View>
+              )}
 
               {earnedAchievements.length > 0 && (
                 <>
@@ -400,7 +418,7 @@ export default function UserProfileScreen() {
           </View>
         </FadeInView>
       }
-      ListEmptyComponent={<EmptyState icon="newspaper-outline" title="No posts yet" />}
+      ListEmptyComponent={<EmptyState icon="newspaper-outline" nsIcon="megaphone" tint={colors.secondaryLight} title="No posts yet" />}
       renderItem={({ item }) => (
         <PostPreviewCard post={item} onPress={() => navigation.navigate('PostDetail', { post: item })} />
       )}
@@ -534,6 +552,18 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.textMid,
     marginBottom: spacing.sm,
+  },
+  communityEmpty: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  communityEmptyText: {
+    flex: 1,
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
+    color: colors.textMid,
   },
   communityStatsRow: {
     flexDirection: 'row',

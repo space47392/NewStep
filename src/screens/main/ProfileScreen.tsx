@@ -273,7 +273,7 @@ export default function ProfileScreen() {
             style={styles.metaRow}
             onPress={() => navigation.navigate('School', { schoolId: selectedSchool.id, schoolName: selectedSchool.name })}
           >
-            <Ionicons name="school-outline" size={14} color={colors.textMid} />
+            <NSIcon name="school" size={20} />
             <Text style={styles.metaText}>
               {selectedSchool.name}
               {selectedSchool.city ? ` · ${selectedSchool.city}${selectedSchool.state ? `, ${selectedSchool.state}` : ''}` : ''}
@@ -356,13 +356,13 @@ export default function ProfileScreen() {
           </View>
           <View style={styles.communityStatsRow}>
             <View style={styles.communityStat}>
-              <Ionicons name="star" size={20} color={colors.primary} />
+              <NSIcon name="star" size={28} />
               <Text style={styles.communityStatNumber}>{points}</Text>
               <Text style={styles.communityStatLabel}>{points === 1 ? 'Point' : 'Points'}</Text>
             </View>
             <View style={styles.communityStatDivider} />
             <View style={styles.communityStat}>
-              <Ionicons name="people" size={20} color={colors.success} />
+              <NSIcon name="help" size={28} />
               <Text style={styles.communityStatNumber}>{studentsHelped}</Text>
               <Text style={styles.communityStatLabel}>
                 Helped {studentsHelped === 1 ? 'Student' : 'Students'}
@@ -370,7 +370,7 @@ export default function ProfileScreen() {
             </View>
             <View style={styles.communityStatDivider} />
             <View style={styles.communityStat}>
-              <Ionicons name="heart" size={20} color={colors.secondary} />
+              <NSIcon name="thanks" size={28} />
               <Text style={styles.communityStatNumber}>{thanksReceived}</Text>
               <Text style={styles.communityStatLabel}>Thanks Received</Text>
             </View>

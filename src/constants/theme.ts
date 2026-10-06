@@ -1,20 +1,24 @@
 export const colors = {
   primary: '#6C63FF',
   primaryLight: '#EEF0FF',
+  // Text on primaryLight (badges, links on tinted chips) — #6C63FF itself
+  // is only ~3.8:1 there.
+  primaryDark: '#5148E8',
   secondary: '#FF6584',
   secondaryLight: '#FFE9EE',
   // Text/fill-on-white variants of secondary/accent — the base tones are
   // too light to read as text on their own *Light backgrounds (mint on mint
   // was ~1.7:1) or under white text.
-  secondaryDark: '#D6336C',
+  secondaryDark: '#C42B5F',
   accent: '#43D9A2',
   accentLight: '#E3FBF1',
-  accentDark: '#1E9E72',
+  accentDark: '#167A57',
   background: '#F8F9FE',
   cardBg: '#FFFFFF',
   textDark: '#1A1A2E',
   textMid: '#4A4A68',
-  textLight: '#9A9AB4',
+  // Darkened from #9A9AB4 (2.6:1) so timestamps/meta stay readable.
+  textLight: '#73738F',
   border: '#E8E8F0',
   tabBar: '#FFFFFF',
   tabActive: '#6C63FF',
@@ -24,6 +28,20 @@ export const colors = {
   success: '#43D9A2',
   warning: '#FFB800',
   warningLight: '#FFF4D6',
+  // Post-type colors, so every category reads as its own color (School
+  // Question and Event used to share primary/primaryLight).
+  questionLight: '#ECEAFF',
+  eventDark: '#8A5A00',
+  eventLight: '#FFF1CC',
+  // NewStep sticker icon fills (NSIcon). Kept here so the icons and the
+  // screens share one palette.
+  sticker: {
+    yellow: '#FFD45C',
+    pink: '#FF9BB0',
+    mint: '#7EE6BE',
+    lilac: '#B7B1FF',
+    blue: '#8FB4FF',
+  },
 };
 
 export const spacing = {

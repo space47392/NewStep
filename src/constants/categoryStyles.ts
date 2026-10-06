@@ -13,7 +13,7 @@ type CategoryStyle = {
 
 export const CATEGORY_STYLES: Record<PostCategory, CategoryStyle> = {
   'Need Help': { bg: colors.secondaryLight, text: colors.secondaryDark, icon: 'hand-left', nsIcon: 'ask' },
-  'School Question': { bg: colors.primaryLight, text: colors.primary, icon: 'school', nsIcon: 'cap' },
+  'School Question': { bg: colors.questionLight, text: colors.primaryDark, icon: 'school', nsIcon: 'cap' },
   'Looking for Friends': { bg: colors.accentLight, text: colors.accentDark, icon: 'people', nsIcon: 'wave' },
-  Event: { bg: colors.primaryLight, text: colors.primary, icon: 'calendar', nsIcon: 'party' },
+  Event: { bg: colors.eventLight, text: colors.eventDark, icon: 'calendar', nsIcon: 'party' },
 };

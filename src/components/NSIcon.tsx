@@ -34,11 +34,7 @@ type Props = {
 const INK = colors.textDark;
 const SW = 2.6; // outline width, in the 48×48 drawing grid
 
-const YELLOW = '#FFD45C';
-const PINK = '#FF9BB0';
-const MINT = '#7EE6BE';
-const LILAC = '#B7B1FF';
-const BLUE = '#8FB4FF';
+const { yellow: YELLOW, pink: PINK, mint: MINT, lilac: LILAC, blue: BLUE } = colors.sticker;
 
 // A finger/arm: a fat ink line with a slightly thinner colored line on top
 // gives a filled capsule with an outline, joined smoothly to whatever else

@@ -214,7 +214,7 @@ const styles = StyleSheet.create({
     marginTop: -2,
   },
   matchOk: {
-    color: colors.success,
+    color: colors.accentDark,
   },
   matchBad: {
     color: colors.error,

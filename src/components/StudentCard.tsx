@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet, StyleProp, ViewStyle } from 'react-native';
 import Avatar from './Avatar';
 import NSIcon from './NSIcon';
-import { getInterestIcon } from '../constants/interests';
+import InterestIcon from './InterestIcon';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../constants/theme';
 
 type Props = {
@@ -52,9 +52,9 @@ export default function StudentCard({ name, avatarUri, schoolName, grade, intere
       {interests.length > 0 && (
         <View style={styles.interests}>
           {interests.map((i) => (
-            <Text key={i} style={styles.interestEmoji} accessibilityLabel={i}>
-              {getInterestIcon(i)}
-            </Text>
+            <View key={i} accessible accessibilityLabel={i}>
+              <InterestIcon interest={i} size={26} />
+            </View>
           ))}
         </View>
       )}

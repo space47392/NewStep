@@ -38,7 +38,7 @@ import { formatClockTime, formatDayLabel, isSameDay } from '../../lib/time';
 import { resolveSchoolName } from '../../lib/schools';
 import Avatar from '../../components/Avatar';
 import { fetchProfileById } from '../../lib/profile';
-import { getInterestIcon } from '../../constants/interests';
+import InterestIcon from '../../components/InterestIcon';
 import ErrorState from '../../components/ErrorState';
 import { MessageSkeleton } from '../../components/Skeleton';
 import TypingIndicator from '../../components/TypingIndicator';
@@ -746,9 +746,8 @@ export default function ConversationScreen() {
                     <Text style={styles.introSub}>You both like</Text>
                     {sharedInterests.slice(0, 3).map((i) => (
                       <View key={i} style={styles.helloChip}>
-                        <Text style={styles.helloChipText}>
-                          {getInterestIcon(i)} {i}
-                        </Text>
+                        <InterestIcon interest={i} size={16} />
+                        <Text style={styles.helloChipText}>{i}</Text>
                       </View>
                     ))}
                   </View>
@@ -780,9 +779,8 @@ export default function ConversationScreen() {
                   <View style={styles.helloChips}>
                     {sharedInterests.slice(0, 3).map((i) => (
                       <View key={i} style={styles.helloChip}>
-                        <Text style={styles.helloChipText}>
-                          {getInterestIcon(i)} {i}
-                        </Text>
+                        <InterestIcon interest={i} size={16} />
+                        <Text style={styles.helloChipText}>{i}</Text>
                       </View>
                     ))}
                   </View>
@@ -1500,6 +1498,9 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   helloChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     backgroundColor: colors.primaryLight,
     borderRadius: radius.full,
     paddingHorizontal: spacing.sm + 2,

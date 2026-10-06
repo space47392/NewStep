@@ -35,7 +35,7 @@ import AuthorRow from '../../components/AuthorRow';
 import NSIcon from '../../components/NSIcon';
 import { PostCardSkeleton } from '../../components/Skeleton';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
-import { getInterestIcon } from '../../constants/interests';
+import InterestIcon from '../../components/InterestIcon';
 import {
   MainStackParamList,
   PersonSearchResult,
@@ -568,8 +568,9 @@ export default function SearchScreen() {
                               <View style={styles.sharedRow}>
                                 {shared.slice(0, 3).map((i, idx) => (
                                   <View key={i} style={[styles.sharedChip, { backgroundColor: SHARED_TINTS[idx % SHARED_TINTS.length] }]}>
+                                    <InterestIcon interest={i} size={15} />
                                     <Text style={styles.sharedChipText} numberOfLines={1}>
-                                      {getInterestIcon(i)} {i}
+                                      {i}
                                     </Text>
                                   </View>
                                 ))}
@@ -898,6 +899,9 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   sharedChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
     borderRadius: radius.full,
     paddingHorizontal: spacing.sm,
     paddingVertical: 2,

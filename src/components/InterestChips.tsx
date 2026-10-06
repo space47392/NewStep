@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet } from 'react-native';
-import { getInterestIcon } from '../constants/interests';
+import InterestIcon from './InterestIcon';
 import { colors, spacing, radius, fontSize, fontFamily } from '../constants/theme';
 
 // Cycles by position so a profile's chips always read as a varied, playful
@@ -33,7 +33,7 @@ export default function InterestChips({ interests, shared }: Props) {
               style={[styles.chip, { backgroundColor: TINTS[index % TINTS.length] }, isShared && styles.chipShared]}
               accessibilityLabel={isShared ? `${interest}, you both like this` : interest}
             >
-              <Text style={styles.icon}>{getInterestIcon(interest)}</Text>
+              <InterestIcon interest={interest} size={20} />
               <Text style={styles.text}>{interest}</Text>
             </View>
           );

@@ -3,7 +3,8 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import IconInput from './IconInput';
 import { colors, spacing, radius, fontSize, fontFamily } from '../constants/theme';
-import { INTEREST_GROUPS, MAX_INTERESTS, getInterestIcon } from '../constants/interests';
+import { INTEREST_GROUPS, MAX_INTERESTS } from '../constants/interests';
+import InterestIcon from './InterestIcon';
 
 type Props = {
   value: string[];
@@ -79,7 +80,7 @@ export default function InterestPicker({ value, onChange }: Props) {
                     accessibilityRole="checkbox"
                     accessibilityState={{ checked: selected, disabled }}
                   >
-                    <Text style={styles.optionEmoji}>{getInterestIcon(item)}</Text>
+                    <InterestIcon interest={item} size={20} />
                     <Text style={[styles.optionChipText, selected && styles.optionChipTextSelected]}>{item}</Text>
                     {selected && (
                       <View style={styles.checkDot}>
@@ -102,7 +103,7 @@ export default function InterestPicker({ value, onChange }: Props) {
           <View style={styles.chipRow}>
             {value.map((interest) => (
               <TouchableOpacity key={interest} style={styles.selectedChip} onPress={() => toggleInterest(interest)}>
-                <Text style={styles.optionEmoji}>{getInterestIcon(interest)}</Text>
+                <InterestIcon interest={interest} size={20} />
                 <Text style={styles.selectedChipText}>{interest}</Text>
                 <Ionicons name="close" size={13} color={colors.textMid} />
               </TouchableOpacity>

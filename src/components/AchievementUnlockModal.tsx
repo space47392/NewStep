@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { View, Text, Modal, Animated, StyleSheet } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import PrimaryButton from './PrimaryButton';
+import NSIcon, { achievementIcon } from './NSIcon';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../constants/theme';
 import { AchievementProgress } from '../types';
 
@@ -40,7 +41,11 @@ export default function AchievementUnlockModal({ achievement, onClose }: Props) 
                 },
               ]}
             >
-              <Text style={styles.icon}>{achievement.icon}</Text>
+              {achievementIcon(achievement.key) ? (
+                <NSIcon name={achievementIcon(achievement.key)!} size={64} />
+              ) : (
+                <Text style={styles.icon}>{achievement.icon}</Text>
+              )}
             </Animated.View>
             <Text style={styles.name}>{achievement.name}</Text>
             <Text style={styles.description}>Unlocked by: {achievement.description}</Text>

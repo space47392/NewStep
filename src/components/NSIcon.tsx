@@ -357,6 +357,20 @@ const ICONS: Record<NSIconName, () => React.JSX.Element> = {
   star: Star,
 };
 
+// Achievement keys (achievements_schema.sql) drawn with our own icons;
+// anything new or unknown falls back to the emoji stored in the database.
+const ACHIEVEMENT_ICONS: Record<string, NSIconName> = {
+  first_helper: 'help',
+  helpful_student: 'star',
+  community_builder: 'trophy',
+  community_voice: 'chat',
+  supporter: 'thanks',
+};
+
+export function achievementIcon(key: string): NSIconName | null {
+  return ACHIEVEMENT_ICONS[key] ?? null;
+}
+
 export default function NSIcon({ name, size = 24 }: Props) {
   const Icon = ICONS[name];
   return (

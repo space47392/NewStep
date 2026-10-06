@@ -124,7 +124,10 @@ export default function HelpScreen() {
     return (
       <View style={styles.container}>
         <View style={[styles.header, { paddingHorizontal: spacing.lg }]}>
-          <Text style={styles.title}>🤝 Need Help</Text>
+          <View style={styles.titleRow}>
+            <NSIcon name="help" size={34} />
+            <Text style={styles.title}>Need Help</Text>
+          </View>
           <Text style={styles.subtitle}>Open requests from your school community</Text>
         </View>
         <View style={styles.list}>
@@ -146,7 +149,8 @@ export default function HelpScreen() {
         ListHeaderComponent={
           <View style={styles.header}>
             <View style={styles.titleRow}>
-              <Text style={styles.title}>🤝 Need Help</Text>
+              <NSIcon name="help" size={34} />
+              <Text style={styles.title}>Need Help</Text>
               {/* A live count gives this screen an immediate, at-a-glance
                   sense of current opportunity instead of only a static
                   subtitle — "action/opportunity-first" (Visual Polish pass). */}

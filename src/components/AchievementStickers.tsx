@@ -2,6 +2,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, fontSize, fontFamily, shadow } from '../constants/theme';
 import { AchievementProgress } from '../types';
+import NSIcon, { achievementIcon } from './NSIcon';
 
 const TINTS = [colors.warningLight, colors.secondaryLight, colors.accentLight, colors.primaryLight];
 // Small alternating tilts make earned badges feel like stickers slapped on,
@@ -32,11 +33,21 @@ export default function AchievementStickers({ achievements, showHints = false }:
                 { backgroundColor: TINTS[i % TINTS.length], transform: [{ rotate: TILTS[i % TILTS.length] }] },
               ]}
             >
-              <Text style={styles.icon}>{a.icon}</Text>
+              {achievementIcon(a.key) ? (
+                <NSIcon name={achievementIcon(a.key)!} size={34} />
+              ) : (
+                <Text style={styles.icon}>{a.icon}</Text>
+              )}
             </View>
           ) : (
             <View style={styles.slot}>
-              <Text style={[styles.icon, styles.iconLocked]}>{a.icon}</Text>
+              {achievementIcon(a.key) ? (
+                <View style={styles.iconLocked}>
+                  <NSIcon name={achievementIcon(a.key)!} size={30} />
+                </View>
+              ) : (
+                <Text style={[styles.icon, styles.iconLocked]}>{a.icon}</Text>
+              )}
               <View style={styles.lock}>
                 <Ionicons name="lock-closed" size={10} color={colors.textLight} />
               </View>

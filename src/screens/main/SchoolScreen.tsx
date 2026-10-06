@@ -375,7 +375,8 @@ export default function SchoolScreen() {
       {schoolStories.length > 0 && (
         <FadeInView style={styles.section} delay={10}>
           <SectionHeader
-            title="🏫 School Stories"
+            title="School Stories"
+            icon="school"
             onSeeAll={() => navigation.navigate('StoryViewer', { stories: schoolStories, initialIndex: 0 })}
           />
           <FlatList
@@ -410,7 +411,7 @@ export default function SchoolScreen() {
 
       {recentPosts.length > 0 && (
         <FadeInView style={styles.section} delay={20}>
-          <SectionHeader title="📰 What's Happening" />
+          <SectionHeader title="What's Happening" icon="megaphone" />
           {recentPosts.map((post) => (
             <PostPreviewCard key={post.id} post={post} onPress={() => handleOpenPost(post)} />
           ))}
@@ -419,7 +420,7 @@ export default function SchoolScreen() {
 
       {upcomingEvents.length > 0 && (
         <FadeInView style={styles.section} delay={25}>
-          <SectionHeader title="🎉 School Events" onSeeAll={goToSearch} />
+          <SectionHeader title="School Events" icon="party" onSeeAll={goToSearch} />
           {upcomingEvents.map((post) => (
             <PostPreviewCard
               key={post.id}
@@ -433,7 +434,7 @@ export default function SchoolScreen() {
 
       {openHelpPosts.length > 0 && (
         <FadeInView style={styles.section} delay={30}>
-          <SectionHeader title="🤝 Need Help" onSeeAll={goToSearch} />
+          <SectionHeader title="Need Help" icon="help" onSeeAll={goToSearch} />
           {openHelpPosts.map((post) => (
             <PostPreviewCard
               key={post.id}
@@ -447,7 +448,7 @@ export default function SchoolScreen() {
 
       {questionPosts.length > 0 && (
         <FadeInView style={styles.section} delay={40}>
-          <SectionHeader title="❓ Questions" onSeeAll={goToSearch} />
+          <SectionHeader title="Questions" icon="ask" onSeeAll={goToSearch} />
           {questionPosts.map((post) => (
             <PostPreviewCard
               key={post.id}
@@ -461,7 +462,7 @@ export default function SchoolScreen() {
 
       {friendPosts.length > 0 && (
         <FadeInView style={styles.section} delay={50}>
-          <SectionHeader title="👋 Looking for Friends" />
+          <SectionHeader title="Looking for Friends" icon="wave" />
           {friendPosts.map((post) => (
             <PostPreviewCard
               key={post.id}
@@ -492,7 +493,7 @@ export default function SchoolScreen() {
 
       {contributors.length > 0 && (
         <FadeInView style={styles.section} delay={60}>
-          <SectionHeader title="🌟 Community Contributors" />
+          <SectionHeader title="Community Contributors" icon="star" />
           <Text style={styles.contributorsSubtitle}>Students who've helped others in this community</Text>
           <FlatList
             horizontal
@@ -516,7 +517,7 @@ export default function SchoolScreen() {
 
       {(gradeMates.length > 0 || interestMates.length > 0) && (
         <FadeInView style={styles.section} delay={70}>
-          <SectionHeader title="Find your community" />
+          <SectionHeader title="Find your community" icon="steps" />
           {gradeMates.length > 0 && (
             <View style={styles.memberRowWrap}>
               <Text style={styles.memberRowTitle}>{myGrade} Grade students</Text>

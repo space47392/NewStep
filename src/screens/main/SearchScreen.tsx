@@ -516,7 +516,7 @@ export default function SearchScreen() {
 
           {schoolStories.length > 0 && mySchoolName && (
             <View style={styles.section}>
-              <SectionHeader title={`🏫 What's happening at ${mySchoolName}`} />
+              <SectionHeader title={`What's happening at ${mySchoolName}`} icon="school" />
               <FlatList
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -540,7 +540,7 @@ export default function SearchScreen() {
 
           {suggestedPeople.length > 0 && (
             <View style={styles.section}>
-              <SectionHeader title="👋 People You May Know" />
+              <SectionHeader title="People You May Know" icon="wave" />
               {suggestedPeople.map((person) => {
                 const shared = sharedInterests(myInterests, person.interests);
                 const pending = pendingFollowIds.has(person.id);
@@ -591,7 +591,7 @@ export default function SearchScreen() {
 
           {contributors.length > 0 && (
             <View style={styles.section}>
-              <SectionHeader title="🤝 Community Helpers" onSeeAll={goToCommunity} />
+              <SectionHeader title="Community Helpers" icon="star" onSeeAll={goToCommunity} />
               <FlatList
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -612,7 +612,7 @@ export default function SearchScreen() {
 
           {recentQuestions.length > 0 && (
             <View style={styles.section}>
-              <SectionHeader title="❓ Recent Questions" />
+              <SectionHeader title="Recent Questions" icon="ask" />
               {recentQuestions.map((post) => (
                 <PostPreviewCard key={post.id} post={post} onPress={() => handleOpenPost(post)} />
               ))}
@@ -621,7 +621,7 @@ export default function SearchScreen() {
 
           {needHelpPosts.length > 0 && (
             <View style={styles.section}>
-              <SectionHeader title="🤝 Need Help" onSeeAll={goToHelp} />
+              <SectionHeader title="Need Help" icon="help" onSeeAll={goToHelp} />
               {needHelpPosts.map((post) => (
                 <PostPreviewCard key={post.id} post={post} onPress={() => handleOpenPost(post)} />
               ))}
@@ -630,7 +630,7 @@ export default function SearchScreen() {
 
           {upcomingEvents.length > 0 && (
             <View style={styles.section}>
-              <SectionHeader title="🎉 Upcoming Events" />
+              <SectionHeader title="Upcoming Events" icon="party" />
               {upcomingEvents.map((post) => (
                 <PostPreviewCard key={post.id} post={post} onPress={() => handleOpenPost(post)} />
               ))}

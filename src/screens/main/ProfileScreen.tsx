@@ -350,7 +350,10 @@ export default function ProfileScreen() {
           {/* Matches the "🌟 Community Contributors" heading already used on
               the Community tab/School screen for the same concept, instead
               of this being the one place that concept shows with no icon. */}
-          <Text style={styles.communityTitle}>🌟 Community</Text>
+          <View style={styles.communityTitleRow}>
+            <NSIcon name="star" size={20} />
+            <Text style={[styles.communityTitle, styles.communityTitleText]}>Community</Text>
+          </View>
           <View style={styles.communityStatsRow}>
             <View style={styles.communityStat}>
               <Ionicons name="star" size={20} color={colors.primary} />
@@ -596,6 +599,15 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     marginTop: spacing.lg,
     ...shadow.card,
+  },
+  communityTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: spacing.sm,
+  },
+  communityTitleText: {
+    marginBottom: 0,
   },
   communityTitle: {
     fontFamily: fontFamily.semibold,

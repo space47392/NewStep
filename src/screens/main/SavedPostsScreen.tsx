@@ -11,6 +11,7 @@ import PostPreviewCard from '../../components/PostPreviewCard';
 import EmptyState from '../../components/EmptyState';
 import ErrorState from '../../components/ErrorState';
 import PrimaryButton from '../../components/PrimaryButton';
+import NSIcon from '../../components/NSIcon';
 import { PostCardSkeleton } from '../../components/Skeleton';
 import { colors, spacing, fontSize, fontFamily } from '../../constants/theme';
 import { MainStackParamList, Post } from '../../types';
@@ -185,7 +186,10 @@ export default function SavedPostsScreen() {
           <Text style={styles.backText}>Back</Text>
         </TouchableOpacity>
         <View style={styles.list}>
-          <Text style={styles.title}>🔖 Saved Posts</Text>
+          <View style={styles.titleIconRow}>
+            <NSIcon name="bookmark" size={34} />
+            <Text style={[styles.title, styles.titleNoMargin]}>Saved Posts</Text>
+          </View>
           <PostCardSkeleton />
           <PostCardSkeleton />
           <PostCardSkeleton />
@@ -212,7 +216,12 @@ export default function SavedPostsScreen() {
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />}
-        ListHeaderComponent={<Text style={styles.title}>🔖 Saved Posts</Text>}
+        ListHeaderComponent={
+          <View style={styles.titleIconRow}>
+            <NSIcon name="bookmark" size={34} />
+            <Text style={[styles.title, styles.titleNoMargin]}>Saved Posts</Text>
+          </View>
+        }
         ListEmptyComponent={
           loadFailed ? (
             <ErrorState onRetry={handleRetry} retrying={retrying} />
@@ -272,6 +281,15 @@ const styles = StyleSheet.create({
   },
   list: {
     padding: spacing.lg,
+  },
+  titleIconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
+  },
+  titleNoMargin: {
+    marginBottom: 0,
   },
   title: {
     fontFamily: fontFamily.bold,

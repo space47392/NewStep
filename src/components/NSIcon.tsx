@@ -23,7 +23,8 @@ export type NSIconName =
   | 'sparkles'
   | 'ask'
   | 'sprout'
-  | 'cap';
+  | 'cap'
+  | 'megaphone';
 
 type Props = {
   name: NSIconName;
@@ -338,7 +339,23 @@ function Cap() {
   );
 }
 
+function Megaphone() {
+  // "What's happening" — a little announcement horn with sound waves.
+  return (
+    <G rotation={-10} origin="24, 24">
+      {capsuleInk(15, 31, 18, 39, 5, 'hi')}
+      {capsuleFill(15, 31, 18, 39, 5, LILAC, 'hf')}
+      <Path d="M8 19 L30 9 V37 L8 27 Z" fill={PINK} stroke={INK} strokeWidth={SW} strokeLinejoin="round" />
+      <Rect x={4} y={18} width={7} height={10} rx={2.5} fill={YELLOW} stroke={INK} strokeWidth={SW} />
+      <Rect x={29} y={8} width={5} height={30} rx={2.5} fill={LILAC} stroke={INK} strokeWidth={SW} />
+      <Path d="M38 17 q3 6 0 12" stroke={INK} strokeWidth={SW} fill="none" strokeLinecap="round" />
+      <Path d="M42 13 q5 10 0 20" stroke={INK} strokeWidth={SW} fill="none" strokeLinecap="round" />
+    </G>
+  );
+}
+
 const ICONS: Record<NSIconName, () => React.JSX.Element> = {
+  megaphone: Megaphone,
   bookmark: Bookmark,
   search: Search,
   trophy: Trophy,

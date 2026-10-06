@@ -150,7 +150,8 @@ export default function VolunteerScreen() {
       ListHeaderComponent={
         <View style={styles.header}>
           <View style={styles.titleRow}>
-            <Text style={styles.title}>🌟 Community Contributors</Text>
+            <NSIcon name="star" size={34} />
+            <Text style={styles.title}>Community Contributors</Text>
             {/* Presentation-only — contributors.length is already in local
                 state (Step 10A). Matches Help's existing "N open" badge
                 pattern (same shape/spacing), so a sparse Community screen

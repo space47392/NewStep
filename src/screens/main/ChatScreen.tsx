@@ -11,6 +11,7 @@ import EmptyState from '../../components/EmptyState';
 import ErrorState from '../../components/ErrorState';
 import { ConversationRowSkeleton } from '../../components/Skeleton';
 import FadeInView from '../../components/FadeInView';
+import NSIcon from '../../components/NSIcon';
 import { Conversation, MainStackParamList } from '../../types';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
 
@@ -72,7 +73,10 @@ export default function ChatScreen() {
   if (loading) {
     return (
       <View style={[styles.loadingContainer, styles.list]}>
-        <Text style={styles.title}>Messages 💬</Text>
+        <View style={styles.titleIconRow}>
+            <NSIcon name="chat" size={34} />
+            <Text style={[styles.title, styles.titleNoMargin]}>Messages</Text>
+          </View>
         <ConversationRowSkeleton />
         <ConversationRowSkeleton />
         <ConversationRowSkeleton />
@@ -88,7 +92,12 @@ export default function ChatScreen() {
       keyExtractor={(item) => item.id}
       contentContainerStyle={styles.list}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />}
-      ListHeaderComponent={<Text style={styles.title}>Messages 💬</Text>}
+      ListHeaderComponent={
+        <View style={styles.titleIconRow}>
+            <NSIcon name="chat" size={34} />
+            <Text style={[styles.title, styles.titleNoMargin]}>Messages</Text>
+          </View>
+      }
       ListEmptyComponent={
         loadFailed ? (
           <ErrorState onRetry={handleRetry} retrying={retrying} />
@@ -162,6 +171,15 @@ const styles = StyleSheet.create({
   },
   list: {
     padding: spacing.lg,
+  },
+  titleIconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
+  },
+  titleNoMargin: {
+    marginBottom: 0,
   },
   title: {
     fontFamily: fontFamily.bold,

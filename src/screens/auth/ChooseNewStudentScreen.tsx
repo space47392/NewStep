@@ -68,7 +68,7 @@ export default function ChooseNewStudentScreen({ onDone }: Props) {
       <FadeInView style={styles.content}>
         <OnboardingSteps current={4} style={styles.steps} />
         <View style={styles.iconCircle}>
-          <Ionicons name="school" size={32} color={colors.primary} />
+          <NSIcon name="school" size={44} />
         </View>
         <Text style={styles.title}>Are you new to this school?</Text>
         <Text style={styles.subtitle}>

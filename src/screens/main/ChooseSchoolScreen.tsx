@@ -18,6 +18,7 @@ import { fetchSchoolStates, fetchSchoolCities, searchSchoolsDirectory, setMyScho
 import EmptyState from '../../components/EmptyState';
 import LoadingScreen from '../../components/LoadingScreen';
 import SchoolJoinedCelebration from '../../components/SchoolJoinedCelebration';
+import NSIcon from '../../components/NSIcon';
 import OnboardingSteps from '../../components/OnboardingSteps';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
 import { MainStackParamList, School } from '../../types';
@@ -306,7 +307,7 @@ export default function ChooseSchoolScreen({ onDone, showSkip, title, subtitle }
                   disabled={savingId !== null}
                 >
                   <View style={styles.schoolIcon}>
-                    <Ionicons name="school-outline" size={18} color={colors.primary} />
+                    <NSIcon name="school" size={26} />
                   </View>
                   <View style={styles.schoolText}>
                     <Text style={styles.schoolName}>{item.name}</Text>

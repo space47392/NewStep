@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase';
 import IconInput from '../../components/IconInput';
 import PrimaryButton from '../../components/PrimaryButton';
 import FadeInView from '../../components/FadeInView';
+import NSIcon from '../../components/NSIcon';
 import { colors, spacing, radius, fontSize, fontFamily } from '../../constants/theme';
 import { AuthStackParamList } from '../../types';
 
@@ -54,7 +55,7 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
       <View style={styles.inner}>
         <FadeInView style={styles.header}>
           <View style={styles.logoBadge}>
-            <Ionicons name="key-outline" size={32} color={colors.primary} />
+            <NSIcon name="key" size={42} />
           </View>
           <Text style={styles.title}>Reset your password</Text>
           <Text style={styles.tagline}>

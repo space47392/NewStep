@@ -8,6 +8,7 @@ import PrimaryButton from '../../components/PrimaryButton';
 import LoadingScreen from '../../components/LoadingScreen';
 import OnboardingSteps from '../../components/OnboardingSteps';
 import FadeInView from '../../components/FadeInView';
+import NSIcon from '../../components/NSIcon';
 import { colors, spacing, radius, fontSize, fontFamily } from '../../constants/theme';
 
 type Props = {
@@ -69,7 +70,7 @@ export default function ChooseInterestsScreen({ onDone }: Props) {
         <FadeInView style={styles.content}>
           <OnboardingSteps current={3} style={styles.steps} />
           <View style={styles.iconCircle}>
-            <Ionicons name="sparkles" size={32} color={colors.primary} />
+            <NSIcon name="sparkles" size={44} />
           </View>
           <Text style={styles.title}>Choose your interests</Text>
           <Text style={styles.subtitle}>Optional — you can change these anytime.</Text>

@@ -24,7 +24,8 @@ export type NSIconName =
   | 'ask'
   | 'sprout'
   | 'cap'
-  | 'megaphone';
+  | 'megaphone'
+  | 'key';
 
 type Props = {
   name: NSIconName;
@@ -350,7 +351,25 @@ function Megaphone() {
   );
 }
 
+function Key() {
+  // Password screens — a round-headed key with a little heart cut-out.
+  return (
+    <G rotation={-35} origin="24, 24">
+      <Path d="M24 22 h18 v6 h-4 v5 h-5 v-5 h-9 z" fill={YELLOW} stroke={INK} strokeWidth={SW} strokeLinejoin="round" />
+      <Circle cx={15} cy={25} r={11} fill={YELLOW} stroke={INK} strokeWidth={SW} />
+      <Path
+        d="M15 29 C11 26 10.5 24.5 10.5 23 a2.4 2.4 0 0 1 4.5 -1 a2.4 2.4 0 0 1 4.5 1 c0 1.5 -0.5 3 -4.5 6 z"
+        fill={PINK}
+        stroke={INK}
+        strokeWidth={SW * 0.6}
+        strokeLinejoin="round"
+      />
+    </G>
+  );
+}
+
 const ICONS: Record<NSIconName, () => React.JSX.Element> = {
+  key: Key,
   megaphone: Megaphone,
   bookmark: Bookmark,
   search: Search,

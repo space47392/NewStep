@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase';
 import IconInput from '../../components/IconInput';
 import PrimaryButton from '../../components/PrimaryButton';
 import FadeInView from '../../components/FadeInView';
+import NSIcon from '../../components/NSIcon';
 import FootstepsIntro from '../../components/FootstepsIntro';
 import { colors, spacing, radius, fontSize, fontFamily } from '../../constants/theme';
 import { AuthStackParamList } from '../../types';
@@ -107,7 +108,7 @@ export default function LoginScreen({ navigation }: Props) {
             ))}
           </View>
           <View style={styles.logoBadge}>
-            <Ionicons name="footsteps" size={32} color={colors.primary} />
+            <NSIcon name="steps" size={40} />
           </View>
           <Text style={styles.logo}>NewStep</Text>
           <Text style={styles.tagline}>Your guide to a new school</Text>

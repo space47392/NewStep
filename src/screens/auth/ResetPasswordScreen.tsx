@@ -6,6 +6,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import IconInput from '../../components/IconInput';
 import PrimaryButton from '../../components/PrimaryButton';
 import FadeInView from '../../components/FadeInView';
+import NSIcon from '../../components/NSIcon';
 import { colors, spacing, radius, fontSize, fontFamily } from '../../constants/theme';
 
 const MIN_PASSWORD_LENGTH = 6;
@@ -60,7 +61,7 @@ export default function ResetPasswordScreen({ onDone }: Props) {
       <View style={styles.inner}>
         <FadeInView style={styles.header}>
           <View style={styles.logoBadge}>
-            <Ionicons name="key" size={30} color={colors.primary} />
+            <NSIcon name="key" size={40} />
           </View>
           <Text style={styles.title}>Choose a new password</Text>
           {/* Shows which account this is for, so a link never quietly

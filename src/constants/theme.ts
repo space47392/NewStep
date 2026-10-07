@@ -33,6 +33,9 @@ export const colors = {
   questionLight: '#ECEAFF',
   eventDark: '#8A5A00',
   eventLight: '#FFF1CC',
+  // App icon / splash / footprint intro background — matches the
+  // "Starry Step" app icon so opening the app flows straight into the intro.
+  night: '#1C1752',
   // NewStep sticker icon fills (NSIcon). Kept here so the icons and the
   // screens share one palette.
   sticker: {

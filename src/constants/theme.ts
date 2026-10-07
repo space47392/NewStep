@@ -83,6 +83,8 @@ export const fontFamily = {
   semibold: 'Poppins_600SemiBold',
   bold: 'Poppins_700Bold',
   extrabold: 'Poppins_800ExtraBold',
+  // Fredoka — only for the "NewStep" wordmark, to match the sticker app icon.
+  brand: 'Fredoka_700Bold',
 };
 
 // Soft, consistent card elevation used across the app instead of one-off shadow props.

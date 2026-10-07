@@ -186,7 +186,7 @@ const styles = StyleSheet.create({
     transform: [{ rotate: '-6deg' }],
   },
   logo: {
-    fontFamily: fontFamily.extrabold,
+    fontFamily: fontFamily.brand,
     fontSize: fontSize.xxxl,
     color: colors.primary,
   },

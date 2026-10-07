@@ -1297,7 +1297,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   pageTitle: {
-    fontFamily: fontFamily.extrabold,
+    fontFamily: fontFamily.brand,
     fontSize: fontSize.xl,
     color: colors.primary,
     marginBottom: spacing.xs,
@@ -1319,10 +1319,9 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   brandLabel: {
-    fontFamily: fontFamily.bold,
-    fontSize: fontSize.xs,
+    fontFamily: fontFamily.brand,
+    fontSize: fontSize.sm,
     color: colors.primary,
-    letterSpacing: 0.5,
   },
   greeting: {
     fontFamily: fontFamily.extrabold,

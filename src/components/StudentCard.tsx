@@ -79,7 +79,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs + 2,
   },
   stripText: {
-    fontFamily: fontFamily.extrabold,
+    fontFamily: fontFamily.brand,
     fontSize: fontSize.xs,
     color: '#fff',
     letterSpacing: 1.5,

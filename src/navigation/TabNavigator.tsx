@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Animated, StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import TabGlyph, { TabGlyphName } from '../components/TabGlyph';
 import { MainTabParamList } from '../types';
 import { colors, fontFamily, radius, shadow } from '../constants/theme';
 import { useAuth } from '../contexts/AuthContext';
@@ -18,13 +18,13 @@ import ProfileScreen from '../screens/main/ProfileScreen';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
-const TAB_ICONS: Record<string, { focused: string; unfocused: string }> = {
-  Feed:      { focused: 'home',           unfocused: 'home-outline' },
-  Search:    { focused: 'search',         unfocused: 'search-outline' },
-  Help:      { focused: 'help-circle',    unfocused: 'help-circle-outline' },
-  Chat:      { focused: 'chatbubbles',    unfocused: 'chatbubbles-outline' },
-  Volunteer: { focused: 'people',         unfocused: 'people-outline' },
-  Profile:   { focused: 'person',         unfocused: 'person-outline' },
+const TAB_ICONS: Record<string, TabGlyphName> = {
+  Feed: 'home',
+  Search: 'search',
+  Help: 'help',
+  Chat: 'chat',
+  Volunteer: 'community',
+  Profile: 'profile',
 };
 
 // Re-checking the open-help count on every tab switch would be a query per
@@ -33,7 +33,7 @@ const HELP_BADGE_REFRESH_MS = 30_000;
 
 // The selected tab's icon sits in a soft pill and gives a little hop when
 // it becomes selected — a "step" onto that tab.
-function TabIcon({ name, focused, color, size }: { name: string; focused: boolean; color: string; size: number }) {
+function TabIcon({ name, focused, size }: { name: TabGlyphName; focused: boolean; size: number }) {
   const hop = useRef(new Animated.Value(focused ? 1 : 0)).current;
   useEffect(() => {
     if (!focused) {
@@ -54,7 +54,7 @@ function TabIcon({ name, focused, color, size }: { name: string; focused: boolea
           ],
         }}
       >
-        <Ionicons name={name as any} size={size - 2} color={color} />
+        <TabGlyph name={name} active={focused} size={size} />
       </Animated.View>
     </View>
   );
@@ -130,15 +130,16 @@ export default function TabNavigator() {
         tabBarItemStyle: {
           paddingHorizontal: 2,
         },
-        tabBarIcon: ({ focused, color, size }) => {
-          const icons = TAB_ICONS[route.name];
-          const iconName = focused ? icons.focused : icons.unfocused;
-          return <TabIcon name={iconName} focused={focused} color={color} size={size} />;
+        tabBarIcon: ({ focused, size }) => {
+          return <TabIcon name={TAB_ICONS[route.name]} focused={focused} size={size} />;
         },
         tabBarBadgeStyle: {
           backgroundColor: colors.secondaryDark,
           fontFamily: fontFamily.bold,
           fontSize: 10,
+          // Nudged off the icon so it doesn't cover the raised hand.
+          marginLeft: 14,
+          marginTop: -2,
         },
       })}
     >

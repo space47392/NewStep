@@ -45,6 +45,9 @@ import TypingIndicator from '../../components/TypingIndicator';
 import NSIcon from '../../components/NSIcon';
 import ActionSheet, { ActionSheetAction } from '../../components/ActionSheet';
 import ReportSheet from '../../components/ReportSheet';
+import LinkifiedText from '../../components/LinkifiedText';
+import SwipeToReply from '../../components/SwipeToReply';
+import { getChatDraft, saveChatDraft } from '../../lib/chatDrafts';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
 import { MainStackParamList, Message, Post, ReportTargetType } from '../../types';
 
@@ -131,6 +134,35 @@ export default function ConversationScreen() {
   // The help request this chat started from (conversation_origin.sql), shown
   // in the intro card — "You met through a help request".
   const [originPost, setOriginPost] = useState<Post | null>(null);
+  // Floating "jump to newest" button: shown while scrolled up, and counts
+  // the other person's messages that arrived meanwhile.
+  const [showJumpButton, setShowJumpButton] = useState(false);
+  const [unseenCount, setUnseenCount] = useState(0);
+
+  // Restore whatever was left unsent here last time (unless this chat was
+  // opened with its own prefilled text), and keep saving it as it changes.
+  const draftLoadedRef = useRef(false);
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    if (route.params.prefillText) {
+      draftLoadedRef.current = true;
+      return;
+    }
+    getChatDraft(user.id, conversationId).then((draft) => {
+      if (cancelled) return;
+      if (draft) setText((current) => current || draft);
+      draftLoadedRef.current = true;
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, conversationId]);
+  useEffect(() => {
+    if (!user?.id || !draftLoadedRef.current || editingMessage) return;
+    const timer = setTimeout(() => saveChatDraft(user.id, conversationId, text), 400);
+    return () => clearTimeout(timer);
+  }, [text, user?.id, conversationId, editingMessage]);
 
   useEffect(() => {
     let cancelled = false;
@@ -304,6 +336,7 @@ export default function ConversationScreen() {
         }
         // If the other person's message arrives while this screen is open, mark it read immediately.
         if (user && message.sender_id !== user.id) {
+          if (!isNearBottomRef.current) setUnseenCount((n) => n + 1);
           markMessagesAsRead(conversationId, user.id).catch(() => {});
           // The message itself replaces the "typing..." bubble, so clear it right away
           // instead of waiting for the timeout below.
@@ -402,6 +435,18 @@ export default function ConversationScreen() {
     const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
     const distanceFromBottom = contentSize.height - contentOffset.y - layoutMeasurement.height;
     isNearBottomRef.current = distanceFromBottom < NEAR_BOTTOM_THRESHOLD;
+    // A bit more slack than the auto-scroll threshold, so the button doesn't
+    // flicker in and out right at the bottom.
+    const farUp = distanceFromBottom > layoutMeasurement.height * 0.75;
+    setShowJumpButton(farUp);
+    if (isNearBottomRef.current) setUnseenCount(0);
+  };
+
+  const handleJumpToBottom = () => {
+    isNearBottomRef.current = true;
+    setUnseenCount(0);
+    setShowJumpButton(false);
+    listRef.current?.scrollToEnd({ animated: true });
   };
 
   // Fires on every layout pass of the FlatList itself — including each frame
@@ -493,7 +538,9 @@ export default function ConversationScreen() {
     try {
       if (editingMessage) {
         await editMessage(editingMessage.id, trimmed);
-        setEditingMessage(null);
+        await handleCancelEdit();
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        return;
       } else {
         await sendMessage({
           conversationId,
@@ -502,6 +549,7 @@ export default function ConversationScreen() {
           replyToMessageId: replyTarget?.id,
         });
         setReplyTarget(null);
+        saveChatDraft(user.id, conversationId, '');
       }
       setText(''); // the sent/edited message arrives back via the real-time subscription above
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -530,6 +578,7 @@ export default function ConversationScreen() {
 
   const handleLongPressMessage = (message: Message) => {
     if (message.deleted_at) return; // nothing to do on an already-deleted tombstone
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setMenuMessage(message);
   };
 
@@ -545,9 +594,12 @@ export default function ConversationScreen() {
     focusComposer();
   };
 
-  const handleCancelEdit = () => {
+  // Leaving edit mode puts back the unsent draft the edit had borrowed the
+  // composer from (drafts aren't saved while editing).
+  const handleCancelEdit = async () => {
+    const draft = user ? await getChatDraft(user.id, conversationId) : '';
     setEditingMessage(null);
-    setText('');
+    setText(draft);
   };
 
   const handleReplyMessage = (message: Message) => {
@@ -640,7 +692,11 @@ export default function ConversationScreen() {
             <Text style={styles.headerName} numberOfLines={1}>
               {otherUser ? (otherUser.full_name ?? 'Unknown') : 'Deleted User'}
             </Text>
-            {otherSubtitle ? (
+            {otherTyping ? (
+              <Text style={[styles.headerSubtitle, styles.headerTyping]} numberOfLines={1}>
+                typing…
+              </Text>
+            ) : otherSubtitle ? (
               <Text style={styles.headerSubtitle} numberOfLines={1}>
                 {otherSubtitle}
               </Text>
@@ -649,6 +705,7 @@ export default function ConversationScreen() {
         </TouchableOpacity>
       </View>
 
+      <View style={styles.listArea}>
       {loading ? (
         <View style={styles.list}>
           <MessageSkeleton />
@@ -842,6 +899,7 @@ export default function ConversationScreen() {
                 {!showDaySeparator && prevItem && formatGap(prevItem.created_at, item.created_at) ? (
                   <Text style={styles.gapMarker}>· {formatGap(prevItem.created_at, item.created_at)} ·</Text>
                 ) : null}
+                <SwipeToReply enabled={!!otherUser && !isDeleted} onReply={() => handleReplyMessage(item)}>
                 <View
                   style={[
                     styles.bubbleRow,
@@ -925,14 +983,14 @@ export default function ConversationScreen() {
                                 </TouchableOpacity>
                               );
                             })()}
-                          <Text
+                          <LinkifiedText
                             style={[
                               isMine ? styles.bubbleTextMine : styles.bubbleTextTheirs,
                               bigEmoji && [styles.emojiOnlyText, { transform: [{ rotate: isMine ? '6deg' : '-6deg' }] }],
                             ]}
                           >
                             {item.content}
-                          </Text>
+                          </LinkifiedText>
                         </>
                       )}
                     </TouchableOpacity>
@@ -950,6 +1008,7 @@ export default function ConversationScreen() {
                     ) : null}
                   </View>
                 </View>
+                </SwipeToReply>
               </View>
             );
           }}
@@ -967,6 +1026,24 @@ export default function ConversationScreen() {
           }
         />
       )}
+
+      {showJumpButton && !loading && !loadFailed ? (
+        <TouchableOpacity
+          style={[styles.jumpButton, unseenCount > 0 && styles.jumpButtonNew]}
+          onPress={handleJumpToBottom}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel={unseenCount > 0 ? `${unseenCount} new messages. Jump to newest` : 'Jump to newest message'}
+        >
+          {unseenCount > 0 ? (
+            <Text style={styles.jumpButtonText}>
+              {unseenCount === 1 ? '1 new message' : `${unseenCount} new messages`}
+            </Text>
+          ) : null}
+          <Ionicons name="arrow-down" size={18} color={unseenCount > 0 ? '#fff' : colors.primary} />
+        </TouchableOpacity>
+      ) : null}
+      </View>
 
       {otherUser ? (
         <>
@@ -1091,6 +1168,41 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
     color: colors.textMid,
     marginTop: 1,
+  },
+  headerTyping: {
+    fontFamily: fontFamily.semibold,
+    color: colors.accentDark,
+  },
+  // Sits just above the composer, on the right.
+  listArea: {
+    flex: 1,
+  },
+  jumpButton: {
+    position: 'absolute',
+    right: spacing.lg,
+    bottom: spacing.md,
+    minWidth: 40,
+    height: 40,
+    borderRadius: 20,
+    paddingHorizontal: 11,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadow,
+  },
+  jumpButtonNew: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+    paddingHorizontal: spacing.md,
+  },
+  jumpButtonText: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
+    color: '#fff',
   },
   list: {
     paddingHorizontal: spacing.lg,

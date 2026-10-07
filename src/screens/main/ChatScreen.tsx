@@ -5,6 +5,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { fetchConversations } from '../../lib/chat';
+import { getChatDrafts } from '../../lib/chatDrafts';
 import { formatRelativeTime } from '../../lib/time';
 import Avatar from '../../components/Avatar';
 import EmptyState from '../../components/EmptyState';
@@ -29,6 +30,8 @@ export default function ChatScreen() {
   const [loadFailed, setLoadFailed] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const hasEverLoadedRef = useRef(false);
+  // Unsent text left in each conversation (chatDrafts.ts), shown in the row.
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
 
   const loadConversations = useCallback(async () => {
     if (!user) return;
@@ -58,10 +61,11 @@ export default function ChatScreen() {
   useFocusEffect(
     useCallback(() => {
       (async () => {
+        if (user) getChatDrafts(user.id).then(setDrafts);
         await loadConversations();
         setLoading(false);
       })();
-    }, [loadConversations])
+    }, [loadConversations, user])
   );
 
   const handleRefresh = async () => {
@@ -134,9 +138,16 @@ export default function ChatScreen() {
                 <TouchableOpacity style={styles.nameTouchable} onPress={goToOtherProfile} disabled={isDeletedOther}>
                   <Text style={[styles.name, item.unreadCount > 0 && styles.nameUnread]} numberOfLines={1}>{isDeletedOther ? 'Deleted User' : (item.otherUser!.full_name ?? 'Unknown')}</Text>
                 </TouchableOpacity>
-                <Text style={[styles.lastMessage, item.unreadCount > 0 && styles.lastMessageUnread]} numberOfLines={1}>
-                  {item.last_message ?? 'Say hello!'}
-                </Text>
+                {drafts[item.id]?.trim() && item.otherUser ? (
+                  <Text style={styles.lastMessage} numberOfLines={1}>
+                    <Text style={styles.draftLabel}>Draft: </Text>
+                    {drafts[item.id].trim()}
+                  </Text>
+                ) : (
+                  <Text style={[styles.lastMessage, item.unreadCount > 0 && styles.lastMessageUnread]} numberOfLines={1}>
+                    {item.last_message ?? 'Say hello!'}
+                  </Text>
+                )}
               </View>
               <View style={styles.rowRight}>
                 {item.last_message_at ? (
@@ -225,6 +236,10 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.textMid,
     marginTop: 2,
+  },
+  draftLabel: {
+    fontFamily: fontFamily.semibold,
+    color: colors.secondaryDark,
   },
   lastMessageUnread: {
     fontFamily: fontFamily.semibold,

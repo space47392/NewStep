@@ -16,7 +16,7 @@ import IconInput from '../../components/IconInput';
 import PrimaryButton from '../../components/PrimaryButton';
 import OnboardingSteps from '../../components/OnboardingSteps';
 import FadeInView from '../../components/FadeInView';
-import NSIcon from '../../components/NSIcon';
+import AppLogo from '../../components/AppLogo';
 import { colors, spacing, radius, fontSize, fontFamily } from '../../constants/theme';
 import { AuthStackParamList } from '../../types';
 
@@ -87,9 +87,7 @@ export default function RegisterScreen({ navigation }: Props) {
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView contentContainerStyle={styles.inner} keyboardShouldPersistTaps="handled">
         <FadeInView style={styles.header}>
-          <View style={styles.logoBadge}>
-            <NSIcon name="steps" size={40} />
-          </View>
+          <AppLogo size={76} style={styles.logoBadge} />
           <Text style={styles.logo}>NewStep</Text>
           <Text style={styles.tagline}>
             Connect with your school. Discover people, what's happening, and ways to help.
@@ -176,14 +174,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.xxl,
   },
+  // The app icon itself, tilted a touch like a sticker.
   logoBadge: {
-    width: 64,
-    height: 64,
-    borderRadius: radius.full,
-    backgroundColor: colors.primaryLight,
-    justifyContent: 'center',
-    alignItems: 'center',
     marginBottom: spacing.md,
+    transform: [{ rotate: '-6deg' }],
   },
   logo: {
     fontFamily: fontFamily.extrabold,

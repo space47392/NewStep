@@ -6,7 +6,7 @@ import { supabase } from '../../lib/supabase';
 import IconInput from '../../components/IconInput';
 import PrimaryButton from '../../components/PrimaryButton';
 import FadeInView from '../../components/FadeInView';
-import NSIcon from '../../components/NSIcon';
+import AppLogo from '../../components/AppLogo';
 import FootstepsIntro from '../../components/FootstepsIntro';
 import { colors, spacing, radius, fontSize, fontFamily } from '../../constants/theme';
 import { AuthStackParamList } from '../../types';
@@ -107,9 +107,7 @@ export default function LoginScreen({ navigation }: Props) {
               />
             ))}
           </View>
-          <View style={styles.logoBadge}>
-            <NSIcon name="steps" size={40} />
-          </View>
+          <AppLogo size={76} style={styles.logoBadge} />
           <Text style={styles.logo}>NewStep</Text>
           <Text style={styles.tagline}>Your guide to a new school</Text>
         </FadeInView>
@@ -182,14 +180,10 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     marginBottom: spacing.sm,
   },
+  // The app icon itself, tilted a touch like a sticker.
   logoBadge: {
-    width: 64,
-    height: 64,
-    borderRadius: radius.full,
-    backgroundColor: colors.primaryLight,
-    justifyContent: 'center',
-    alignItems: 'center',
     marginBottom: spacing.md,
+    transform: [{ rotate: '-6deg' }],
   },
   logo: {
     fontFamily: fontFamily.extrabold,

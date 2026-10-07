@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet, StyleProp, ViewStyle } from 'react-native';
 import Avatar from './Avatar';
 import NSIcon from './NSIcon';
+import AppLogo from './AppLogo';
 import InterestIcon from './InterestIcon';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../constants/theme';
 
@@ -21,9 +22,7 @@ export default function StudentCard({ name, avatarUri, schoolName, grade, intere
     <View style={[styles.card, style]}>
       <View style={styles.strip}>
         <Text style={styles.stripText}>NEWSTEP STUDENT</Text>
-        <View style={styles.stripIcon}>
-          <NSIcon name="steps" size={18} />
-        </View>
+        <AppLogo size={24} />
       </View>
       <View style={styles.body}>
         <View style={styles.avatar}>
@@ -95,11 +94,6 @@ const styles = StyleSheet.create({
     borderRadius: 34,
     borderWidth: 3,
     borderColor: colors.primaryLight,
-  },
-  stripIcon: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 2,
   },
   schoolRow: {
     flexDirection: 'row',

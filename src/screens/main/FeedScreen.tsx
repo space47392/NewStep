@@ -33,6 +33,7 @@ import ErrorState from '../../components/ErrorState';
 import { PostCardSkeleton } from '../../components/Skeleton';
 import FadeInView from '../../components/FadeInView';
 import NSIcon from '../../components/NSIcon';
+import AppLogo from '../../components/AppLogo';
 import PrimaryButton from '../../components/PrimaryButton';
 import ActionSheet, { ActionSheetAction } from '../../components/ActionSheet';
 import ReportSheet from '../../components/ReportSheet';
@@ -764,7 +765,7 @@ export default function FeedScreen() {
             {myFirstName ? (
               <>
                 <View style={styles.brandRow}>
-                  <NSIcon name="steps" size={16} />
+                  <AppLogo size={20} />
                   <Text style={styles.brandLabel}>NewStep</Text>
                 </View>
                 <Text style={styles.greeting} numberOfLines={1}>

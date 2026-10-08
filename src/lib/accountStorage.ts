@@ -19,12 +19,13 @@ export async function cleanupAccountStorage(userId: string): Promise<void> {
   const results = await Promise.allSettled([
     removeAvatarFile(userId),
     removeStoryFile(userId),
+    removeSkyPhotoFile(userId),
     removeAllPostPhotosForAuthor(userId),
   ]);
 
   const failures = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
   if (failures.length > 0) {
-    // Whichever of the three succeeded are already gone — only the failed
+    // Whichever of these succeeded are already gone — only the failed
     // one(s) still need a retry, and re-running this whole function is safe
     // (removing an already-removed object, or an object that never existed,
     // is a harmless no-op in Supabase Storage, not an error).
@@ -44,6 +45,11 @@ async function removeAvatarFile(userId: string): Promise<void> {
 // Fixed, upsert-overwritten path — same one stories.ts's uploadStory() always
 // writes to (replace_story() only ever keeps one row/file per author). A user
 // with no active (or ever-posted) story has no object here either.
+async function removeSkyPhotoFile(userId: string): Promise<void> {
+  const { error } = await supabase.storage.from('sky').remove([`${userId}/sky.jpg`]);
+  if (error) throw error;
+}
+
 async function removeStoryFile(userId: string): Promise<void> {
   const { error } = await supabase.storage.from('stories').remove([`${userId}/story.jpg`]);
   if (error) throw error;

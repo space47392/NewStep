@@ -32,7 +32,9 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow NewStep to access your photos to set a profile picture."
+          "photosPermission": "Allow NewStep to access your photos to set a profile picture.",
+          "cameraPermission": "Allow NewStep to use your camera to snap the sky for School Sky.",
+          "microphonePermission": false
         }
       ],
       [

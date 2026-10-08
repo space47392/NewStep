@@ -10,8 +10,11 @@ import {
   ActivityIndicator,
   Animated,
   Easing,
+  Image,
+  FlatList,
   StyleSheet,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -25,6 +28,8 @@ import {
   fetchSchoolSky,
   setMyStar,
   removeMyStar,
+  uploadSkyPhoto,
+  removeSkyPhoto,
   starPosition,
   skyMood,
   SKY_MOODS,
@@ -37,8 +42,9 @@ import { getOrCreateConversation } from '../../lib/chat';
 import { formatRelativeTime } from '../../lib/time';
 import Avatar from '../../components/Avatar';
 import PrimaryButton from '../../components/PrimaryButton';
+import ReportSheet from '../../components/ReportSheet';
 import { colors, spacing, radius, fontSize, fontFamily } from '../../constants/theme';
-import { MainStackParamList } from '../../types';
+import { MainStackParamList, ReportTargetType } from '../../types';
 
 const STAR_SIZE = 46;
 
@@ -92,6 +98,11 @@ function SkyStarButton({
         accessibilityLabel={`${mine ? 'Your star' : first}: feeling ${mood.label}${star.note ? `, ${star.note}` : ''}`}
       >
         <Text style={styles.starEmoji}>{mood.emoji}</Text>
+        {star.photo_url ? (
+          <View style={styles.starPhotoBadge}>
+            <Ionicons name="camera" size={10} color={colors.ink} />
+          </View>
+        ) : null}
       </TouchableOpacity>
       <Text style={[styles.starName, mine && styles.starNameMine]} numberOfLines={1}>
         {mine ? 'You' : first}
@@ -115,6 +126,11 @@ export default function SchoolSkyScreen() {
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
   const [openingChat, setOpeningChat] = useState(false);
+  // The composer's sky photo: the current one (a URL), a fresh camera shot
+  // (a local file, uploaded on save), or none.
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [photoIsNew, setPhotoIsNew] = useState(false);
+  const [reportTarget, setReportTarget] = useState<{ type: ReportTargetType; id: string } | null>(null);
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -143,6 +159,8 @@ export default function SchoolSkyScreen() {
   const openComposer = () => {
     setMood((myStar?.mood as SkyMood) ?? 'happy');
     setNote(myStar?.note ?? '');
+    setPhotoUri(myStar?.photo_url ?? null);
+    setPhotoIsNew(false);
     setSelectedId(null);
     setComposerOpen(true);
   };
@@ -156,14 +174,37 @@ export default function SchoolSkyScreen() {
     if (myStar) {
       setMood(myStar.mood);
       setNote(myStar.note ?? '');
+      setPhotoUri(myStar.photo_url ?? null);
+      setPhotoIsNew(false);
     }
   }, [composerOpen, loading, myStar]);
 
+  // Camera only, on purpose: the point is to look up at the real sky right
+  // now, not to pick an old photo.
+  const handleSnapSky = async () => {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      showToast('Allow camera access to snap the sky');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [3, 4],
+      quality: 0.6,
+    });
+    if (result.canceled || !result.assets?.length) return;
+    setPhotoUri(result.assets[0].uri);
+    setPhotoIsNew(true);
+  };
+
   const handleSave = async () => {
-    if (saving) return;
+    if (saving || !user) return;
     setSaving(true);
     try {
-      await setMyStar(mood, note);
+      const photoUrl = photoUri && photoIsNew ? await uploadSkyPhoto(user.id, photoUri) : photoUri;
+      await setMyStar(mood, note, photoUrl);
+      if (!photoUrl && myStar?.photo_url) removeSkyPhoto(user.id).catch(() => {});
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setComposerOpen(false);
       showToast(myStar ? 'Your star is updated ✨' : 'Your star is in the sky ✨');
@@ -243,6 +284,35 @@ export default function SchoolSkyScreen() {
         </View>
       </View>
 
+      {stars.some((s) => s.photo_url) ? (
+        <View style={styles.photoStrip}>
+          <Text style={styles.photoStripLabel}>📷 Today's real sky</Text>
+          <FlatList
+            horizontal
+            data={stars.filter((s) => s.photo_url)}
+            keyExtractor={(s) => s.user_id}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.photoRail}
+            renderItem={({ item: s }) => (
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => setSelectedId(s.user_id)}
+                style={[styles.photoThumb, s.user_id === selectedId && styles.photoThumbSelected]}
+                accessibilityRole="button"
+                accessibilityLabel={`Sky photo from ${s.user_id === user?.id ? 'you' : s.profile?.full_name ?? 'a classmate'}`}
+              >
+                <Image source={{ uri: s.photo_url! }} style={styles.photoThumbImage} />
+                <View style={styles.photoThumbTag}>
+                  <Text style={styles.photoThumbTagText} numberOfLines={1}>
+                    {skyMood(s.mood).emoji} {s.user_id === user?.id ? 'You' : s.profile?.full_name?.trim().split(/\s+/)[0] ?? ''}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            )}
+          />
+        </View>
+      ) : null}
+
       <TouchableOpacity style={styles.sky} activeOpacity={1} onPress={() => setSelectedId(null)}>
         {loading ? (
           <ActivityIndicator color={colors.sticker.lilac} style={styles.loading} />
@@ -285,6 +355,16 @@ export default function SchoolSkyScreen() {
               </View>
             </View>
             {selected.note ? <Text style={styles.cardNote}>“{selected.note}”</Text> : null}
+            {selected.photo_url ? (
+              <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={() => navigation.navigate('PhotoViewer', { photoUrls: [selected.photo_url!], initialIndex: 0 })}
+                accessibilityRole="imagebutton"
+                accessibilityLabel="Open sky photo"
+              >
+                <Image source={{ uri: selected.photo_url }} style={styles.cardPhoto} />
+              </TouchableOpacity>
+            ) : null}
             <View style={styles.cardActions}>
               {selected.user_id === user?.id ? (
                 <>
@@ -308,6 +388,14 @@ export default function SchoolSkyScreen() {
                     onPress={() => navigation.navigate('UserProfile', { userId: selected.user_id })}
                     style={styles.cardButton}
                   />
+                  <TouchableOpacity
+                    onPress={() => setReportTarget({ type: 'profile', id: selected.user_id })}
+                    style={styles.reportButton}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    accessibilityLabel="Report this star"
+                  >
+                    <Ionicons name="flag-outline" size={18} color={colors.textLight} />
+                  </TouchableOpacity>
                 </>
               )}
             </View>
@@ -356,6 +444,31 @@ export default function SchoolSkyScreen() {
                 );
               })}
             </View>
+            {photoUri ? (
+              <View style={styles.composerPhotoRow}>
+                <Image source={{ uri: photoUri }} style={styles.composerPhoto} />
+                <View style={styles.composerPhotoActions}>
+                  <Text style={styles.composerPhotoTitle}>Your sky 📷</Text>
+                  <TouchableOpacity onPress={handleSnapSky} style={styles.composerLink}>
+                    <Ionicons name="camera-reverse-outline" size={16} color={colors.primaryDark} />
+                    <Text style={styles.composerLinkText}>Retake</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => setPhotoUri(null)} style={styles.composerLink}>
+                    <Ionicons name="trash-outline" size={16} color={colors.textLight} />
+                    <Text style={[styles.composerLinkText, { color: colors.textLight }]}>Remove</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <TouchableOpacity style={styles.snapButton} onPress={handleSnapSky} activeOpacity={0.85}>
+                <Text style={styles.snapEmoji}>📷</Text>
+                <View style={styles.snapText}>
+                  <Text style={styles.snapTitle}>Snap the sky</Text>
+                  <Text style={styles.snapSub}>Look up and take a photo of the sky right now</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={colors.primaryDark} />
+              </TouchableOpacity>
+            )}
             <TextInput
               style={styles.noteInput}
               placeholder="Add a line (optional)"
@@ -376,6 +489,7 @@ export default function SchoolSkyScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+      <ReportSheet target={reportTarget} reporterId={user?.id} onClose={() => setReportTarget(null)} />
     </View>
   );
 }
@@ -451,6 +565,125 @@ const styles = StyleSheet.create({
   },
   starEmoji: {
     fontSize: 22,
+  },
+  starPhotoBadge: {
+    position: 'absolute',
+    right: -4,
+    bottom: -4,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: colors.sticker.yellow,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  photoStrip: {
+    paddingLeft: spacing.lg,
+    gap: 6,
+  },
+  photoStripLabel: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
+    color: colors.sticker.lilac,
+  },
+  photoRail: {
+    gap: spacing.sm,
+    paddingRight: spacing.lg,
+  },
+  photoThumb: {
+    width: 78,
+    height: 104,
+    borderRadius: radius.md,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.15)',
+  },
+  photoThumbSelected: {
+    borderColor: colors.sticker.yellow,
+  },
+  photoThumbImage: {
+    width: '100%',
+    height: '100%',
+  },
+  photoThumbTag: {
+    position: 'absolute',
+    left: 4,
+    right: 4,
+    bottom: 4,
+    backgroundColor: 'rgba(22,21,43,0.75)',
+    borderRadius: radius.full,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  photoThumbTagText: {
+    fontFamily: fontFamily.semibold,
+    fontSize: 10,
+    color: '#fff',
+  },
+  cardPhoto: {
+    width: '100%',
+    height: 180,
+    borderRadius: radius.md,
+  },
+  reportButton: {
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  snapButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryLight,
+  },
+  snapEmoji: {
+    fontSize: 26,
+  },
+  snapText: {
+    flex: 1,
+  },
+  snapTitle: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.md,
+    color: colors.textDark,
+  },
+  snapSub: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
+    color: colors.textMid,
+  },
+  composerPhotoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  composerPhoto: {
+    width: 72,
+    height: 96,
+    borderRadius: radius.md,
+  },
+  composerPhotoActions: {
+    flex: 1,
+    gap: 6,
+  },
+  composerPhotoTitle: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.md,
+    color: colors.textDark,
+  },
+  composerLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  composerLinkText: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
+    color: colors.primaryDark,
   },
   starName: {
     marginTop: 4,

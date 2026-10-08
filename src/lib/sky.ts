@@ -1,3 +1,4 @@
+import { File } from 'expo-file-system';
 import { supabase } from './supabase';
 import { colors } from '../constants/theme';
 
@@ -26,6 +27,8 @@ export type SkyStar = {
   user_id: string;
   mood: SkyMood;
   note: string | null;
+  // A real-sky photo taken with the camera (school_sky_photos.sql).
+  photo_url: string | null;
   updated_at: string;
   profile: { id: string; full_name: string | null; username: string | null; avatar_url: string | null } | null;
 };
@@ -36,7 +39,7 @@ export async function fetchSchoolSky(limit = 60): Promise<SkyStar[]> {
   const since = new Date(Date.now() - STAR_LIFETIME_MS).toISOString();
   const { data, error } = await supabase
     .from('sky_stars')
-    .select('user_id, mood, note, updated_at, profile:profiles!sky_stars_user_id_fkey ( id, full_name, username, avatar_url )')
+    .select('user_id, mood, note, photo_url, updated_at, profile:profiles!sky_stars_user_id_fkey ( id, full_name, username, avatar_url )')
     .gt('updated_at', since)
     .order('updated_at', { ascending: false })
     .limit(limit);
@@ -44,14 +47,41 @@ export async function fetchSchoolSky(limit = 60): Promise<SkyStar[]> {
   return (data ?? []) as unknown as SkyStar[];
 }
 
-export async function setMyStar(mood: SkyMood, note: string): Promise<void> {
-  const { error } = await supabase.rpc('set_my_star', { p_mood: mood, p_note: note.trim() || null });
+export async function setMyStar(mood: SkyMood, note: string, photoUrl: string | null): Promise<void> {
+  const { error } = await supabase.rpc('set_my_star', {
+    p_mood: mood,
+    p_note: note.trim() || null,
+    p_photo_url: photoUrl,
+  });
   if (error) throw error;
+}
+
+// One sky photo per student at a fixed path, overwritten each time — same
+// pattern as stories, so account deletion can remove it by path.
+export function skyPhotoPath(userId: string): string {
+  return `${userId}/sky.jpg`;
+}
+
+export async function uploadSkyPhoto(userId: string, localUri: string): Promise<string> {
+  const bytes = await new File(localUri).bytes();
+  const { error } = await supabase.storage
+    .from('sky')
+    .upload(skyPhotoPath(userId), bytes, { contentType: 'image/jpeg', upsert: true });
+  if (error) throw error;
+  const { data } = supabase.storage.from('sky').getPublicUrl(skyPhotoPath(userId));
+  // Same URL every time, so bust the image cache after a retake.
+  return `${data.publicUrl}?v=${Date.now()}`;
+}
+
+// Best-effort: a leftover file is overwritten by the next photo anyway.
+export async function removeSkyPhoto(userId: string): Promise<void> {
+  await supabase.storage.from('sky').remove([skyPhotoPath(userId)]);
 }
 
 export async function removeMyStar(userId: string): Promise<void> {
   const { error } = await supabase.from('sky_stars').delete().eq('user_id', userId);
   if (error) throw error;
+  await removeSkyPhoto(userId).catch(() => {});
 }
 
 // A stable spot in the sky for each student, so their star doesn't jump

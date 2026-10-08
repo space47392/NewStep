@@ -24,6 +24,7 @@ import * as Haptics from 'expo-haptics';
 import Svg, { Path, Defs, RadialGradient, Circle, Stop } from 'react-native-svg';
 import SkyScene, { Horizon, skyPhase, phaseWords } from '../../components/SkyScene';
 import { extractSkyPalette, paintSky, SkyPalette } from '../../lib/skyColors';
+import SkyWeather from '../../components/SkyWeather';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import {
@@ -32,6 +33,19 @@ import {
   removeMyStar,
   uploadSkyPhoto,
   removeSkyPhoto,
+  fetchTodayTwinkles,
+  sendTwinkle,
+  fetchWishes,
+  makeWish,
+  cheerWish,
+  deleteWish,
+  dominantMoods,
+  moodWeather,
+  weatherLine,
+  constellationName,
+  WISH_MAX,
+  TwinkleSummary,
+  SkyWish,
   starPosition,
   skyMood,
   SKY_MOODS,
@@ -59,14 +73,27 @@ function SkyStarButton({
   index,
   mine,
   selected,
+  twinkles,
+  burstKey,
   onPress,
+  onLongPress,
 }: {
   star: SkyStar;
   index: number;
   mine: boolean;
   selected: boolean;
+  twinkles: number;
+  // Changes whenever this star just received a twinkle → plays a burst.
+  burstKey: number;
   onPress: () => void;
+  onLongPress: () => void;
 }) {
+  const burst = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    if (burstKey === 0) return;
+    burst.setValue(0);
+    Animated.timing(burst, { toValue: 1, duration: 900, easing: Easing.out(Easing.quad), useNativeDriver: true }).start();
+  }, [burstKey, burst]);
   const mood = skyMood(star.mood);
   const pos = starPosition(star.user_id, index);
   const size = mine ? 38 : 32;
@@ -105,8 +132,22 @@ function SkyStarButton({
           <Text style={styles.moodBubbleEmoji}>{mood.emoji}</Text>
         </View>
       ) : null}
+      {/* Twinkle burst: a ring of light that expands and fades. */}
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          styles.burst,
+          {
+            borderColor: mood.color,
+            opacity: burst.interpolate({ inputRange: [0, 0.2, 1], outputRange: [0, 1, 0] }),
+            transform: [{ scale: burst.interpolate({ inputRange: [0, 1], outputRange: [0.4, 2.6] }) }],
+          },
+        ]}
+      />
       <TouchableOpacity
         onPress={onPress}
+        onLongPress={onLongPress}
+        delayLongPress={350}
         activeOpacity={0.8}
         hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         accessibilityRole="button"
@@ -149,7 +190,107 @@ function SkyStarButton({
       </TouchableOpacity>
       <Text style={[styles.starName, mine && styles.starNameMine, selected && styles.starNameSelected]} numberOfLines={1}>
         {mine ? 'You' : first}
+        {twinkles > 0 ? <Text style={styles.twinkleCount}>{`  ✨${twinkles}`}</Text> : null}
       </Text>
+    </Animated.View>
+  );
+}
+
+// A slower shooting star you can catch (tap) to make a wish. Crosses the
+// sky every so often; more often when the school is excited.
+function CatchableStar({ width, height, frequent, onCatch }: { width: number; height: number; frequent: boolean; onCatch: () => void }) {
+  const t = useRef(new Animated.Value(0)).current;
+  const [flying, setFlying] = useState(false);
+  const [lane] = useState(() => Math.random());
+  useEffect(() => {
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const fly = () => {
+      if (cancelled) return;
+      t.setValue(0);
+      setFlying(true);
+      Animated.timing(t, { toValue: 1, duration: 2600, easing: Easing.inOut(Easing.quad), useNativeDriver: true }).start(() => {
+        if (cancelled) return;
+        setFlying(false);
+        timer = setTimeout(fly, (frequent ? 5000 : 11000) + Math.random() * 5000);
+      });
+    };
+    timer = setTimeout(fly, 2500);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+      t.stopAnimation();
+    };
+  }, [t, frequent]);
+  if (!flying || width === 0) return null;
+  const startY = height * (0.08 + lane * 0.25);
+  return (
+    <Animated.View
+      style={{
+        position: 'absolute',
+        left: width * 0.9,
+        top: startY,
+        opacity: t.interpolate({ inputRange: [0, 0.1, 0.85, 1], outputRange: [0, 1, 1, 0] }),
+        transform: [
+          { translateX: t.interpolate({ inputRange: [0, 1], outputRange: [0, -width * 0.75] }) },
+          { translateY: t.interpolate({ inputRange: [0, 1], outputRange: [0, height * 0.22] }) },
+        ],
+      }}
+    >
+      <TouchableOpacity
+        onPress={() => {
+          t.stopAnimation();
+          setFlying(false);
+          onCatch();
+        }}
+        hitSlop={{ top: 30, bottom: 30, left: 30, right: 30 }}
+        accessibilityRole="button"
+        accessibilityLabel="Catch the shooting star to make a wish"
+        style={styles.catchStar}
+      >
+        <View style={styles.catchHead} />
+        <View style={styles.catchTail} />
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
+// Today's wishes, as small warm lights floating just above the horizon.
+function WishLight({ wish, index, width, height, selected, onPress }: { wish: SkyWish; index: number; width: number; height: number; selected: boolean; onPress: () => void }) {
+  const bob = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(bob, { toValue: 1, duration: 2200 + (index % 4) * 400, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(bob, { toValue: 0, duration: 2200 + (index % 4) * 400, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [bob, index]);
+  let h = 0;
+  for (let i = 0; i < wish.id.length; i++) h = (h * 31 + wish.id.charCodeAt(i)) >>> 0;
+  const x = 0.06 + ((h % 1000) / 1000) * 0.88;
+  const y = height - 150 - ((h >> 10) % 70);
+  return (
+    <Animated.View
+      style={{
+        position: 'absolute',
+        left: x * width - 14,
+        top: y,
+        transform: [{ translateY: bob.interpolate({ inputRange: [0, 1], outputRange: [0, -8] }) }],
+      }}
+    >
+      <TouchableOpacity
+        onPress={onPress}
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        accessibilityRole="button"
+        accessibilityLabel={`A wish: ${wish.text}`}
+        style={styles.wishWrap}
+      >
+        <View style={[styles.wishGlow, selected && styles.wishGlowSelected]} />
+        <View style={[styles.wishCore, wish.mine && styles.wishCoreMine]} />
+      </TouchableOpacity>
     </Animated.View>
   );
 }
@@ -193,15 +334,30 @@ export default function SchoolSkyScreen() {
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [photoIsNew, setPhotoIsNew] = useState(false);
   const [reportTarget, setReportTarget] = useState<{ type: ReportTargetType; id: string } | null>(null);
+  const [twinkles, setTwinkles] = useState<TwinkleSummary>({ counts: {}, sentTo: new Set() });
+  const [bursts, setBursts] = useState<Record<string, number>>({});
+  const [wishes, setWishes] = useState<SkyWish[]>([]);
+  const [selectedWishId, setSelectedWishId] = useState<string | null>(null);
+  const [wishOpen, setWishOpen] = useState(false);
+  const [wishText, setWishText] = useState('');
+  const [wishSaving, setWishSaving] = useState(false);
+  // A little light that flies from the bottom of the sky to a star when you
+  // send it a twinkle.
+  const fly = useRef(new Animated.Value(0)).current;
+  const [flyTo, setFlyTo] = useState<{ x: number; y: number; color: string } | null>(null);
 
   const load = useCallback(async () => {
     if (!user) return;
     try {
-      const [sky, blocked] = await Promise.all([
+      const [sky, blocked, tw, ws] = await Promise.all([
         fetchSchoolSky(),
         fetchBlockedUserIds(user.id).catch(() => new Set<string>()),
+        fetchTodayTwinkles(user.id).catch(() => ({ counts: {}, sentTo: new Set<string>() })),
+        fetchWishes().catch(() => [] as SkyWish[]),
       ]);
       setStars(sky.filter((s) => !blocked.has(s.user_id)));
+      setTwinkles(tw);
+      setWishes(ws);
     } catch {
       showToast("Couldn't load the sky");
     } finally {
@@ -217,6 +373,80 @@ export default function SchoolSkyScreen() {
 
   const myStar = stars.find((s) => s.user_id === user?.id) ?? null;
   const selected = stars.find((s) => s.user_id === selectedId) ?? null;
+  const selectedWish = wishes.find((w) => w.id === selectedWishId) ?? null;
+
+  const handleTwinkle = async (star: SkyStar) => {
+    if (!user || star.user_id === user.id) return;
+    if (twinkles.sentTo.has(star.user_id)) {
+      showToast('You already sent them a twinkle today ✨');
+      return;
+    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const index = stars.findIndex((s) => s.user_id === star.user_id);
+    const pos = starPosition(star.user_id, index);
+    setFlyTo({ x: pos.x * skySize.width, y: pos.y * skySize.height, color: skyMood(star.mood).color });
+    fly.setValue(0);
+    Animated.timing(fly, { toValue: 1, duration: 700, easing: Easing.inOut(Easing.quad), useNativeDriver: true }).start(() => {
+      setFlyTo(null);
+      setBursts((b) => ({ ...b, [star.user_id]: (b[star.user_id] ?? 0) + 1 }));
+    });
+    try {
+      await sendTwinkle(star.user_id);
+      setTwinkles((t) => ({
+        counts: { ...t.counts, [star.user_id]: (t.counts[star.user_id] ?? 0) + 1 },
+        sentTo: new Set(t.sentTo).add(star.user_id),
+      }));
+      const first = star.profile?.full_name?.trim().split(/\s+/)[0] ?? 'them';
+      showToast(`Twinkle sent to ${first} ✨`);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Couldn't send the twinkle");
+    }
+  };
+
+  const handleCatch = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setSelectedId(null);
+    setSelectedWishId(null);
+    setWishText('');
+    setWishOpen(true);
+  };
+
+  const handleMakeWish = async () => {
+    if (wishSaving || !wishText.trim()) return;
+    setWishSaving(true);
+    try {
+      await makeWish(wishText);
+      setWishOpen(false);
+      showToast('Your wish is floating in the sky 🌠');
+      setWishes(await fetchWishes().catch(() => wishes));
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Couldn't make the wish");
+    } finally {
+      setWishSaving(false);
+    }
+  };
+
+  const handleCheer = async (wish: SkyWish) => {
+    if (wish.cheered || wish.mine) return;
+    Haptics.selectionAsync();
+    setWishes((ws) => ws.map((w) => (w.id === wish.id ? { ...w, cheered: true, cheers: w.cheers + 1 } : w)));
+    try {
+      await cheerWish(wish.id);
+    } catch (err) {
+      setWishes((ws) => ws.map((w) => (w.id === wish.id ? { ...w, cheered: false, cheers: w.cheers - 1 } : w)));
+      showToast(err instanceof Error ? err.message : "Couldn't cheer that wish");
+    }
+  };
+
+  const handleDeleteWish = async (wish: SkyWish) => {
+    try {
+      await deleteWish(wish.id);
+      setSelectedWishId(null);
+      setWishes((ws) => ws.filter((w) => w.id !== wish.id));
+    } catch {
+      showToast("Couldn't remove the wish");
+    }
+  };
 
   const openComposer = () => {
     setMood((myStar?.mood as SkyMood) ?? 'happy');
@@ -321,11 +551,16 @@ export default function SchoolSkyScreen() {
   // Today's sky, repainted from the colours in classmates' sky photos.
   const palettes = stars.map((s) => s.sky_colors).filter((p): p is SkyPalette => !!p && p.length === 3);
   const painted = paintSky(palettes);
+  // Mood weather and today's constellation, from the moods in the sky.
+  const moods = dominantMoods(stars);
+  const weather = moods[0] ? moodWeather(moods[0]) : null;
+  const constellation = stars.length >= 3 ? constellationName(moods) : null;
 
   return (
     <View style={styles.screen}>
       <StatusBar style="light" />
       <SkyScene phase={phase} painted={painted} />
+      <SkyWeather kind={weather} />
 
       <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
         <TouchableOpacity
@@ -345,7 +580,20 @@ export default function SchoolSkyScreen() {
                 ? `${phaseWords(phase)}, the sky is quiet`
                 : `${phaseWords(phase)}, ${stars.length} ${stars.length === 1 ? 'star is' : 'stars are'} shining${route.params?.schoolName ? ` over ${route.params.schoolName}` : ''}`}
           </Text>
+          {moods[0] && !loading ? (
+            <Text style={styles.weatherLine} numberOfLines={2}>
+              {weatherLine(moods[0], route.params?.schoolName, phaseWords(phase).toLowerCase())}
+            </Text>
+          ) : null}
         </View>
+        <TouchableOpacity
+          onPress={() => navigation.navigate('SkyDiary')}
+          style={styles.backButton}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityLabel="Open your Sky Diary"
+        >
+          <Ionicons name="book-outline" size={18} color="#fff" />
+        </TouchableOpacity>
       </View>
 
       {stars.some((s) => s.photo_url) ? (
@@ -403,6 +651,47 @@ export default function SchoolSkyScreen() {
       >
         <Horizon />
         {!loading ? <Constellation stars={stars} width={skySize.width} height={skySize.height} /> : null}
+        {constellation ? (
+          <View style={styles.constellationTag} pointerEvents="none">
+            <Text style={styles.constellationText}>✦ Today's constellation · {constellation}</Text>
+          </View>
+        ) : null}
+        {!loading
+          ? wishes.map((w, i) => (
+              <WishLight
+                key={w.id}
+                wish={w}
+                index={i}
+                width={skySize.width}
+                height={skySize.height}
+                selected={w.id === selectedWishId}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setSelectedId(null);
+                  setSelectedWishId(w.id === selectedWishId ? null : w.id);
+                }}
+              />
+            ))
+          : null}
+        {!loading ? (
+          <CatchableStar width={skySize.width} height={skySize.height} frequent={weather === 'meteors'} onCatch={handleCatch} />
+        ) : null}
+        {flyTo ? (
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              styles.flyLight,
+              { backgroundColor: flyTo.color, shadowColor: flyTo.color },
+              {
+                transform: [
+                  { translateX: fly.interpolate({ inputRange: [0, 1], outputRange: [skySize.width / 2, flyTo.x] }) },
+                  { translateY: fly.interpolate({ inputRange: [0, 1], outputRange: [skySize.height - 40, flyTo.y] }) },
+                  { scale: fly.interpolate({ inputRange: [0, 0.8, 1], outputRange: [0.6, 1.2, 0.4] }) },
+                ],
+              },
+            ]}
+          />
+        ) : null}
         {loading ? (
           <ActivityIndicator color={colors.sticker.lilac} style={styles.loading} />
         ) : stars.length === 0 ? (
@@ -418,17 +707,42 @@ export default function SchoolSkyScreen() {
               index={i}
               mine={s.user_id === user?.id}
               selected={s.user_id === selectedId}
+              twinkles={twinkles.counts[s.user_id] ?? 0}
+              burstKey={bursts[s.user_id] ?? 0}
               onPress={() => {
                 Haptics.selectionAsync();
+                setSelectedWishId(null);
                 setSelectedId(s.user_id === selectedId ? null : s.user_id);
               }}
+              onLongPress={() => handleTwinkle(s)}
             />
           ))
         )}
       </TouchableOpacity>
 
       <View style={[styles.bottom, { paddingBottom: insets.bottom + spacing.md }]}>
-        {selected ? (
+        {selectedWish ? (
+          <View style={styles.card}>
+            <Text style={styles.wishLabel}>🌠 {selectedWish.mine ? 'Your wish' : 'A wish from someone at your school'}</Text>
+            <Text style={styles.cardNote}>“{selectedWish.text}”</Text>
+            <Text style={styles.cardMeta}>
+              💛 {selectedWish.cheers} {selectedWish.cheers === 1 ? 'cheer' : 'cheers'} · {formatRelativeTime(selectedWish.created_at)}
+            </Text>
+            <View style={styles.cardActions}>
+              {selectedWish.mine ? (
+                <PrimaryButton title="Let it go" size="sm" variant="outline" onPress={() => handleDeleteWish(selectedWish)} style={styles.cardButton} />
+              ) : (
+                <PrimaryButton
+                  title={selectedWish.cheered ? 'Cheered 💛' : 'Cheer this wish 💛'}
+                  size="sm"
+                  disabled={selectedWish.cheered}
+                  onPress={() => handleCheer(selectedWish)}
+                  style={styles.cardButton}
+                />
+              )}
+            </View>
+          </View>
+        ) : selected ? (
           <View style={styles.card}>
             <View style={styles.cardTop}>
               <Avatar uri={selected.profile?.avatar_url ?? null} size={44} />
@@ -443,6 +757,11 @@ export default function SchoolSkyScreen() {
               </View>
             </View>
             {selected.note ? <Text style={styles.cardNote}>“{selected.note}”</Text> : null}
+            {selected.user_id === user?.id && (twinkles.counts[selected.user_id] ?? 0) > 0 ? (
+              <Text style={styles.twinkleReceived}>
+                ✨ {twinkles.counts[selected.user_id]} {twinkles.counts[selected.user_id] === 1 ? 'classmate' : 'classmates'} sent you a twinkle today
+              </Text>
+            ) : null}
             {selected.photo_url ? (
               <TouchableOpacity
                 activeOpacity={0.9}
@@ -462,20 +781,29 @@ export default function SchoolSkyScreen() {
               ) : (
                 <>
                   <PrimaryButton
+                    title={twinkles.sentTo.has(selected.user_id) ? 'Twinkled ✨' : 'Twinkle ✨'}
+                    size="sm"
+                    disabled={twinkles.sentTo.has(selected.user_id)}
+                    onPress={() => handleTwinkle(selected)}
+                    style={styles.cardButton}
+                  />
+                  <PrimaryButton
                     title="Say hi"
                     size="sm"
+                    variant="outline"
                     icon="chatbubble-ellipses-outline"
                     loading={openingChat}
                     onPress={() => handleSayHi(selected)}
                     style={styles.cardButton}
                   />
-                  <PrimaryButton
-                    title="Profile"
-                    size="sm"
-                    variant="outline"
+                  <TouchableOpacity
                     onPress={() => navigation.navigate('UserProfile', { userId: selected.user_id })}
-                    style={styles.cardButton}
-                  />
+                    style={styles.reportButton}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    accessibilityLabel="Open profile"
+                  >
+                    <Ionicons name="person-circle-outline" size={22} color={colors.textMid} />
+                  </TouchableOpacity>
                   <TouchableOpacity
                     onPress={() => setReportTarget({ type: 'profile', id: selected.user_id })}
                     style={styles.reportButton}
@@ -492,7 +820,9 @@ export default function SchoolSkyScreen() {
           <>
             {!loading && stars.length > 0 ? (
               <Text style={styles.hint}>
-                {others > 0 ? 'Tap a star to see how a classmate is doing' : 'Your star is up — classmates will see it today'}
+                {others > 0
+                  ? 'Tap a star to see how they are · hold to send a twinkle ✨'
+                  : 'Catch a shooting star to make a wish 🌠'}
               </Text>
             ) : null}
             <PrimaryButton
@@ -577,6 +907,29 @@ export default function SchoolSkyScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+      <Modal visible={wishOpen} transparent animationType="fade" onRequestClose={() => setWishOpen(false)}>
+        <KeyboardAvoidingView style={styles.wishBackdrop} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setWishOpen(false)} />
+          <View style={styles.wishSheet}>
+            <Text style={styles.wishEmoji}>🌠</Text>
+            <Text style={styles.sheetTitle}>You caught a shooting star!</Text>
+            <Text style={styles.wishSub}>Make a wish. It floats in your school's sky for a day — nobody sees who made it.</Text>
+            <TextInput
+              style={styles.noteInput}
+              placeholder="I wish…"
+              placeholderTextColor={colors.textLight}
+              value={wishText}
+              onChangeText={setWishText}
+              maxLength={WISH_MAX}
+              autoFocus
+            />
+            <Text style={styles.noteCount}>
+              {wishText.length}/{WISH_MAX}
+            </Text>
+            <PrimaryButton title="Send it to the sky" icon="sparkles" loading={wishSaving} disabled={!wishText.trim()} onPress={handleMakeWish} />
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
       <ReportSheet target={reportTarget} reporterId={user?.id} onClose={() => setReportTarget(null)} />
     </View>
   );
@@ -589,7 +942,7 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: spacing.md,
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.sm,
@@ -630,6 +983,129 @@ const styles = StyleSheet.create({
   },
   halo: {
     position: 'absolute',
+  },
+  burst: {
+    position: 'absolute',
+    top: 0,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 2,
+  },
+  twinkleCount: {
+    color: colors.sticker.yellow,
+    fontFamily: fontFamily.semibold,
+  },
+  twinkleReceived: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
+    color: colors.sticker.yellow,
+  },
+  weatherLine: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
+    color: 'rgba(255,255,255,0.75)',
+    marginTop: 2,
+  },
+  constellationTag: {
+    position: 'absolute',
+    bottom: 118,
+    alignSelf: 'center',
+    backgroundColor: 'rgba(10,9,26,0.45)',
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 4,
+  },
+  constellationText: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.xs,
+    color: 'rgba(255,255,255,0.85)',
+  },
+  catchStar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  catchHead: {
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
+    backgroundColor: '#FFF7D6',
+    shadowColor: '#FFF7D6',
+    shadowOpacity: 1,
+    shadowRadius: 8,
+  },
+  catchTail: {
+    width: 70,
+    height: 2,
+    marginLeft: -2,
+    borderRadius: 1,
+    backgroundColor: 'rgba(255,247,214,0.55)',
+    // Trails up and to the right, behind a star falling down-left.
+    transform: [{ rotate: '-16deg' }, { translateY: -9 }],
+  },
+  wishWrap: {
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  wishGlow: {
+    position: 'absolute',
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: 'rgba(255,196,120,0.22)',
+  },
+  wishGlowSelected: {
+    backgroundColor: 'rgba(255,196,120,0.5)',
+  },
+  wishCore: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#FFC478',
+  },
+  wishCoreMine: {
+    borderWidth: 1.5,
+    borderColor: '#fff',
+  },
+  flyLight: {
+    position: 'absolute',
+    left: -6,
+    top: -6,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    shadowOpacity: 1,
+    shadowRadius: 10,
+  },
+  wishLabel: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
+    color: '#FFC478',
+  },
+  wishBackdrop: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: spacing.lg,
+    backgroundColor: 'rgba(10,9,26,0.7)',
+  },
+  wishSheet: {
+    backgroundColor: colors.cardBg,
+    borderRadius: radius.xl,
+    padding: spacing.lg,
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderColor: 'rgba(255,196,120,0.35)',
+  },
+  wishEmoji: {
+    fontSize: 40,
+    textAlign: 'center',
+  },
+  wishSub: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    color: colors.textMid,
   },
   moodBubble: {
     position: 'absolute',

@@ -97,6 +97,8 @@ export default function App() {
           // resolves to anything never becomes a navigation.
           await fetchProfileById(target.userId);
           navigateToMainStack('UserProfile', { userId: target.userId });
+        } else if (target.screen === 'SchoolSky') {
+          navigateToMainStack('SchoolSky', undefined);
         } else {
           navigateToMainStack('Tabs', { screen: 'Profile' });
         }

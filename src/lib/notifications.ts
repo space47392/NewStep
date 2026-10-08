@@ -221,7 +221,8 @@ export type NotificationTarget =
   // otherUser) — never means "don't navigate."
   | { screen: 'Conversation'; conversationId: string; actorId: string | null }
   | { screen: 'UserProfile'; userId: string }
-  | { screen: 'ProfileTab' };
+  | { screen: 'ProfileTab' }
+  | { screen: 'SchoolSky' };
 
 export function resolveNotificationTarget(fields: {
   type: string;
@@ -248,6 +249,9 @@ export function resolveNotificationTarget(fields: {
   }
   if (type === 'points_earned' || type === 'achievement_earned') {
     return { screen: 'ProfileTab' };
+  }
+  if (type === 'sky_twinkle' || type === 'wish_cheer') {
+    return { screen: 'SchoolSky' };
   }
   return null;
 }
@@ -351,6 +355,8 @@ const CATEGORY_BY_TYPE: Record<NotificationType, NotificationCategory> = {
   comment: 'social',
   follow: 'social',
   story_wave: 'social',
+  sky_twinkle: 'social',
+  wish_cheer: 'social',
   volunteer: 'help',
   help_completed: 'help',
   thanks_received: 'help',
@@ -406,6 +412,10 @@ export function formatNotificationMessage(
       return `${actorName} said hi to your story`;
     case 'thanks_received':
       return `${actorName} thanked you for your help`;
+    case 'sky_twinkle':
+      return `${actorName} sent your star a twinkle ✨`;
+    case 'wish_cheer':
+      return 'Someone cheered your wish 💛';
     default:
       return 'New notification';
   }
@@ -460,6 +470,9 @@ export function getNotificationNSIcon(type: NotificationType): NSIconName | null
       return 'wave';
     case 'thanks_received':
       return 'thanks';
+    case 'sky_twinkle':
+    case 'wish_cheer':
+      return 'sparkles';
     default:
       return null;
   }
@@ -487,6 +500,10 @@ export function getNotificationIcon(type: NotificationType): string {
       return '👋';
     case 'thanks_received':
       return '💙';
+    case 'sky_twinkle':
+      return '✨';
+    case 'wish_cheer':
+      return '💛';
     default:
       return '🔔';
   }

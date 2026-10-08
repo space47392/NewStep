@@ -266,6 +266,8 @@ export default function NotificationsScreen() {
         navigation.navigate('Conversation', { conversationId: target.conversationId, otherUser: group.actor });
       } else if (target.screen === 'UserProfile') {
         navigation.navigate('UserProfile', { userId: target.userId });
+      } else if (target.screen === 'SchoolSky') {
+        navigation.navigate('SchoolSky');
       } else {
         // points_earned / achievement_earned
         navigation.navigate('Tabs', { screen: 'Profile' });

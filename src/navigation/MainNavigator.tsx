@@ -10,6 +10,7 @@ import UserProfileScreen from '../screens/main/UserProfileScreen';
 import SchoolScreen from '../screens/main/SchoolScreen';
 import NotificationsScreen from '../screens/main/NotificationsScreen';
 import SchoolSkyScreen from '../screens/main/SchoolSkyScreen';
+import SkyDiaryScreen from '../screens/main/SkyDiaryScreen';
 import FollowListScreen from '../screens/main/FollowListScreen';
 import SavedPostsScreen from '../screens/main/SavedPostsScreen';
 import ChooseSchoolScreen from '../screens/main/ChooseSchoolScreen';
@@ -33,6 +34,7 @@ export default function MainNavigator() {
       <Stack.Screen name="School" component={SchoolScreen} />
       <Stack.Screen name="Notifications" component={NotificationsScreen} />
       <Stack.Screen name="SchoolSky" component={SchoolSkyScreen} options={{ contentStyle: NO_TOP_INSET }} />
+      <Stack.Screen name="SkyDiary" component={SkyDiaryScreen} options={{ contentStyle: NO_TOP_INSET }} />
       <Stack.Screen name="FollowList" component={FollowListScreen} />
       <Stack.Screen name="SavedPosts" component={SavedPostsScreen} />
       <Stack.Screen

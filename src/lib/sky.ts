@@ -108,3 +108,162 @@ export function starPosition(userId: string, index: number): { x: number; y: num
   // Kept above the horizon silhouette (bottom of the sky).
   return { x: 0.1 + a * 0.8, y: 0.1 + row * 0.12 + b * 0.09 };
 }
+
+// ---------------------------------------------------------------------------
+// Twinkles, wishes and the Sky Diary (supabase/school_sky_social.sql)
+// ---------------------------------------------------------------------------
+
+export type TwinkleSummary = {
+  // How many twinkles each star got today.
+  counts: Record<string, number>;
+  // Classmates I've already twinkled at today.
+  sentTo: Set<string>;
+};
+
+export async function fetchTodayTwinkles(myId: string): Promise<TwinkleSummary> {
+  const since = new Date(Date.now() - STAR_LIFETIME_MS).toISOString();
+  const { data, error } = await supabase
+    .from('sky_twinkles')
+    .select('sender_id, recipient_id')
+    .gt('created_at', since)
+    .limit(500);
+  if (error) throw error;
+  const counts: Record<string, number> = {};
+  const sentTo = new Set<string>();
+  for (const row of data ?? []) {
+    counts[row.recipient_id] = (counts[row.recipient_id] ?? 0) + 1;
+    if (row.sender_id === myId) sentTo.add(row.recipient_id);
+  }
+  return { counts, sentTo };
+}
+
+export async function sendTwinkle(recipientId: string): Promise<void> {
+  const { error } = await supabase.rpc('send_twinkle', { p_recipient: recipientId });
+  if (error) throw error;
+}
+
+export type SkyWish = {
+  id: string;
+  text: string;
+  created_at: string;
+  cheers: number;
+  mine: boolean;
+  cheered: boolean;
+};
+
+export const WISH_MAX = 60;
+
+// Today's wishes at my school — never who made them.
+export async function fetchWishes(): Promise<SkyWish[]> {
+  const { data, error } = await supabase.rpc('fetch_sky_wishes');
+  if (error) throw error;
+  return (data ?? []) as SkyWish[];
+}
+
+export async function makeWish(text: string): Promise<void> {
+  const { error } = await supabase.rpc('make_wish', { p_text: text.trim() });
+  if (error) throw error;
+}
+
+export async function cheerWish(wishId: string): Promise<void> {
+  const { error } = await supabase.rpc('cheer_wish', { p_wish: wishId });
+  if (error) throw error;
+}
+
+export async function deleteWish(wishId: string): Promise<void> {
+  const { error } = await supabase.from('sky_wishes').delete().eq('id', wishId);
+  if (error) throw error;
+}
+
+export type SkyDiaryDay = {
+  day: string; // YYYY-MM-DD
+  mood: SkyMood;
+  note: string | null;
+  sky_colors: SkyPalette | null;
+};
+
+export async function fetchSkyDiary(userId: string, limit = 120): Promise<SkyDiaryDay[]> {
+  const { data, error } = await supabase
+    .from('sky_diary')
+    .select('day, mood, note, sky_colors')
+    .eq('user_id', userId)
+    .order('day', { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []) as SkyDiaryDay[];
+}
+
+// ---------------------------------------------------------------------------
+// Mood weather + today's constellation name (no server side)
+// ---------------------------------------------------------------------------
+
+export type SkyWeather = 'clouds' | 'rain' | 'meteors' | 'fireflies' | 'aurora' | 'flicker';
+
+const WEATHER_BY_MOOD: Record<SkyMood, SkyWeather> = {
+  tired: 'clouds',
+  down: 'rain',
+  excited: 'meteors',
+  happy: 'fireflies',
+  chill: 'aurora',
+  nervous: 'flicker',
+};
+
+// The school's mood today: the most common mood among today's stars (the
+// most recent one wins a tie).
+export function dominantMoods(stars: { mood: SkyMood; updated_at: string }[]): SkyMood[] {
+  const tally = new Map<SkyMood, { n: number; latest: number }>();
+  for (const s of stars) {
+    const t = tally.get(s.mood) ?? { n: 0, latest: 0 };
+    t.n += 1;
+    t.latest = Math.max(t.latest, new Date(s.updated_at).getTime());
+    tally.set(s.mood, t);
+  }
+  return [...tally.entries()].sort((a, b) => b[1].n - a[1].n || b[1].latest - a[1].latest).map(([m]) => m);
+}
+
+export function moodWeather(mood: SkyMood): SkyWeather {
+  return WEATHER_BY_MOOD[mood];
+}
+
+export function weatherLine(mood: SkyMood, school: string | undefined, when: string): string {
+  const where = school ?? 'Your school';
+  switch (mood) {
+    case 'tired':
+      return `${where} feels a little tired ${when} 😴 Be gentle with each other.`;
+    case 'down':
+      return `A soft rain over ${where} ${when} 🌧️ Someone could use a twinkle.`;
+    case 'excited':
+      return `${where} is buzzing ${when} 🤩 Shooting stars everywhere.`;
+    case 'happy':
+      return `${where} is glowing ${when} 😊 Fireflies are out.`;
+    case 'chill':
+      return `${where} is calm ${when} 😌 An aurora is drifting by.`;
+    case 'nervous':
+      return `The stars are flickering over ${where} ${when} 😬 You're not the only one.`;
+  }
+}
+
+const ADJECTIVE: Record<SkyMood, string> = {
+  happy: 'Sunny',
+  excited: 'Rocketing',
+  chill: 'Drifting',
+  nervous: 'Trembling',
+  tired: 'Sleepy',
+  down: 'Gentle',
+};
+const CREATURE: Record<SkyMood, string> = {
+  happy: 'Sunflower 🌻',
+  excited: 'Rocket 🚀',
+  chill: 'Whale 🐋',
+  nervous: 'Rabbit 🐇',
+  tired: 'Owl 🦉',
+  down: 'Lantern 🏮',
+};
+
+// "The Sleepy Owl 🦉" — from today's top two moods (or one, doubled up).
+export function constellationName(moods: SkyMood[]): string | null {
+  if (moods.length === 0) return null;
+  const first = moods[0];
+  const second = moods[1] ?? moods[0];
+  return `The ${ADJECTIVE[first]} ${CREATURE[second]}`;
+}

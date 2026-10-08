@@ -80,6 +80,7 @@ export type MainStackParamList = {
   Notifications: undefined;
   // School Sky (mood stars). openComposer jumps straight to "Add your star".
   SchoolSky: { schoolName?: string; openComposer?: boolean } | undefined;
+  SkyDiary: undefined;
   FollowList: { userId: string; mode: 'followers' | 'following' };
   SavedPosts: undefined;
   ChooseSchool: undefined;
@@ -312,7 +313,10 @@ export type NotificationType =
   | 'message'
   | 'follow'
   | 'story_wave'
-  | 'thanks_received';
+  | 'thanks_received'
+  // School Sky (school_sky_social.sql)
+  | 'sky_twinkle'
+  | 'wish_cheer';
 
 // See notifications_schema.sql — stores only IDs/relationships, never
 // duplicated profile or post data. actor/achievement are joined at read time

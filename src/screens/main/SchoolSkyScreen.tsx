@@ -26,6 +26,7 @@ import Svg, { Path, Defs, RadialGradient, Circle, Stop } from 'react-native-svg'
 import SkyScene, { Horizon, skyPhase, phaseWords } from '../../components/SkyScene';
 import { extractSkyPalette, paintSky, SkyPalette } from '../../lib/skyColors';
 import SkyWeather from '../../components/SkyWeather';
+import { useTilt, tiltTransform, Tilt } from '../../lib/useTilt';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import {
@@ -78,7 +79,9 @@ function SkyStarButton({
   burstKey,
   onPress,
   onLongPress,
+  tilt,
 }: {
+  tilt?: Tilt;
   star: SkyStar;
   index: number;
   mine: boolean;
@@ -122,6 +125,8 @@ function SkyStarButton({
         {
           opacity: rise,
           transform: [
+            // Classmates' stars sit at a middle depth when the phone tilts.
+            ...tiltTransform(tilt, 9),
             { translateY: rise.interpolate({ inputRange: [0, 1], outputRange: [40, 0] }) },
             { scale: rise.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) },
           ],
@@ -322,6 +327,8 @@ export default function SchoolSkyScreen() {
   const [stars, setStars] = useState<SkyStar[]>([]);
   // The sky follows the real time of day (set once per visit).
   const [phase] = useState(() => skyPhase());
+  // Tilting the phone shifts the sky's layers for depth.
+  const tilt = useTilt();
   const [skySize, setSkySize] = useState({ width: 0, height: 0 });
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -563,7 +570,7 @@ export default function SchoolSkyScreen() {
   return (
     <View style={styles.screen}>
       <StatusBar style="light" />
-      <SkyScene phase={phase} painted={painted} />
+      <SkyScene phase={phase} painted={painted} tilt={tilt} />
       <SkyWeather kind={weather} />
 
       <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
@@ -582,10 +589,10 @@ export default function SchoolSkyScreen() {
               ? 'Looking up…'
               : stars.length === 0
                 ? `${phaseWords(phase)}, the sky is quiet`
-                : `${phaseWords(phase)}, ${stars.length} ${stars.length === 1 ? 'star is' : 'stars are'} shining${route.params?.schoolName ? ` over ${route.params.schoolName}` : ''}`}
+                : `${phaseWords(phase)} · ${stars.length} ${stars.length === 1 ? 'star' : 'stars'} shining`}
           </Text>
           {moods[0] && !loading ? (
-            <Text style={styles.weatherLine} numberOfLines={2}>
+            <Text style={styles.weatherLine} numberOfLines={1}>
               {weatherLine(moods[0], route.params?.schoolName, phaseWords(phase).toLowerCase())}
             </Text>
           ) : null}
@@ -630,7 +637,7 @@ export default function SchoolSkyScreen() {
         onPress={() => setSelectedId(null)}
         onLayout={(e) => setSkySize({ width: e.nativeEvent.layout.width, height: e.nativeEvent.layout.height })}
       >
-        <Horizon />
+        <Horizon tilt={tilt} />
         {!loading ? <Constellation stars={stars} width={skySize.width} height={skySize.height} /> : null}
         {constellation ? (
           <View style={styles.constellationTag} pointerEvents="none">
@@ -696,6 +703,7 @@ export default function SchoolSkyScreen() {
                 setSelectedId(s.user_id === selectedId ? null : s.user_id);
               }}
               onLongPress={() => handleTwinkle(s)}
+              tilt={tilt}
             />
           ))
         )}

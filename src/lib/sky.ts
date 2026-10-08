@@ -233,17 +233,17 @@ export function weatherLine(mood: SkyMood, school: string | undefined, when: str
   const where = school ?? 'Your school';
   switch (mood) {
     case 'tired':
-      return `${where} feels a little tired ${when} 😴 Be gentle with each other.`;
+      return `${where} feels a little tired ${when} 😴`;
     case 'down':
-      return `A soft rain over ${where} ${when} 🌧️ Someone could use a twinkle.`;
+      return `A soft rain over ${where} ${when} 🌧️`;
     case 'excited':
-      return `${where} is buzzing ${when} 🤩 Shooting stars everywhere.`;
+      return `${where} is buzzing ${when} 🤩`;
     case 'happy':
-      return `${where} is glowing ${when} 😊 Fireflies are out.`;
+      return `${where} is glowing ${when} 😊`;
     case 'chill':
-      return `${where} is calm ${when} 😌 An aurora is drifting by.`;
+      return `${where} is calm ${when} 😌`;
     case 'nervous':
-      return `The stars are flickering over ${where} ${when} 😬 You're not the only one.`;
+      return `Stars are flickering over ${where} ${when} 😬`;
   }
 }
 

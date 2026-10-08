@@ -3,6 +3,7 @@ import { Animated, Easing, StyleSheet, View, useWindowDimensions } from 'react-n
 import Svg, { Circle, Defs, LinearGradient, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { colors } from '../constants/theme';
 import { brightness, mixHex, SkyPalette } from '../lib/skyColors';
+import { Tilt, tiltTransform } from '../lib/useTilt';
 
 // The School Sky backdrop: a sky that follows the real time of day, a field
 // of tiny stars, the odd shooting star, and a horizon with the school's
@@ -105,7 +106,14 @@ function ShootingStar() {
 
 // painted: today's sky colours from classmates' photos. When present it
 // fades in over the time-of-day sky, like the sky being painted.
-export default function SkyScene({ phase, painted }: { phase: SkyPhase; painted?: SkyPalette | null }) {
+export default function SkyScene({ phase, painted, tilt }: { phase: SkyPhase; painted?: SkyPalette | null; tilt?: Tilt }) {
+  // The whole star field turns very slowly, like the real night sky does.
+  const turn = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(Animated.timing(turn, { toValue: 1, duration: 900000, easing: Easing.linear, useNativeDriver: true }));
+    loop.start();
+    return () => loop.stop();
+  }, [turn]);
   const [top, mid, bottom] = GRADIENTS[phase];
   const paint = useRef(new Animated.Value(0)).current;
   useEffect(() => {
@@ -115,11 +123,11 @@ export default function SkyScene({ phase, painted }: { phase: SkyPhase; painted?
   }, [painted?.join(','), paint]);
   const field = useMemo(
     () =>
-      Array.from({ length: 70 }, (_, i) => ({
+      Array.from({ length: 220 }, (_, i) => ({
         x: seeded(i + 1),
-        y: seeded(i + 101) * 0.82,
+        y: seeded(i + 101),
         r: seeded(i + 201) < 0.85 ? 0.8 : 1.4,
-        twinkle: seeded(i + 301) < 0.22,
+        twinkle: seeded(i + 301) < 0.12,
         delay: Math.floor(seeded(i + 401) * 3000),
       })),
     []
@@ -167,24 +175,58 @@ export default function SkyScene({ phase, painted }: { phase: SkyPhase; painted?
           </Svg>
         </Animated.View>
       ) : null}
-      <Svg style={StyleSheet.absoluteFill} preserveAspectRatio="none" viewBox="0 0 100 100">
-        {/* Static dust, drawn in one SVG for cheapness. */}
-        {field
-          .filter((s) => !s.twinkle)
-          .map((s, i) => (
-            <Circle key={i} cx={s.x * 100} cy={s.y * 100} r={s.r * 0.12} fill="#fff" opacity={0.55 * fieldOpacity} />
-          ))}
-      </Svg>
-      <View style={[StyleSheet.absoluteFill, { opacity: fieldOpacity }]}>
-        {field
-          .filter((s) => s.twinkle)
-          .map((s, i) => (
-            <TwinkleDot key={i} x={s.x} y={s.y} r={s.r} delay={s.delay} />
-          ))}
-      </View>
+      {/* Far layer: the star field and the Milky Way, on a square twice the
+          screen's size so it can turn without showing its edges. Barely
+          moves with tilt — it's the farthest thing. */}
+      <Animated.View
+        style={[
+          styles.farField,
+          {
+            transform: [
+              ...tiltTransform(tilt, 5),
+              { rotate: turn.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) },
+            ],
+          },
+        ]}
+      >
+        <Svg style={StyleSheet.absoluteFill} viewBox="0 0 100 100">
+          <Defs>
+            <LinearGradient id="milkyway" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor="#C9C2FF" stopOpacity={0} />
+              <Stop offset="0.5" stopColor="#E6E1FF" stopOpacity={0.16} />
+              <Stop offset="1" stopColor="#C9C2FF" stopOpacity={0} />
+            </LinearGradient>
+          </Defs>
+          {/* A soft diagonal band of light… */}
+          <Rect x="-20" y="42" width="140" height="16" fill="url(#milkyway)" opacity={fieldOpacity} transform="rotate(-28 50 50)" />
+          <Rect x="-20" y="46" width="140" height="7" fill="url(#milkyway)" opacity={fieldOpacity * 0.8} transform="rotate(-28 50 50)" />
+          {/* …dusted with far more tiny stars than the rest of the sky. */}
+          {Array.from({ length: 160 }, (_, i) => {
+            const along = seeded(i + 601) * 140 - 20;
+            const across = (seeded(i + 701) + seeded(i + 801) - 1) * 7;
+            const a = (-28 * Math.PI) / 180;
+            const cx = 50 + (along - 50) * Math.cos(a) - across * Math.sin(a);
+            const cy = 50 + (along - 50) * Math.sin(a) + across * Math.cos(a);
+            return <Circle key={`m${i}`} cx={cx} cy={cy} r={0.06 + seeded(i + 901) * 0.06} fill="#fff" opacity={0.5 * fieldOpacity} />;
+          })}
+          {field
+            .filter((s) => !s.twinkle)
+            .map((s, i) => (
+              <Circle key={i} cx={s.x * 100} cy={s.y * 100} r={s.r * 0.07} fill="#fff" opacity={0.6 * fieldOpacity} />
+            ))}
+        </Svg>
+        <View style={[StyleSheet.absoluteFill, { opacity: fieldOpacity }]}>
+          {field
+            .filter((s) => s.twinkle)
+            .map((s, i) => (
+              <TwinkleDot key={i} x={s.x} y={s.y} r={s.r} delay={s.delay} />
+            ))}
+        </View>
+      </Animated.View>
       {phase === 'night' || phase === 'dusk' ? <ShootingStar /> : null}
       {/* A glowing crescent at night, a soft low sun otherwise. */}
-      <Svg style={styles.orb} viewBox="0 0 100 100">
+      <Animated.View style={[styles.orb, { transform: tiltTransform(tilt, 12) }]}>
+      <Svg width="100%" height="100%" viewBox="0 0 100 100">
         <Defs>
           <RadialGradient id="orbglow" cx="50%" cy="50%" r="50%">
             <Stop offset="0" stopColor={phase === 'night' ? '#FFF4D2' : '#FFD9A0'} stopOpacity={0.35} />
@@ -198,6 +240,7 @@ export default function SkyScene({ phase, painted }: { phase: SkyPhase; painted?
           <Circle cx="50" cy="50" r="18" fill="#FFE3B5" opacity={0.8} />
         )}
       </Svg>
+      </Animated.View>
     </View>
   );
 }
@@ -205,11 +248,20 @@ export default function SkyScene({ phase, painted }: { phase: SkyPhase; painted?
 // Rolling hills and the school's roofline with a few lit windows. Sits at
 // the bottom of the sky area; its front layer is the screen background, so
 // whatever is below it reads as solid ground.
-export function Horizon() {
+export function Horizon({ tilt }: { tilt?: Tilt }) {
   return (
-    <View style={styles.horizon} pointerEvents="none">
+    <Animated.View style={[styles.horizon, { transform: tiltTransform(tilt, 18) }]} pointerEvents="none">
       <Svg width="100%" height="100%" viewBox="0 0 400 120" preserveAspectRatio="none">
         <Path d="M0 70 C60 52 120 60 170 66 C230 74 300 48 400 58 L400 120 L0 120 Z" fill="#100E28" opacity={0.65} />
+        {/* Someone sitting on the hill, hugging their knees and looking up. */}
+        <Circle cx="331" cy="40.5" r="3.6" fill="#0C0A22" />
+        <Path d="M329 44 C326 47 325 51 326 55 L341 55 C341 52 339 50 336 49 L337 46 C335 45 332 44 329 44 Z" fill="#0C0A22" />
+        <Path d="M334 47 C337 45 340 46 341 49 L342 55 L338 55 L337.5 50 Z" fill="#0C0A22" />
+        {/* A small tree beside them. */}
+        <Path d="M356 52 L356 44" stroke="#0C0A22" strokeWidth={1.4} />
+        <Circle cx="356" cy="40" r="5.5" fill="#0C0A22" />
+        <Circle cx="352" cy="43" r="3.8" fill="#0C0A22" />
+        <Circle cx="360" cy="43" r="3.8" fill="#0C0A22" />
         <Path
           d="M0 92 C50 84 90 86 120 88 L120 64 L150 64 L150 54 L175 40 L200 54 L200 64 L262 64 L262 76 C310 70 350 78 400 74 L400 120 L0 120 Z"
           fill={colors.background}
@@ -220,14 +272,15 @@ export function Horizon() {
         <Rect x="222" y="74" width="6" height="6" fill={colors.sticker.yellow} opacity={0.65} />
         <Rect x="240" y="74" width="6" height="6" fill={colors.sticker.yellow} opacity={0.35} />
       </Svg>
-    </View>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
   shooting: {
     position: 'absolute',
-    top: '12%',
+    // Below the header text, across the open sky.
+    top: '34%',
     width: 90,
     height: 2,
     borderRadius: 1,
@@ -240,11 +293,19 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
   },
+  // Wider than the screen so tilting never shows its ends.
   horizon: {
     position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: 110,
+    left: -24,
+    right: -24,
+    bottom: -8,
+    height: 118,
+  },
+  farField: {
+    position: 'absolute',
+    width: '200%',
+    aspectRatio: 1,
+    left: '-50%',
+    top: '-30%',
   },
 });

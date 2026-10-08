@@ -37,7 +37,7 @@ function Cloud({ i, width }: { i: number; width: number }) {
         position: 'absolute',
         top: `${14 + i * 15}%`,
         left: -w,
-        opacity: 0.05 + seeded(i + 9) * 0.05,
+        opacity: 0.035 + seeded(i + 9) * 0.035,
         transform: [{ translateX: t.interpolate({ inputRange: [0, 1], outputRange: [0, width + w * 2] }) }],
       }}
     >

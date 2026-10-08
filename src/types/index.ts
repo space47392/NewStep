@@ -78,6 +78,8 @@ export type MainStackParamList = {
   // always has something to show even before/without a directory match.
   School: { schoolId?: string; schoolName: string };
   Notifications: undefined;
+  // School Sky (mood stars). openComposer jumps straight to "Add your star".
+  SchoolSky: { schoolName?: string; openComposer?: boolean } | undefined;
   FollowList: { userId: string; mode: 'followers' | 'following' };
   SavedPosts: undefined;
   ChooseSchool: undefined;

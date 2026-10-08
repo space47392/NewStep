@@ -37,6 +37,7 @@ import FadeInView from '../../components/FadeInView';
 import NSIcon from '../../components/NSIcon';
 import AppLogo from '../../components/AppLogo';
 import NightSkyCard from '../../components/NightSkyCard';
+import SkyPeek from '../../components/SkyPeek';
 import PrimaryButton from '../../components/PrimaryButton';
 import ActionSheet, { ActionSheetAction } from '../../components/ActionSheet';
 import ReportSheet from '../../components/ReportSheet';
@@ -801,6 +802,12 @@ export default function FeedScreen() {
               )}
               {bell}
             </View>
+            ) : null}
+            {mySchoolName && user ? (
+              <SkyPeek
+                userId={user.id}
+                onOpen={(openComposer) => navigation.navigate('SchoolSky', { schoolName: mySchoolName, openComposer })}
+              />
             ) : null}
             </NightSkyCard>
             {isNewStudent && mySchoolName && !welcomeBannerDismissed && (

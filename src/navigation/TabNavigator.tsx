@@ -108,6 +108,9 @@ export default function TabNavigator() {
       })}
       screenOptions={({ route }) => ({
         headerShown: false,
+        // Every tab keeps the status-bar gap except Home, whose night-sky
+        // header runs up behind the status bar on purpose.
+        sceneStyle: { paddingTop: route.name === 'Feed' ? 0 : insets.top, backgroundColor: colors.background },
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.tabInactive,
         tabBarStyle: {

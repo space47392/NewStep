@@ -2,6 +2,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { MainStackParamList } from '../types';
 import TabNavigator from './TabNavigator';
 import { useScreenContentStyle, NO_TOP_INSET, MODAL_TOP_INSET } from './screenInsets';
+import { colors } from '../constants/theme';
 import CreatePostScreen from '../screens/main/CreatePostScreen';
 import PostDetailScreen from '../screens/main/PostDetailScreen';
 import ConversationScreen from '../screens/main/ConversationScreen';
@@ -21,7 +22,9 @@ export default function MainNavigator() {
   const contentStyle = useScreenContentStyle();
   return (
     <Stack.Navigator screenOptions={{ headerShown: false, contentStyle }}>
-      <Stack.Screen name="Tabs" component={TabNavigator} />
+      {/* Each tab scene adds its own top inset (TabNavigator), so Home can
+          paint behind the status bar. */}
+      <Stack.Screen name="Tabs" component={TabNavigator} options={{ contentStyle: { ...NO_TOP_INSET, backgroundColor: colors.background } }} />
       <Stack.Screen name="CreatePost" component={CreatePostScreen} options={{ presentation: 'modal', contentStyle: MODAL_TOP_INSET ?? contentStyle }} />
       <Stack.Screen name="PostDetail" component={PostDetailScreen} />
       <Stack.Screen name="Conversation" component={ConversationScreen} />

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, FlatList, RefreshControl, TouchableOpacity, ActivityIndicator, Alert, StyleSheet } from 'react-native';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useIsFocused, useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -34,6 +36,7 @@ import { PostCardSkeleton } from '../../components/Skeleton';
 import FadeInView from '../../components/FadeInView';
 import NSIcon from '../../components/NSIcon';
 import AppLogo from '../../components/AppLogo';
+import NightSkyCard from '../../components/NightSkyCard';
 import PrimaryButton from '../../components/PrimaryButton';
 import ActionSheet, { ActionSheetAction } from '../../components/ActionSheet';
 import ReportSheet from '../../components/ReportSheet';
@@ -82,6 +85,12 @@ export default function FeedScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
   const { user } = useAuth();
   const { showToast } = useToast();
+  // Home draws its night-sky header up under the status bar (the tab scene
+  // has no top padding for this screen — see TabNavigator).
+  const insets = useSafeAreaInsets();
+  const isFocused = useIsFocused();
+  const [skyHeight, setSkyHeight] = useState(0);
+  const [scrolledPastSky, setScrolledPastSky] = useState(false);
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -683,7 +692,7 @@ export default function FeedScreen() {
 
   if (loading) {
     return (
-      <View style={[styles.container, styles.list]}>
+      <View style={[styles.container, styles.list, { paddingTop: insets.top + spacing.lg }]}>
         <PostCardSkeleton />
         <PostCardSkeleton />
         <PostCardSkeleton />
@@ -703,7 +712,7 @@ export default function FeedScreen() {
       accessibilityRole="button"
       accessibilityLabel="Open notifications"
     >
-      <Ionicons name="notifications-outline" size={24} color={colors.textDark} />
+      <Ionicons name="notifications-outline" size={24} color="#fff" />
       {unreadNotificationCount > 0 && (
         <View style={styles.bellBadge}>
           <Text style={styles.bellBadgeText}>{unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}</Text>
@@ -714,7 +723,16 @@ export default function FeedScreen() {
 
   return (
     <View style={styles.container}>
+      {/* Light status-bar icons over the night sky; once it scrolls away,
+          a plain bar slides in behind dark icons so posts never run under
+          the clock. */}
+      {isFocused ? <StatusBar style={scrolledPastSky ? 'dark' : 'light'} /> : null}
       <FlatList
+        onScroll={(e) => {
+          const past = skyHeight > 0 && e.nativeEvent.contentOffset.y > skyHeight - insets.top;
+          if (past !== scrolledPastSky) setScrolledPastSky(past);
+        }}
+        scrollEventThrottle={32}
         data={displayedPosts}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
@@ -722,44 +740,17 @@ export default function FeedScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />}
         ListHeaderComponent={
           <View>
-            {isNewStudent && mySchoolName && !welcomeBannerDismissed && (
-              <FadeInView style={styles.welcomeCard}>
-                <TouchableOpacity
-                  style={styles.welcomeDismiss}
-                  onPress={handleDismissWelcome}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <Ionicons name="close" size={18} color={colors.textLight} />
-                </TouchableOpacity>
-                {/* No separate "Welcome to {school}!" headline — the school
-                    name is already the identity row directly below. Trailing
-                    arrows dropped so both buttons fit one row on a ~384dp
-                    phone at the existing text size (Step 12A). */}
-                <Text style={styles.welcomeSubtitle}>
-                  👋 New here? Find your community and introduce yourself to other students.
-                </Text>
-                <View style={styles.welcomeActions}>
-                  <TouchableOpacity
-                    style={styles.welcomeButton}
-                    onPress={() => navigation.navigate('School', { schoolId: mySchoolId ?? undefined, schoolName: mySchoolName })}
-                  >
-                    <Text style={styles.welcomeButtonText}>Discover your community</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.welcomeButtonSecondary}
-                    onPress={() => navigation.navigate('CreatePost')}
-                  >
-                    <Text style={styles.welcomeButtonSecondaryText}>Introduce yourself</Text>
-                  </TouchableOpacity>
-                </View>
-              </FadeInView>
-            )}
-
             {/* Static app title, separate from the identity/activity line below —
                 previously concatenated into one truncating string ("NewStep ·
                 Add your school in Pr...") when there was no school set. Now
                 "NewStep" is always shown in full; school/activity context
                 (unchanged) lives entirely in identityText below. */}
+            {/* The app icon's starry night carries into Home: greeting and
+                school line sit on a twinkling navy card. */}
+            <NightSkyCard
+              style={[styles.skyCard, { paddingTop: insets.top + spacing.md }]}
+              onLayout={(e) => setSkyHeight(e.nativeEvent.layout.height)}
+            >
             <View style={styles.greetingRow}>
             <View style={styles.greetingText}>
             {myFirstName ? (
@@ -799,7 +790,7 @@ export default function FeedScreen() {
                       openHelpCount > 0 ? ` · ${openHelpCount} need help` : ''
                     }`}
                   </Text>
-                  <Ionicons name="chevron-forward" size={14} color={colors.primary} />
+                  <Ionicons name="chevron-forward" size={14} color="#fff" />
                 </TouchableOpacity>
               ) : (
                 // Keeps the bell pinned to the right edge, same as the
@@ -811,6 +802,40 @@ export default function FeedScreen() {
               {bell}
             </View>
             ) : null}
+            </NightSkyCard>
+            {isNewStudent && mySchoolName && !welcomeBannerDismissed && (
+              <FadeInView style={styles.welcomeCard}>
+                <TouchableOpacity
+                  style={styles.welcomeDismiss}
+                  onPress={handleDismissWelcome}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons name="close" size={18} color={colors.textLight} />
+                </TouchableOpacity>
+                {/* No separate "Welcome to {school}!" headline — the school
+                    name is already the identity row directly below. Trailing
+                    arrows dropped so both buttons fit one row on a ~384dp
+                    phone at the existing text size (Step 12A). */}
+                <Text style={styles.welcomeSubtitle}>
+                  👋 New here? Find your community and introduce yourself to other students.
+                </Text>
+                <View style={styles.welcomeActions}>
+                  <TouchableOpacity
+                    style={styles.welcomeButton}
+                    onPress={() => navigation.navigate('School', { schoolId: mySchoolId ?? undefined, schoolName: mySchoolName })}
+                  >
+                    <Text style={styles.welcomeButtonText}>Discover your community</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.welcomeButtonSecondary}
+                    onPress={() => navigation.navigate('CreatePost')}
+                  >
+                    <Text style={styles.welcomeButtonSecondaryText}>Introduce yourself</Text>
+                  </TouchableOpacity>
+                </View>
+              </FadeInView>
+            )}
+
 
             {!mySchoolName && (
               <View style={styles.chooseSchoolCard}>
@@ -1130,6 +1155,7 @@ export default function FeedScreen() {
           ) : null
         }
       />
+      {scrolledPastSky ? <View pointerEvents="none" style={[styles.statusBarBacking, { height: insets.top }]} /> : null}
 
       <TouchableOpacity style={styles.fab} activeOpacity={0.85} onPress={() => navigation.navigate('CreatePost')}>
         <Ionicons name="add" size={28} color="#fff" />
@@ -1299,8 +1325,26 @@ const styles = StyleSheet.create({
   pageTitle: {
     fontFamily: fontFamily.brand,
     fontSize: fontSize.xl,
-    color: colors.primary,
+    color: '#fff',
     marginBottom: spacing.xs,
+  },
+  // Full-bleed: cancels the list's own side/top padding so the sky meets
+  // the screen edges, with only the bottom corners rounded.
+  skyCard: {
+    marginHorizontal: -spacing.lg,
+    marginTop: -spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.lg,
+    marginBottom: spacing.md,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
+  },
+  statusBarBacking: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: colors.background,
   },
   greetingRow: {
     flexDirection: 'row',
@@ -1321,19 +1365,19 @@ const styles = StyleSheet.create({
   brandLabel: {
     fontFamily: fontFamily.brand,
     fontSize: fontSize.sm,
-    color: colors.primary,
+    color: colors.sticker.lilac,
   },
   greeting: {
     fontFamily: fontFamily.extrabold,
     fontSize: fontSize.xl,
-    color: colors.textDark,
+    color: '#fff',
     marginBottom: spacing.xs,
   },
   identityRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    marginBottom: spacing.md,
+    marginTop: spacing.xs,
   },
   // Replaces the old inline "Add your school in Profile..." fallback text,
   // which truncated awkwardly at one line — a short, fixed-text card instead
@@ -1361,17 +1405,23 @@ const styles = StyleSheet.create({
   chooseSchoolButton: {
     marginTop: spacing.md,
   },
+  // A frosted pill on the night card.
   identityTextWrap: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderRadius: radius.full,
+    paddingVertical: 6,
+    paddingLeft: 6,
+    paddingRight: spacing.md,
   },
   identityText: {
     flex: 1,
-    fontFamily: fontFamily.bold,
-    fontSize: fontSize.lg,
-    color: colors.textDark,
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
+    color: '#fff',
   },
   bellButton: {
     position: 'relative',

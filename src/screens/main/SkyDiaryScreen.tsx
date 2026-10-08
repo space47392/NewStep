@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, StyleSheet, useWindowDimensions } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -22,12 +22,12 @@ function ymd(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-function DayCell({ entry, day, isToday, selected, onPress }: { entry?: SkyDiaryDay; day: number; isToday: boolean; selected: boolean; onPress: () => void }) {
+function DayCell({ entry, day, isToday, selected, size, onPress }: { entry?: SkyDiaryDay; day: number; isToday: boolean; selected: boolean; size: number; onPress: () => void }) {
   const mood = entry ? skyMood(entry.mood) : null;
   const palette = entry?.sky_colors ?? (mood ? [mood.color, mood.color, colors.night] : null);
   return (
     <TouchableOpacity
-      style={[styles.cell, selected && styles.cellSelected, isToday && !selected && styles.cellToday]}
+      style={[styles.cell, { width: size }, selected && styles.cellSelected, isToday && !selected && styles.cellToday]}
       onPress={onPress}
       disabled={!entry}
       activeOpacity={0.8}
@@ -56,6 +56,9 @@ export default function SkyDiaryScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
+  // Seven equal columns across the content width.
+  const { width: screenWidth } = useWindowDimensions();
+  const cellSize = Math.floor((screenWidth - spacing.lg * 2 - CELL_GAP * 6) / 7);
   const [entries, setEntries] = useState<SkyDiaryDay[]>([]);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
@@ -182,12 +185,12 @@ export default function SkyDiaryScreen() {
 
             <View style={styles.grid}>
               {WEEKDAYS.map((w, i) => (
-                <Text key={i} style={styles.weekday}>
+                <Text key={i} style={[styles.weekday, { width: cellSize }]}>
                   {w}
                 </Text>
               ))}
               {Array.from({ length: leading }, (_, i) => (
-                <View key={`b${i}`} style={styles.cellBlank} />
+                <View key={`b${i}`} style={[styles.cellBlank, { width: cellSize }]} />
               ))}
               {Array.from({ length: daysInMonth }, (_, i) => {
                 const key = ymd(new Date(month.getFullYear(), month.getMonth(), i + 1));
@@ -197,6 +200,7 @@ export default function SkyDiaryScreen() {
                     day={i + 1}
                     entry={byDay.get(key)}
                     isToday={key === todayKey}
+                    size={cellSize}
                     selected={key === selectedDay}
                     onPress={() => {
                       Haptics.selectionAsync();
@@ -356,18 +360,15 @@ const styles = StyleSheet.create({
     gap: CELL_GAP,
   },
   weekday: {
-    width: `${(100 - 6 * 1.6) / 7}%`,
     textAlign: 'center',
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.xs,
     color: colors.textLight,
   },
   cellBlank: {
-    width: `${(100 - 6 * 1.6) / 7}%`,
     aspectRatio: 0.8,
   },
   cell: {
-    width: `${(100 - 6 * 1.6) / 7}%`,
     aspectRatio: 0.8,
     borderRadius: radius.sm,
     backgroundColor: colors.cardBg,

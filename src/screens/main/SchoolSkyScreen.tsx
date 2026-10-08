@@ -21,7 +21,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
+import Svg, { Path, Defs, RadialGradient, Circle, Stop } from 'react-native-svg';
+import SkyScene, { Horizon, skyPhase, phaseWords } from '../../components/SkyScene';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import {
@@ -46,9 +47,12 @@ import ReportSheet from '../../components/ReportSheet';
 import { colors, spacing, radius, fontSize, fontFamily } from '../../constants/theme';
 import { MainStackParamList, ReportTargetType } from '../../types';
 
-const STAR_SIZE = 46;
 
-// One classmate's star: a glowing mood bubble that gently breathes.
+const SPARKLE = 'M12 0 C13 8 16 11 24 12 C16 13 13 16 12 24 C11 16 8 13 0 12 C8 11 11 8 12 0 Z';
+
+// One classmate's star: a four-point sparkle in their mood colour with a
+// soft halo, rising into place when the sky opens. The mood emoji only
+// shows once the star is tapped.
 function SkyStarButton({
   star,
   index,
@@ -64,50 +68,104 @@ function SkyStarButton({
 }) {
   const mood = skyMood(star.mood);
   const pos = starPosition(star.user_id, index);
+  const size = mine ? 38 : 32;
   const pulse = useRef(new Animated.Value(0)).current;
+  const rise = useRef(new Animated.Value(0)).current;
   useEffect(() => {
+    Animated.spring(rise, { toValue: 1, delay: 150 + index * 140, friction: 6, useNativeDriver: true }).start();
     const loop = Animated.loop(
       Animated.sequence([
         Animated.delay((index * 370) % 1800),
-        Animated.timing(pulse, { toValue: 1, duration: 1600, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 0, duration: 1600, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1, duration: 1800, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0, duration: 1800, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
       ])
     );
     loop.start();
     return () => loop.stop();
-  }, [pulse, index]);
+  }, [pulse, rise, index]);
 
   const first = star.profile?.full_name?.trim().split(/\s+/)[0] ?? 'Student';
   return (
-    <View style={[styles.starWrap, { left: `${pos.x * 100}%`, top: `${pos.y * 100}%` }]}>
-      <Animated.View
-        style={[
-          styles.starGlow,
-          { backgroundColor: mood.color },
-          {
-            opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.18, 0.4] }),
-            transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.35] }) }],
-          },
-        ]}
-      />
+    <Animated.View
+      style={[
+        styles.starWrap,
+        { left: `${pos.x * 100}%`, top: `${pos.y * 100}%`, marginTop: -size / 2 },
+        {
+          opacity: rise,
+          transform: [
+            { translateY: rise.interpolate({ inputRange: [0, 1], outputRange: [40, 0] }) },
+            { scale: rise.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) },
+          ],
+        },
+      ]}
+    >
+      {selected ? (
+        <View style={[styles.moodBubble, { borderColor: mood.color }]}>
+          <Text style={styles.moodBubbleEmoji}>{mood.emoji}</Text>
+        </View>
+      ) : null}
       <TouchableOpacity
         onPress={onPress}
         activeOpacity={0.8}
-        style={[styles.star, { borderColor: mood.color }, selected && styles.starSelected, mine && styles.starMine]}
+        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         accessibilityRole="button"
         accessibilityLabel={`${mine ? 'Your star' : first}: feeling ${mood.label}${star.note ? `, ${star.note}` : ''}`}
+        style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}
       >
-        <Text style={styles.starEmoji}>{mood.emoji}</Text>
+        <Animated.View
+          style={[
+            styles.halo,
+            {
+              width: size * 2.6,
+              height: size * 2.6,
+              opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: selected ? [0.8, 1] : [0.45, 0.85] }),
+              transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.85, 1.12] }) }],
+            },
+          ]}
+        >
+          <Svg width="100%" height="100%" viewBox="0 0 100 100">
+            <Defs>
+              <RadialGradient id={`halo-${star.user_id}`} cx="50%" cy="50%" r="50%">
+                <Stop offset="0" stopColor={mood.color} stopOpacity={0.55} />
+                <Stop offset="0.45" stopColor={mood.color} stopOpacity={0.18} />
+                <Stop offset="1" stopColor={mood.color} stopOpacity={0} />
+              </RadialGradient>
+            </Defs>
+            <Circle cx="50" cy="50" r="50" fill={`url(#halo-${star.user_id})`} />
+          </Svg>
+        </Animated.View>
+        <Animated.View style={{ transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1.06] }) }] }}>
+          <Svg width={size} height={size} viewBox="0 0 24 24">
+            <Path d={SPARKLE} fill={mood.color} />
+            <Path d={SPARKLE} fill="#fff" opacity={0.45} transform="translate(6 6) scale(0.5)" />
+          </Svg>
+        </Animated.View>
         {star.photo_url ? (
           <View style={styles.starPhotoBadge}>
-            <Ionicons name="camera" size={10} color={colors.ink} />
+            <Ionicons name="camera" size={9} color={colors.ink} />
           </View>
         ) : null}
       </TouchableOpacity>
-      <Text style={[styles.starName, mine && styles.starNameMine]} numberOfLines={1}>
+      <Text style={[styles.starName, mine && styles.starNameMine, selected && styles.starNameSelected]} numberOfLines={1}>
         {mine ? 'You' : first}
       </Text>
-    </View>
+    </Animated.View>
+  );
+}
+
+// Faint dotted lines joining today's stars, left to right: the school's
+// constellation for the day.
+function Constellation({ stars, width, height }: { stars: SkyStar[]; width: number; height: number }) {
+  if (stars.length < 2 || width === 0) return null;
+  const pts = stars
+    .map((st, i) => starPosition(st.user_id, i))
+    .map((p) => ({ x: p.x * width, y: p.y * height }))
+    .sort((a, b) => a.x - b.x);
+  const d = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
+  return (
+    <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
+      <Path d={d} stroke="#fff" strokeOpacity={0.22} strokeWidth={1} strokeDasharray="2 5" fill="none" />
+    </Svg>
   );
 }
 
@@ -119,6 +177,9 @@ export default function SchoolSkyScreen() {
   const insets = useSafeAreaInsets();
 
   const [stars, setStars] = useState<SkyStar[]>([]);
+  // The sky follows the real time of day (set once per visit).
+  const [phase] = useState(() => skyPhase());
+  const [skySize, setSkySize] = useState({ width: 0, height: 0 });
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [composerOpen, setComposerOpen] = useState(!!route.params?.openComposer);
@@ -252,16 +313,7 @@ export default function SchoolSkyScreen() {
   return (
     <View style={styles.screen}>
       <StatusBar style="light" />
-      <Svg style={StyleSheet.absoluteFill} preserveAspectRatio="none" viewBox="0 0 100 100">
-        <Defs>
-          <RadialGradient id="sky" cx="70%" cy="10%" r="110%">
-            <Stop offset="0" stopColor="#33298A" />
-            <Stop offset="0.5" stopColor={colors.night} />
-            <Stop offset="1" stopColor={colors.background} />
-          </RadialGradient>
-        </Defs>
-        <Rect x="0" y="0" width="100" height="100" fill="url(#sky)" />
-      </Svg>
+      <SkyScene phase={phase} />
 
       <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
         <TouchableOpacity
@@ -278,8 +330,8 @@ export default function SchoolSkyScreen() {
             {loading
               ? 'Looking up…'
               : stars.length === 0
-                ? `Quiet tonight${route.params?.schoolName ? ` at ${route.params.schoolName}` : ''}`
-                : `${stars.length} ${stars.length === 1 ? 'star' : 'stars'}${route.params?.schoolName ? ` at ${route.params.schoolName}` : ''} today`}
+                ? `${phaseWords(phase)}, the sky is quiet`
+                : `${phaseWords(phase)}, ${stars.length} ${stars.length === 1 ? 'star is' : 'stars are'} shining${route.params?.schoolName ? ` over ${route.params.schoolName}` : ''}`}
           </Text>
         </View>
       </View>
@@ -313,13 +365,19 @@ export default function SchoolSkyScreen() {
         </View>
       ) : null}
 
-      <TouchableOpacity style={styles.sky} activeOpacity={1} onPress={() => setSelectedId(null)}>
+      <TouchableOpacity
+        style={styles.sky}
+        activeOpacity={1}
+        onPress={() => setSelectedId(null)}
+        onLayout={(e) => setSkySize({ width: e.nativeEvent.layout.width, height: e.nativeEvent.layout.height })}
+      >
+        <Horizon />
+        {!loading ? <Constellation stars={stars} width={skySize.width} height={skySize.height} /> : null}
         {loading ? (
           <ActivityIndicator color={colors.sticker.lilac} style={styles.loading} />
         ) : stars.length === 0 ? (
           <View style={styles.empty}>
-            <Text style={styles.emptyEmoji}>🌙</Text>
-            <Text style={styles.emptyTitle}>The sky is quiet</Text>
+            <Text style={styles.emptyTitle}>No stars yet</Text>
             <Text style={styles.emptySub}>Be the first star at your school today. Classmates will see how you're doing.</Text>
           </View>
         ) : (
@@ -529,42 +587,48 @@ const styles = StyleSheet.create({
   },
   sky: {
     flex: 1,
-    marginHorizontal: spacing.md,
+    marginHorizontal: 0,
   },
   loading: {
     marginTop: spacing.xxl,
   },
   starWrap: {
     position: 'absolute',
-    width: STAR_SIZE + 24,
-    marginLeft: -(STAR_SIZE + 24) / 2,
+    width: 84,
+    marginLeft: -42,
     alignItems: 'center',
   },
-  starGlow: {
+  halo: {
     position: 'absolute',
-    top: -6,
-    width: STAR_SIZE + 12,
-    height: STAR_SIZE + 12,
-    borderRadius: (STAR_SIZE + 12) / 2,
   },
-  star: {
-    width: STAR_SIZE,
-    height: STAR_SIZE,
-    borderRadius: STAR_SIZE / 2,
-    borderWidth: 2,
-    backgroundColor: 'rgba(22,21,43,0.85)',
+  moodBubble: {
+    position: 'absolute',
+    bottom: '100%',
+    marginBottom: 4,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 1.5,
+    backgroundColor: 'rgba(22,21,43,0.9)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  starSelected: {
-    transform: [{ scale: 1.15 }],
-    backgroundColor: colors.raised,
+  moodBubbleEmoji: {
+    fontSize: 18,
   },
-  starMine: {
-    borderWidth: 3,
+  starName: {
+    marginTop: 6,
+    fontFamily: fontFamily.medium,
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.6)',
+    maxWidth: 84,
   },
-  starEmoji: {
-    fontSize: 22,
+  starNameMine: {
+    color: colors.sticker.yellow,
+  },
+  starNameSelected: {
+    color: '#fff',
+    fontFamily: fontFamily.semibold,
   },
   starPhotoBadge: {
     position: 'absolute',
@@ -685,24 +749,11 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.primaryDark,
   },
-  starName: {
-    marginTop: 4,
-    fontFamily: fontFamily.semibold,
-    fontSize: 11,
-    color: colors.textMid,
-    maxWidth: STAR_SIZE + 24,
-  },
-  starNameMine: {
-    color: colors.sticker.yellow,
-  },
   empty: {
     alignItems: 'center',
     marginTop: spacing.xxl * 2,
     paddingHorizontal: spacing.xl,
     gap: spacing.sm,
-  },
-  emptyEmoji: {
-    fontSize: 44,
   },
   emptyTitle: {
     fontFamily: fontFamily.brand,
@@ -716,6 +767,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   bottom: {
+    backgroundColor: colors.background,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
     gap: spacing.sm,

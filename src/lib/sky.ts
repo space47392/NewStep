@@ -96,5 +96,6 @@ export function starPosition(userId: string, index: number): { x: number; y: num
   const b = ((Math.imul(h, 2654435761) >>> 0) % 10000) / 10000;
   // Spread rows so crowded skies don't stack everything in one band.
   const row = index % 5;
-  return { x: 0.08 + a * 0.84, y: 0.08 + (row * 0.18 + b * 0.14) };
+  // Kept above the horizon silhouette (bottom of the sky).
+  return { x: 0.1 + a * 0.8, y: 0.1 + row * 0.12 + b * 0.09 };
 }

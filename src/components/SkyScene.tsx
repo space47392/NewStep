@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { Animated, Easing, StyleSheet, View, useWindowDimensions } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { colors } from '../constants/theme';
+import { brightness, SkyPalette } from '../lib/skyColors';
 
 // The School Sky backdrop: a sky that follows the real time of day, a field
 // of tiny stars, the odd shooting star, and a horizon with the school's
@@ -102,8 +103,16 @@ function ShootingStar() {
   );
 }
 
-export default function SkyScene({ phase }: { phase: SkyPhase }) {
+// painted: today's sky colours from classmates' photos. When present it
+// fades in over the time-of-day sky, like the sky being painted.
+export default function SkyScene({ phase, painted }: { phase: SkyPhase; painted?: SkyPalette | null }) {
   const [top, mid, bottom] = GRADIENTS[phase];
+  const paint = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (!painted) return;
+    paint.setValue(0);
+    Animated.timing(paint, { toValue: 1, duration: 1600, easing: Easing.inOut(Easing.quad), useNativeDriver: true }).start();
+  }, [painted?.join(','), paint]);
   const field = useMemo(
     () =>
       Array.from({ length: 70 }, (_, i) => ({
@@ -115,7 +124,10 @@ export default function SkyScene({ phase }: { phase: SkyPhase }) {
       })),
     []
   );
-  const fieldOpacity = STARFIELD_OPACITY[phase];
+  // A bright painted sky (a photo taken at noon) dims the star field.
+  const fieldOpacity = painted
+    ? Math.max(0.15, Math.min(1, 1.3 - brightness(painted[0]) * 2.2))
+    : STARFIELD_OPACITY[phase];
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
@@ -128,6 +140,22 @@ export default function SkyScene({ phase }: { phase: SkyPhase }) {
           </LinearGradient>
         </Defs>
         <Rect x="0" y="0" width="100" height="100" fill="url(#skyfill)" />
+      </Svg>
+      {painted ? (
+        <Animated.View style={[StyleSheet.absoluteFill, { opacity: paint }]}>
+          <Svg style={StyleSheet.absoluteFill} preserveAspectRatio="none" viewBox="0 0 100 100">
+            <Defs>
+              <LinearGradient id="paintfill" x1="0" y1="0" x2="0" y2="1">
+                <Stop offset="0" stopColor={painted[0]} />
+                <Stop offset="0.5" stopColor={painted[1]} />
+                <Stop offset="1" stopColor={painted[2]} />
+              </LinearGradient>
+            </Defs>
+            <Rect x="0" y="0" width="100" height="100" fill="url(#paintfill)" />
+          </Svg>
+        </Animated.View>
+      ) : null}
+      <Svg style={StyleSheet.absoluteFill} preserveAspectRatio="none" viewBox="0 0 100 100">
         {/* Static dust, drawn in one SVG for cheapness. */}
         {field
           .filter((s) => !s.twinkle)
@@ -195,7 +223,7 @@ const styles = StyleSheet.create({
   },
   orb: {
     position: 'absolute',
-    top: '11%',
+    top: '19%',
     right: '4%',
     width: 120,
     height: 120,

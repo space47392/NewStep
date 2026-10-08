@@ -1,6 +1,7 @@
 import { File } from 'expo-file-system';
 import { supabase } from './supabase';
 import { colors } from '../constants/theme';
+import { SkyPalette } from './skyColors';
 
 // School Sky (supabase/school_sky.sql): one mood star per student, visible
 // to classmates for 24 hours after it was last set.
@@ -29,6 +30,8 @@ export type SkyStar = {
   note: string | null;
   // A real-sky photo taken with the camera (school_sky_photos.sql).
   photo_url: string | null;
+  // Three colours read from the photo (school_sky_colors.sql).
+  sky_colors: SkyPalette | null;
   updated_at: string;
   profile: { id: string; full_name: string | null; username: string | null; avatar_url: string | null } | null;
 };
@@ -39,7 +42,7 @@ export async function fetchSchoolSky(limit = 60): Promise<SkyStar[]> {
   const since = new Date(Date.now() - STAR_LIFETIME_MS).toISOString();
   const { data, error } = await supabase
     .from('sky_stars')
-    .select('user_id, mood, note, photo_url, updated_at, profile:profiles!sky_stars_user_id_fkey ( id, full_name, username, avatar_url )')
+    .select('user_id, mood, note, photo_url, sky_colors, updated_at, profile:profiles!sky_stars_user_id_fkey ( id, full_name, username, avatar_url )')
     .gt('updated_at', since)
     .order('updated_at', { ascending: false })
     .limit(limit);
@@ -47,11 +50,17 @@ export async function fetchSchoolSky(limit = 60): Promise<SkyStar[]> {
   return (data ?? []) as unknown as SkyStar[];
 }
 
-export async function setMyStar(mood: SkyMood, note: string, photoUrl: string | null): Promise<void> {
+export async function setMyStar(
+  mood: SkyMood,
+  note: string,
+  photoUrl: string | null,
+  skyColors: SkyPalette | null
+): Promise<void> {
   const { error } = await supabase.rpc('set_my_star', {
     p_mood: mood,
     p_note: note.trim() || null,
     p_photo_url: photoUrl,
+    p_sky_colors: photoUrl ? skyColors : null,
   });
   if (error) throw error;
 }

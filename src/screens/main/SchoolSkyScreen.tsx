@@ -23,6 +23,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import Svg, { Path, Defs, RadialGradient, Circle, Stop } from 'react-native-svg';
 import SkyScene, { Horizon, skyPhase, phaseWords } from '../../components/SkyScene';
+import { extractSkyPalette, paintSky, SkyPalette } from '../../lib/skyColors';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import {
@@ -263,8 +264,16 @@ export default function SchoolSkyScreen() {
     if (saving || !user) return;
     setSaving(true);
     try {
+      // A fresh photo also gets its colours read for the painted sky; a kept
+      // photo keeps the colours it already had.
+      let skyColors: SkyPalette | null = null;
+      if (photoUri && photoIsNew) {
+        skyColors = await extractSkyPalette(photoUri).catch(() => null);
+      } else if (photoUri) {
+        skyColors = myStar?.sky_colors ?? null;
+      }
       const photoUrl = photoUri && photoIsNew ? await uploadSkyPhoto(user.id, photoUri) : photoUri;
-      await setMyStar(mood, note, photoUrl);
+      await setMyStar(mood, note, photoUrl, skyColors);
       if (!photoUrl && myStar?.photo_url) removeSkyPhoto(user.id).catch(() => {});
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setComposerOpen(false);
@@ -309,11 +318,14 @@ export default function SchoolSkyScreen() {
   };
 
   const others = stars.filter((s) => s.user_id !== user?.id).length;
+  // Today's sky, repainted from the colours in classmates' sky photos.
+  const palettes = stars.map((s) => s.sky_colors).filter((p): p is SkyPalette => !!p && p.length === 3);
+  const painted = paintSky(palettes);
 
   return (
     <View style={styles.screen}>
       <StatusBar style="light" />
-      <SkyScene phase={phase} />
+      <SkyScene phase={phase} painted={painted} />
 
       <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
         <TouchableOpacity
@@ -338,7 +350,25 @@ export default function SchoolSkyScreen() {
 
       {stars.some((s) => s.photo_url) ? (
         <View style={styles.photoStrip}>
-          <Text style={styles.photoStripLabel}>📷 Today's real sky</Text>
+          <View style={styles.photoStripHeader}>
+            <Text style={styles.photoStripLabel}>📷 Today's real sky</Text>
+            {palettes.length > 0 ? (
+              <View style={styles.paintedTag}>
+                <Text style={styles.paintedText}>
+                  🎨 Sky painted from {palettes.length} {palettes.length === 1 ? 'photo' : 'photos'}
+                </Text>
+                <View style={styles.swatches}>
+                  {palettes.slice(0, 4).map((p, i) => (
+                    <View key={i} style={[styles.swatch, { marginLeft: i === 0 ? 0 : -4 }]}>
+                      {p.map((c, j) => (
+                        <View key={j} style={{ flex: 1, backgroundColor: c }} />
+                      ))}
+                    </View>
+                  ))}
+                </View>
+              </View>
+            ) : null}
+          </View>
           <FlatList
             horizontal
             data={stars.filter((s) => s.photo_url)}
@@ -644,6 +674,42 @@ const styles = StyleSheet.create({
   photoStrip: {
     paddingLeft: spacing.lg,
     gap: 6,
+  },
+  photoStripHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingRight: spacing.lg,
+    gap: spacing.sm,
+  },
+  paintedTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: radius.full,
+    paddingLeft: 10,
+    paddingRight: 4,
+    paddingVertical: 3,
+    flexShrink: 1,
+  },
+  paintedText: {
+    fontFamily: fontFamily.medium,
+    fontSize: 11,
+    color: '#fff',
+    flexShrink: 1,
+  },
+  swatches: {
+    flexDirection: 'row',
+  },
+  // A tiny three-band chip per photo: its top, middle and lower sky.
+  swatch: {
+    width: 14,
+    height: 18,
+    borderRadius: 4,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.5)',
   },
   photoStripLabel: {
     fontFamily: fontFamily.semibold,

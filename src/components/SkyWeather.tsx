@@ -44,7 +44,7 @@ function Cloud({ i, width }: { i: number; width: number }) {
       <Svg width={w} height={w * 0.42} viewBox="0 0 100 42">
         <Path
           d="M14 38 C2 38 2 24 14 23 C14 12 30 8 38 16 C44 4 66 4 70 18 C84 14 96 24 88 34 C92 38 88 40 84 40 Z"
-          fill="#E9E6FF"
+          fill={colors.sticker.lilac}
         />
       </Svg>
     </Animated.View>

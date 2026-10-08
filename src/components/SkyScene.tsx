@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { Animated, Easing, StyleSheet, View, useWindowDimensions } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { colors } from '../constants/theme';
-import { brightness, SkyPalette } from '../lib/skyColors';
+import { brightness, mixHex, SkyPalette } from '../lib/skyColors';
 
 // The School Sky backdrop: a sky that follows the real time of day, a field
 // of tiny stars, the odd shooting star, and a horizon with the school's
@@ -124,9 +124,13 @@ export default function SkyScene({ phase, painted }: { phase: SkyPhase; painted?
       })),
     []
   );
-  // A bright painted sky (a photo taken at noon) dims the star field.
-  const fieldOpacity = painted
-    ? Math.max(0.15, Math.min(1, 1.3 - brightness(painted[0]) * 2.2))
+  // The photos only tint the real sky: a little up high, more toward the
+  // horizon, so the top stays a believable night (or day) sky.
+  const tinted = painted
+    ? [mixHex(top, painted[0], 0.22), mixHex(mid, painted[1], 0.35), mixHex(bottom, painted[2], 0.5)]
+    : null;
+  const fieldOpacity = tinted
+    ? Math.max(0.15, Math.min(1, 1.3 - brightness(tinted[0]) * 2.2)) * STARFIELD_OPACITY[phase] + (1 - STARFIELD_OPACITY[phase]) * 0.1
     : STARFIELD_OPACITY[phase];
 
   return (
@@ -146,12 +150,20 @@ export default function SkyScene({ phase, painted }: { phase: SkyPhase; painted?
           <Svg style={StyleSheet.absoluteFill} preserveAspectRatio="none" viewBox="0 0 100 100">
             <Defs>
               <LinearGradient id="paintfill" x1="0" y1="0" x2="0" y2="1">
-                <Stop offset="0" stopColor={painted[0]} />
-                <Stop offset="0.5" stopColor={painted[1]} />
-                <Stop offset="1" stopColor={painted[2]} />
+                <Stop offset="0" stopColor={tinted![0]} />
+                <Stop offset="0.55" stopColor={tinted![1]} />
+                <Stop offset="1" stopColor={tinted![2]} />
               </LinearGradient>
+              {/* The photos' lower-sky colour as a soft glow over the
+                  horizon, like a sunset or the town's lights. */}
+              <RadialGradient id="horizonglow" cx="50%" cy="100%" rx="75%" ry="38%">
+                <Stop offset="0" stopColor={painted[2]} stopOpacity={0.55} />
+                <Stop offset="0.6" stopColor={painted[1]} stopOpacity={0.18} />
+                <Stop offset="1" stopColor={painted[1]} stopOpacity={0} />
+              </RadialGradient>
             </Defs>
             <Rect x="0" y="0" width="100" height="100" fill="url(#paintfill)" />
+            <Rect x="0" y="40" width="100" height="60" fill="url(#horizonglow)" />
           </Svg>
         </Animated.View>
       ) : null}

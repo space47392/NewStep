@@ -47,13 +47,35 @@ export async function extractSkyPalette(localUri: string): Promise<SkyPalette> {
   return [toHex(bandAverage(0, 3)), toHex(bandAverage(3, 5)), toHex(bandAverage(5, 7))];
 }
 
-// Blends today's palettes into one sky. Each band is averaged across
-// photos, then pulled toward the app's night navy — the top most, the
-// horizon least — so stars and white text stay readable even when the
-// photos were taken at noon.
-const NIGHT: RGB = [18, 15, 51];
-const PULL = [0.62, 0.45, 0.3];
+// Photos are often dull (grey clouds, an indoor shot, a hazy noon), and a
+// straight average of them turns muddy. Each colour gets its saturation and
+// lightness nudged into a range that reads as "sky light".
+function liven([r, g, b]: RGB): RGB {
+  const rn = r / 255, gn = g / 255, bn = b / 255;
+  const max = Math.max(rn, gn, bn), min = Math.min(rn, gn, bn);
+  let h = 0;
+  const l = (max + min) / 2;
+  const d = max - min;
+  let s = d === 0 ? 0 : d / (1 - Math.abs(2 * l - 1));
+  if (d !== 0) {
+    if (max === rn) h = ((gn - bn) / d) % 6;
+    else if (max === gn) h = (bn - rn) / d + 2;
+    else h = (rn - gn) / d + 4;
+    h *= 60;
+    if (h < 0) h += 360;
+  }
+  s = Math.min(0.85, Math.max(0.35, s * 1.5));
+  const L = Math.min(0.62, Math.max(0.35, l));
+  const c = (1 - Math.abs(2 * L - 1)) * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = L - c / 2;
+  const [r1, g1, b1] =
+    h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x] : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x];
+  return [(r1 + m) * 255, (g1 + m) * 255, (b1 + m) * 255];
+}
 
+// Today's photo palettes, averaged band by band and livened up. The sky
+// scene only tints with these (see SkyScene) — it never paints them on raw.
 export function paintSky(palettes: SkyPalette[]): SkyPalette | null {
   if (palettes.length === 0) return null;
   const bands = [0, 1, 2].map((band) => {
@@ -61,9 +83,14 @@ export function paintSky(palettes: SkyPalette[]): SkyPalette | null {
       .map((p) => fromHex(p[band]))
       .reduce<RGB>((acc, c) => [acc[0] + c[0], acc[1] + c[1], acc[2] + c[2]], [0, 0, 0])
       .map((v) => v / palettes.length) as RGB;
-    return toHex(mix(avg, NIGHT, PULL[band]));
+    return toHex(liven(avg));
   });
   return bands as SkyPalette;
+}
+
+// a → b by t (0–1), for hex colours.
+export function mixHex(a: string, b: string, t: number): string {
+  return toHex(mix(fromHex(a), fromHex(b), t));
 }
 
 // Perceived brightness (0–1) of a colour, to dim the star field on a

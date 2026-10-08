@@ -25,6 +25,7 @@ import Svg, { Path, Defs, RadialGradient, Circle, Stop } from 'react-native-svg'
 import SkyScene, { Horizon, skyPhase, phaseWords } from '../../components/SkyScene';
 import { extractSkyPalette, paintSky, SkyPalette } from '../../lib/skyColors';
 import SkyWeather from '../../components/SkyWeather';
+import PolaroidString from '../../components/PolaroidString';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import {
@@ -585,6 +586,22 @@ export default function SchoolSkyScreen() {
               {weatherLine(moods[0], route.params?.schoolName, phaseWords(phase).toLowerCase())}
             </Text>
           ) : null}
+          {palettes.length > 0 ? (
+            <View style={styles.paintedTag}>
+              <Text style={styles.paintedText}>
+                🎨 Sky painted from {palettes.length} {palettes.length === 1 ? 'photo' : 'photos'}
+              </Text>
+              <View style={styles.swatches}>
+                {palettes.slice(0, 4).map((p, i) => (
+                  <View key={i} style={[styles.swatch, { marginLeft: i === 0 ? 0 : -4 }]}>
+                    {p.map((c, j) => (
+                      <View key={j} style={{ flex: 1, backgroundColor: c }} />
+                    ))}
+                  </View>
+                ))}
+              </View>
+            </View>
+          ) : null}
         </View>
         <TouchableOpacity
           onPress={() => navigation.navigate('SkyDiary')}
@@ -598,47 +615,20 @@ export default function SchoolSkyScreen() {
 
       {stars.some((s) => s.photo_url) ? (
         <View style={styles.photoStrip}>
-          <View style={styles.photoStripHeader}>
-            <Text style={styles.photoStripLabel}>📷 Today's real sky</Text>
-            {palettes.length > 0 ? (
-              <View style={styles.paintedTag}>
-                <Text style={styles.paintedText}>
-                  🎨 Sky painted from {palettes.length} {palettes.length === 1 ? 'photo' : 'photos'}
-                </Text>
-                <View style={styles.swatches}>
-                  {palettes.slice(0, 4).map((p, i) => (
-                    <View key={i} style={[styles.swatch, { marginLeft: i === 0 ? 0 : -4 }]}>
-                      {p.map((c, j) => (
-                        <View key={j} style={{ flex: 1, backgroundColor: c }} />
-                      ))}
-                    </View>
-                  ))}
-                </View>
-              </View>
-            ) : null}
-          </View>
-          <FlatList
-            horizontal
-            data={stars.filter((s) => s.photo_url)}
-            keyExtractor={(s) => s.user_id}
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.photoRail}
-            renderItem={({ item: s }) => (
-              <TouchableOpacity
-                activeOpacity={0.85}
-                onPress={() => setSelectedId(s.user_id)}
-                style={[styles.photoThumb, s.user_id === selectedId && styles.photoThumbSelected]}
-                accessibilityRole="button"
-                accessibilityLabel={`Sky photo from ${s.user_id === user?.id ? 'you' : s.profile?.full_name ?? 'a classmate'}`}
-              >
-                <Image source={{ uri: s.photo_url! }} style={styles.photoThumbImage} />
-                <View style={styles.photoThumbTag}>
-                  <Text style={styles.photoThumbTagText} numberOfLines={1}>
-                    {skyMood(s.mood).emoji} {s.user_id === user?.id ? 'You' : s.profile?.full_name?.trim().split(/\s+/)[0] ?? ''}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            )}
+          <PolaroidString
+            items={stars
+              .filter((s) => s.photo_url)
+              .map((s) => ({
+                id: s.user_id,
+                uri: s.photo_url!,
+                caption: `${skyMood(s.mood).emoji} ${s.user_id === user?.id ? 'You' : s.profile?.full_name?.trim().split(/\s+/)[0] ?? ''}`,
+                selected: s.user_id === selectedId,
+              }))}
+            onPressItem={(id) => {
+              Haptics.selectionAsync();
+              setSelectedWishId(null);
+              setSelectedId(id);
+            }}
           />
         </View>
       ) : null}
@@ -1148,8 +1138,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   photoStrip: {
-    paddingLeft: spacing.lg,
-    gap: 6,
+    marginTop: -spacing.xs,
   },
   photoStripHeader: {
     flexDirection: 'row',
@@ -1159,6 +1148,8 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   paintedTag: {
+    alignSelf: 'flex-start',
+    marginTop: 6,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,

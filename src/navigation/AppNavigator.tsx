@@ -1,6 +1,21 @@
 import { useEffect, useRef, useState } from 'react';
 import { Alert, Linking } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, DarkTheme } from '@react-navigation/native';
+import { colors } from '../constants/theme';
+
+// Native backgrounds (screen transitions, overscroll) match the soft-night
+// palette so nothing flashes white between screens.
+const NAV_THEME = {
+  ...DarkTheme,
+  colors: {
+    ...DarkTheme.colors,
+    primary: colors.primary,
+    background: colors.background,
+    card: colors.tabBar,
+    text: colors.textDark,
+    border: colors.border,
+  },
+};
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { useAuth } from '../contexts/AuthContext';
@@ -153,7 +168,7 @@ export default function AppNavigator() {
     !welcomeOnboardingDone;
 
   return (
-    <NavigationContainer ref={navigationRef}>
+    <NavigationContainer ref={navigationRef} theme={NAV_THEME}>
       <RootStack.Navigator screenOptions={{ headerShown: false, contentStyle }}>
         {recoveringPassword && session ? (
           <RootStack.Screen name="ResetPassword">

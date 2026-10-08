@@ -25,7 +25,7 @@ type Props = {
 };
 
 export default function TabGlyph({ name, active, size = 26 }: Props) {
-  const ink = active ? colors.textDark : colors.tabInactive;
+  const ink = active ? colors.ink : colors.tabInactive;
   const fill = active ? FILLS[name] : 'none';
   const s = { stroke: ink, strokeWidth: 3.6, strokeLinejoin: 'round' as const, strokeLinecap: 'round' as const };
 
@@ -66,7 +66,7 @@ export default function TabGlyph({ name, active, size = 26 }: Props) {
             {...s}
           />
           {active && (
-            <G fill={colors.textDark}>
+            <G fill={colors.ink}>
               <Circle cx={16} cy={21} r={2.4} />
               <Circle cx={24} cy={21} r={2.4} />
               <Circle cx={32} cy={21} r={2.4} />

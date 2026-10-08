@@ -1,43 +1,47 @@
+// "Soft night": the whole app sits in a muted version of the app icon's
+// starry night. Deliberately calmer than the icon's own navy (#1C1752) so
+// it reads as a backdrop, not a statement. Token names are kept from the
+// old light theme: textDark is now the *main* (light) text colour, the
+// *Light tokens are dim tinted surfaces, and the *Dark tokens are the bright
+// pastel text/icon colour used on those tints.
 export const colors = {
-  primary: '#6C63FF',
-  primaryLight: '#EEF0FF',
-  // Text on primaryLight (badges, links on tinted chips) — #6C63FF itself
-  // is only ~3.8:1 there.
-  primaryDark: '#5148E8',
+  primary: '#7C74FF',
+  primaryLight: '#2B2856',
+  // Text on primaryLight (badges, links on tinted chips).
+  primaryDark: '#C9C5FF',
   secondary: '#FF6584',
-  secondaryLight: '#FFE9EE',
-  // Text/fill-on-white variants of secondary/accent — the base tones are
-  // too light to read as text on their own *Light backgrounds (mint on mint
-  // was ~1.7:1) or under white text.
-  secondaryDark: '#C42B5F',
+  secondaryLight: '#3A2238',
+  secondaryDark: '#FF9BB0',
   accent: '#43D9A2',
-  accentLight: '#E3FBF1',
-  accentDark: '#167A57',
-  background: '#F8F9FE',
-  cardBg: '#FFFFFF',
-  textDark: '#1A1A2E',
-  textMid: '#4A4A68',
-  // Darkened from #9A9AB4 (2.6:1) so timestamps/meta stay readable.
-  textLight: '#73738F',
-  border: '#E8E8F0',
-  tabBar: '#FFFFFF',
-  tabActive: '#6C63FF',
-  tabInactive: '#B0B0C8',
-  error: '#FF4D4D',
-  errorLight: '#FFEAEA',
+  accentLight: '#173832',
+  accentDark: '#7EE6BE',
+  background: '#16152B',
+  cardBg: '#211F3B',
+  textDark: '#F2F1FA',
+  textMid: '#C4C2DC',
+  textLight: '#9592B3',
+  border: '#302D50',
+  tabBar: '#1B1A34',
+  tabActive: '#B7B1FF',
+  tabInactive: '#6E6B90',
+  error: '#FF6B6B',
+  errorLight: '#3D1F2A',
   success: '#43D9A2',
+  // Solid fill behind white text (success buttons).
+  successSolid: '#1F8A63',
   warning: '#FFB800',
-  warningLight: '#FFF4D6',
-  // Post-type colors, so every category reads as its own color (School
-  // Question and Event used to share primary/primaryLight).
-  questionLight: '#ECEAFF',
-  eventDark: '#8A5A00',
-  eventLight: '#FFF1CC',
-  // App icon / splash / footprint intro background — matches the
-  // "Starry Step" app icon so opening the app flows straight into the intro.
+  warningLight: '#3A311C',
+  questionLight: '#2B2856',
+  eventDark: '#FFD45C',
+  eventLight: '#3A311C',
+  // A step above cards: toasts, floating buttons, sheets.
+  raised: '#2C2950',
+  // App icon / splash / footprint intro background.
   night: '#1C1752',
-  // NewStep sticker icon fills (NSIcon). Kept here so the icons and the
-  // screens share one palette.
+  // Sticker outline ink (NSIcon, InterestIcon, TabGlyph). Stays dark in
+  // every theme — it's part of the sticker art, not text.
+  ink: '#1A1A2E',
+  // NewStep sticker icon fills (NSIcon).
   sticker: {
     yellow: '#FFD45C',
     pink: '#FF9BB0',

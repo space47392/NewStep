@@ -726,7 +726,7 @@ export default function FeedScreen() {
       {/* Light status-bar icons over the night sky; once it scrolls away,
           a plain bar slides in behind dark icons so posts never run under
           the clock. */}
-      {isFocused ? <StatusBar style={scrolledPastSky ? 'dark' : 'light'} /> : null}
+      {isFocused ? <StatusBar style="light" /> : null}
       <FlatList
         onScroll={(e) => {
           const past = skyHeight > 0 && e.nativeEvent.contentOffset.y > skyHeight - insets.top;
@@ -1454,7 +1454,7 @@ const styles = StyleSheet.create({
   },
   feedModeRow: {
     flexDirection: 'row',
-    backgroundColor: colors.border,
+    backgroundColor: colors.cardBg,
     borderRadius: radius.full,
     padding: 3,
     marginTop: spacing.md,
@@ -1466,7 +1466,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.full,
   },
   feedModeTabActive: {
-    backgroundColor: colors.cardBg,
+    backgroundColor: colors.primaryLight,
     ...shadow.subtle,
   },
   feedModeText: {
@@ -1475,7 +1475,7 @@ const styles = StyleSheet.create({
     color: colors.textMid,
   },
   feedModeTextActive: {
-    color: colors.primary,
+    color: colors.primaryDark,
   },
   loadMoreButton: {
     alignItems: 'center',

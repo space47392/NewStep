@@ -141,7 +141,7 @@ export default function App() {
     <SafeAreaProvider>
       <AuthProvider>
         <ToastProvider>
-          <StatusBar style="dark" />
+          <StatusBar style="light" />
           <AppNavigator />
         </ToastProvider>
       </AuthProvider>

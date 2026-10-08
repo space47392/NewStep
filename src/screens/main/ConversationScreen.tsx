@@ -1189,7 +1189,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: '#fff',
+    backgroundColor: colors.raised,
     borderWidth: 1,
     borderColor: colors.border,
     ...shadow,

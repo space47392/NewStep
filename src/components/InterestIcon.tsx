@@ -8,7 +8,7 @@ import NSIcon from './NSIcon';
 // an interest is drawn as a chip; unknown/custom interests fall back to the
 // sparkles sticker.
 
-const INK = colors.textDark;
+const INK = colors.ink;
 const SW = 2.6;
 const { yellow: YELLOW, pink: PINK, mint: MINT, lilac: LILAC, blue: BLUE } = colors.sticker;
 const ORANGE = '#FFA45C';

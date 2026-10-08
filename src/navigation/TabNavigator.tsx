@@ -137,7 +137,7 @@ export default function TabNavigator() {
           return <TabIcon name={TAB_ICONS[route.name]} focused={focused} size={size} />;
         },
         tabBarBadgeStyle: {
-          backgroundColor: colors.secondaryDark,
+          backgroundColor: colors.secondary,
           fontFamily: fontFamily.bold,
           fontSize: 10,
           // Nudged off the icon so it doesn't cover the raised hand.

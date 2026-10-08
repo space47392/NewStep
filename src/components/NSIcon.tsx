@@ -32,7 +32,7 @@ type Props = {
   size?: number;
 };
 
-const INK = colors.textDark;
+const INK = colors.ink;
 const SW = 2.6; // outline width, in the 48×48 drawing grid
 
 const { yellow: YELLOW, pink: PINK, mint: MINT, lilac: LILAC, blue: BLUE } = colors.sticker;

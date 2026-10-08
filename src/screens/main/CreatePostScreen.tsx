@@ -399,7 +399,7 @@ export default function CreatePostScreen() {
                 hitSlop={{ top: 8, bottom: 8 }}
               >
                 <NSIcon name={style.nsIcon} size={20} />
-                <Text style={[styles.chipText, { color: selected ? '#fff' : style.text }]}>{c}</Text>
+                <Text style={[styles.chipText, { color: selected ? colors.ink : style.text }]}>{c}</Text>
               </TouchableOpacity>
             );
           })}
@@ -806,13 +806,13 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: radius.full,
     borderWidth: 2,
-    borderColor: colors.secondaryDark,
+    borderColor: colors.secondary,
     backgroundColor: colors.cardBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   helpGuideNumberActive: {
-    backgroundColor: colors.secondaryDark,
+    backgroundColor: colors.secondary,
   },
   helpGuideNumberText: {
     fontFamily: fontFamily.bold,
@@ -826,7 +826,7 @@ const styles = StyleSheet.create({
     flex: 1,
     width: 2,
     minHeight: 12,
-    backgroundColor: colors.secondaryDark,
+    backgroundColor: colors.secondary,
     opacity: 0.3,
   },
   helpGuideText: {

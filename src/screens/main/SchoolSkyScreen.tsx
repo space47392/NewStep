@@ -12,6 +12,7 @@ import {
   Easing,
   Image,
   FlatList,
+  ScrollView,
   StyleSheet,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
@@ -25,7 +26,6 @@ import Svg, { Path, Defs, RadialGradient, Circle, Stop } from 'react-native-svg'
 import SkyScene, { Horizon, skyPhase, phaseWords } from '../../components/SkyScene';
 import { extractSkyPalette, paintSky, SkyPalette } from '../../lib/skyColors';
 import SkyWeather from '../../components/SkyWeather';
-import PolaroidString from '../../components/PolaroidString';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import {
@@ -340,6 +340,9 @@ export default function SchoolSkyScreen() {
   const [wishes, setWishes] = useState<SkyWish[]>([]);
   const [selectedWishId, setSelectedWishId] = useState<string | null>(null);
   const [wishOpen, setWishOpen] = useState(false);
+  // "Today's real sky": the photos the sky was painted from, opened from
+  // the painted tag rather than hung in the sky itself.
+  const [galleryOpen, setGalleryOpen] = useState(false);
   const [wishText, setWishText] = useState('');
   const [wishSaving, setWishSaving] = useState(false);
   // A little light that flies from the bottom of the sky to a star when you
@@ -587,7 +590,13 @@ export default function SchoolSkyScreen() {
             </Text>
           ) : null}
           {palettes.length > 0 ? (
-            <View style={styles.paintedTag}>
+            <TouchableOpacity
+              style={styles.paintedTag}
+              activeOpacity={0.8}
+              onPress={() => setGalleryOpen(true)}
+              accessibilityRole="button"
+              accessibilityLabel="See today's real sky photos"
+            >
               <Text style={styles.paintedText}>
                 🎨 Sky painted from {palettes.length} {palettes.length === 1 ? 'photo' : 'photos'}
               </Text>
@@ -600,7 +609,8 @@ export default function SchoolSkyScreen() {
                   </View>
                 ))}
               </View>
-            </View>
+              <Ionicons name="chevron-forward" size={12} color="rgba(255,255,255,0.7)" />
+            </TouchableOpacity>
           ) : null}
         </View>
         <TouchableOpacity
@@ -613,25 +623,6 @@ export default function SchoolSkyScreen() {
         </TouchableOpacity>
       </View>
 
-      {stars.some((s) => s.photo_url) ? (
-        <View style={styles.photoStrip}>
-          <PolaroidString
-            items={stars
-              .filter((s) => s.photo_url)
-              .map((s) => ({
-                id: s.user_id,
-                uri: s.photo_url!,
-                caption: `${skyMood(s.mood).emoji} ${s.user_id === user?.id ? 'You' : s.profile?.full_name?.trim().split(/\s+/)[0] ?? ''}`,
-                selected: s.user_id === selectedId,
-              }))}
-            onPressItem={(id) => {
-              Haptics.selectionAsync();
-              setSelectedWishId(null);
-              setSelectedId(id);
-            }}
-          />
-        </View>
-      ) : null}
 
       <TouchableOpacity
         style={styles.sky}
@@ -920,6 +911,50 @@ export default function SchoolSkyScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+      <Modal visible={galleryOpen} transparent animationType="fade" onRequestClose={() => setGalleryOpen(false)}>
+        <View style={styles.galleryBackdrop}>
+          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setGalleryOpen(false)} />
+          <Text style={styles.galleryTitle}>Today's real sky</Text>
+          <Text style={styles.gallerySub}>The photos tonight's sky was painted from</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.galleryRail}
+            style={styles.galleryScroll}
+          >
+            {stars
+              .filter((st) => st.photo_url)
+              .map((st, i) => (
+                <TouchableOpacity
+                  key={st.user_id}
+                  activeOpacity={0.9}
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    setGalleryOpen(false);
+                    setSelectedWishId(null);
+                    setSelectedId(st.user_id);
+                  }}
+                  style={[styles.galleryCard, { transform: [{ rotate: i % 2 === 0 ? '-3deg' : '2.5deg' }] }]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Sky photo from ${st.user_id === user?.id ? 'you' : st.profile?.full_name ?? 'a classmate'}`}
+                >
+                  <Image source={{ uri: st.photo_url! }} style={styles.galleryPhoto} />
+                  <Text style={styles.galleryCaption} numberOfLines={1}>
+                    {skyMood(st.mood).emoji} {st.user_id === user?.id ? 'You' : st.profile?.full_name?.trim().split(/\s+/)[0] ?? ''}
+                  </Text>
+                  {st.sky_colors ? (
+                    <View style={styles.galleryPalette}>
+                      {st.sky_colors.map((c, j) => (
+                        <View key={j} style={{ flex: 1, backgroundColor: c }} />
+                      ))}
+                    </View>
+                  ) : null}
+                </TouchableOpacity>
+              ))}
+          </ScrollView>
+          <Text style={styles.galleryHint}>Tap a photo to find their star</Text>
+        </View>
+      </Modal>
       <ReportSheet target={reportTarget} reporterId={user?.id} onClose={() => setReportTarget(null)} />
     </View>
   );
@@ -1159,6 +1194,75 @@ const styles = StyleSheet.create({
     paddingRight: 4,
     paddingVertical: 3,
     flexShrink: 1,
+  },
+  galleryBackdrop: {
+    flex: 1,
+    justifyContent: 'center',
+    backgroundColor: 'rgba(10,9,26,0.88)',
+    paddingVertical: spacing.xl,
+  },
+  galleryTitle: {
+    fontFamily: fontFamily.brand,
+    fontSize: fontSize.xl,
+    color: '#fff',
+    textAlign: 'center',
+  },
+  gallerySub: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    color: colors.sticker.lilac,
+    textAlign: 'center',
+    marginTop: 2,
+  },
+  galleryScroll: {
+    flexGrow: 0,
+    marginVertical: spacing.lg,
+  },
+  galleryRail: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+    gap: spacing.lg,
+  },
+  galleryCard: {
+    width: 210,
+    backgroundColor: '#FBF8F1',
+    borderRadius: 4,
+    padding: 10,
+    paddingBottom: 8,
+    shadowColor: '#000',
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
+  },
+  galleryPhoto: {
+    width: '100%',
+    height: 250,
+    borderRadius: 2,
+    backgroundColor: '#ddd',
+  },
+  galleryCaption: {
+    fontFamily: fontFamily.brand,
+    fontSize: fontSize.md,
+    color: '#3B3557',
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  // The three colours read from this photo, as a little paint strip.
+  galleryPalette: {
+    flexDirection: 'row',
+    height: 8,
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginTop: 6,
+  },
+  galleryHint: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    color: colors.textLight,
+    textAlign: 'center',
   },
   paintedText: {
     fontFamily: fontFamily.medium,

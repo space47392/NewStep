@@ -105,8 +105,12 @@ export function starPosition(userId: string, index: number): { x: number; y: num
   const b = ((Math.imul(h, 2654435761) >>> 0) % 10000) / 10000;
   // Spread rows so crowded skies don't stack everything in one band.
   const row = index % 5;
-  // Kept above the horizon silhouette (bottom of the sky).
-  return { x: 0.1 + a * 0.8, y: 0.1 + row * 0.12 + b * 0.09 };
+  // Kept above the horizon silhouette (bottom of the sky), and out of the
+  // moon's corner (top right), where a star would sit on top of the moon.
+  const x = 0.1 + a * 0.8;
+  let y = 0.1 + row * 0.12 + b * 0.09;
+  if (x > 0.62 && y < 0.3) y += 0.22;
+  return { x, y };
 }
 
 // ---------------------------------------------------------------------------

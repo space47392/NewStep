@@ -37,6 +37,7 @@ import {
   removeSkyPhoto,
   describeSky,
   sharedSky,
+  blendDescribedSky,
   THING_EMOJI,
   SkyScene as DescribedSky,
   fetchTodayTwinkles,
@@ -615,15 +616,7 @@ export default function SchoolSkyScreen() {
   const shared = sharedSky(stars);
   // The sky as classmates described it today: their colours averaged band
   // by band, the most common cloudiness, clouds tinted from the horizon.
-  const describedStars = stars.filter((st) => st.sky_desc && st.sky_colors);
-  const todaysLook: DescribedSkyLook | null = describedStars.length
-    ? (() => {
-        const colors = [0, 1, 2].map((band) =>
-          describedStars.reduce((acc, st, i) => (i === 0 ? st.sky_colors![band] : mixHex(acc, st.sky_colors![band], 1 / (i + 1))), '')
-        ) as SkyPalette;
-        return { colors, clouds: shared.clouds ?? 'few', cloudColor: mixHex(colors[2], '#ffffff', 0.45) };
-      })()
-    : null;
+  const todaysLook: DescribedSkyLook | null = blendDescribedSky(stars);
   const previewLook: DescribedSkyLook | null =
     previewing && skyScene ? { colors: skyScene.colors, clouds: skyScene.clouds, cloudColor: skyScene.cloud_color } : null;
   const shownThings = previewing && skyScene ? skyScene.things : shared.things;

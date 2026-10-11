@@ -3,6 +3,7 @@ import { supabase } from './supabase';
 import { colors } from '../constants/theme';
 import { SkyPalette } from './skyColors';
 import { interpretSky } from './skyInterpret';
+import { mixHex } from './skyColors';
 
 // School Sky (supabase/school_sky.sql): one mood star per student, visible
 // to classmates for 24 hours after it was last set.
@@ -121,6 +122,23 @@ export async function setMyStar(params: {
     p_sky_things: scene?.things ?? null,
   });
   if (error) throw error;
+}
+
+// Today's sky as classmates described it: their colours averaged band by
+// band, the most common cloudiness, and what they saw. Null when nobody
+// has described the sky today.
+export type TodaySky = { colors: SkyPalette; clouds: SkyClouds; cloudColor: string; things: SkyThing[] };
+
+export function blendDescribedSky(
+  stars: { sky_desc: string | null; sky_colors: SkyPalette | null; sky_things: SkyThing[] | null; sky_clouds: SkyClouds | null }[]
+): TodaySky | null {
+  const described = stars.filter((s) => s.sky_desc && s.sky_colors);
+  if (described.length === 0) return null;
+  const colors = [0, 1, 2].map((band) =>
+    described.reduce((acc, s, i) => (i === 0 ? s.sky_colors![band] : mixHex(acc, s.sky_colors![band], 1 / (i + 1))), '')
+  ) as SkyPalette;
+  const shared = sharedSky(described);
+  return { colors, clouds: shared.clouds ?? 'few', cloudColor: mixHex(colors[2], '#ffffff', 0.45), things: shared.things };
 }
 
 export const THING_EMOJI: Record<SkyThing, string> = {

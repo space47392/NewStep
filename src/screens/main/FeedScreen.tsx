@@ -38,6 +38,7 @@ import NSIcon from '../../components/NSIcon';
 import AppLogo from '../../components/AppLogo';
 import NightSkyCard from '../../components/NightSkyCard';
 import SkyPeek from '../../components/SkyPeek';
+import { useTodaySky } from '../../lib/useTodaySky';
 import PrimaryButton from '../../components/PrimaryButton';
 import ActionSheet, { ActionSheetAction } from '../../components/ActionSheet';
 import ReportSheet from '../../components/ReportSheet';
@@ -90,6 +91,8 @@ export default function FeedScreen() {
   // has no top padding for this screen — see TabNavigator).
   const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
+  // Today's School Sky, as classmates described it, fills the header.
+  const todaySky = useTodaySky(user?.id);
   const [skyHeight, setSkyHeight] = useState(0);
   const [scrolledPastSky, setScrolledPastSky] = useState(false);
   const [posts, setPosts] = useState<Post[]>([]);
@@ -749,6 +752,7 @@ export default function FeedScreen() {
             {/* The app icon's starry night carries into Home: greeting and
                 school line sit on a twinkling navy card. */}
             <NightSkyCard
+              sky={todaySky}
               style={[styles.skyCard, { paddingTop: insets.top + spacing.md }]}
               onLayout={(e) => setSkyHeight(e.nativeEvent.layout.height)}
             >

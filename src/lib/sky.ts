@@ -2,6 +2,7 @@ import { File } from 'expo-file-system';
 import { supabase } from './supabase';
 import { colors } from '../constants/theme';
 import { SkyPalette } from './skyColors';
+import { interpretSky } from './skyInterpret';
 
 // School Sky (supabase/school_sky.sql): one mood star per student, visible
 // to classmates for 24 hours after it was last set.
@@ -69,10 +70,21 @@ export type SkyScene = {
   title: string;
 };
 
-// Sends the student's words to the describe-sky Edge Function, which asks
-// Claude to turn them into painting instructions. Returns null when the
-// text wasn't a harmless sky description.
-export async function describeSky(text: string, timeOfDay: string): Promise<SkyScene | null> {
+// Turn the AI painter on once the describe-sky Edge Function is deployed
+// with an ANTHROPIC_API_KEY (a paid API). Until then the description is
+// read on the phone itself (skyInterpret.ts) — free and instant.
+const USE_AI_PAINTER = false;
+
+// Paints a student's description of the sky. Returns null when the text
+// isn't about the sky.
+export async function describeSky(text: string, timeOfDay: 'dawn' | 'day' | 'dusk' | 'night'): Promise<SkyScene | null> {
+  if (!USE_AI_PAINTER) return interpretSky(text, timeOfDay);
+  return describeSkyWithAI(text, timeOfDay);
+}
+
+// The AI version: sends the words to the describe-sky Edge Function, which
+// asks Claude for painting instructions and screens the text.
+async function describeSkyWithAI(text: string, timeOfDay: string): Promise<SkyScene | null> {
   const { data, error } = await supabase.functions.invoke('describe-sky', { body: { text, timeOfDay } });
   if (error) {
     // The function's own message (rate limit, sign-in) when there is one.

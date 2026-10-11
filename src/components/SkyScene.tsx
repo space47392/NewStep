@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { Animated, Easing, StyleSheet, View, useWindowDimensions } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { colors } from '../constants/theme';
-import { brightness, mixHex, SkyPalette } from '../lib/skyColors';
+import { SkyPalette } from '../lib/skyColors';
 import { Tilt, tiltTransform } from '../lib/useTilt';
 
 // The School Sky backdrop: a sky that follows the real time of day, a field
@@ -23,13 +23,6 @@ export function skyPhase(date = new Date()): SkyPhase {
 export function phaseWords(phase: SkyPhase): string {
   return { dawn: 'This morning', day: 'Today', dusk: 'This evening', night: 'Tonight' }[phase];
 }
-
-const GRADIENTS: Record<SkyPhase, [string, string, string]> = {
-  night: ['#2B2470', colors.night, '#120F33'],
-  dawn: ['#3E3288', '#9A6AA6', '#E9A99B'],
-  day: ['#33489A', '#5F7FC6', '#9DB6E4'],
-  dusk: ['#2A2270', '#7E4686', '#E38A6A'],
-};
 
 // How visible the star field is at each time of day.
 const STARFIELD_OPACITY: Record<SkyPhase, number> = { night: 1, dusk: 0.55, dawn: 0.45, day: 0.12 };
@@ -104,69 +97,86 @@ function ShootingStar() {
   );
 }
 
-// painted: today's sky colours from classmates' photos. When present it
-// fades in over the time-of-day sky, like the sky being painted.
+// Hand-made sky backdrops (assets/sky): a realistic sky for each time of
+// day — dawn pastels, a clear blue day with cumulus, a sunset with clouds
+// lit from below, a starry night with the Milky Way. Generated once and
+// shipped with the app, so it costs nothing to draw.
+const SKY_IMAGES: Record<SkyPhase, number> = {
+  dawn: require('../../assets/sky/dawn.jpg'),
+  day: require('../../assets/sky/day.jpg'),
+  dusk: require('../../assets/sky/dusk.jpg'),
+  night: require('../../assets/sky/night.jpg'),
+};
+
+// painted: today's sky colours from classmates' photos. It fades in as a
+// light tint over the real sky — never replaces it.
 export default function SkyScene({ phase, painted, tilt }: { phase: SkyPhase; painted?: SkyPalette | null; tilt?: Tilt }) {
-  // The whole star field turns very slowly, like the real night sky does.
-  const turn = useRef(new Animated.Value(0)).current;
+  const { width, height } = useWindowDimensions();
+  // A very slow drift, like clouds and stars moving across the sky.
+  const drift = useRef(new Animated.Value(0)).current;
   useEffect(() => {
-    const loop = Animated.loop(Animated.timing(turn, { toValue: 1, duration: 900000, easing: Easing.linear, useNativeDriver: true }));
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(drift, { toValue: 1, duration: 60000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(drift, { toValue: 0, duration: 60000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      ])
+    );
     loop.start();
     return () => loop.stop();
-  }, [turn]);
-  const [top, mid, bottom] = GRADIENTS[phase];
+  }, [drift]);
+
   const paint = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     if (!painted) return;
     paint.setValue(0);
     Animated.timing(paint, { toValue: 1, duration: 1600, easing: Easing.inOut(Easing.quad), useNativeDriver: true }).start();
   }, [painted?.join(','), paint]);
-  const field = useMemo(
+
+  // A few stars on top of the image that twinkle, so the night is alive.
+  const twinkles = useMemo(
     () =>
-      Array.from({ length: 220 }, (_, i) => ({
+      Array.from({ length: 26 }, (_, i) => ({
         x: seeded(i + 1),
-        y: seeded(i + 101),
-        r: seeded(i + 201) < 0.85 ? 0.8 : 1.4,
-        twinkle: seeded(i + 301) < 0.12,
+        y: seeded(i + 101) * 0.6,
+        r: seeded(i + 201) < 0.8 ? 0.9 : 1.4,
         delay: Math.floor(seeded(i + 401) * 3000),
       })),
     []
   );
-  // The photos only tint the real sky: a little up high, more toward the
-  // horizon, so the top stays a believable night (or day) sky.
-  const tinted = painted
-    ? [mixHex(top, painted[0], 0.22), mixHex(mid, painted[1], 0.35), mixHex(bottom, painted[2], 0.5)]
-    : null;
-  const fieldOpacity = tinted
-    ? Math.max(0.15, Math.min(1, 1.3 - brightness(tinted[0]) * 2.2)) * STARFIELD_OPACITY[phase] + (1 - STARFIELD_OPACITY[phase]) * 0.1
-    : STARFIELD_OPACITY[phase];
+  const twinkleOpacity = STARFIELD_OPACITY[phase];
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      <Svg style={StyleSheet.absoluteFill} preserveAspectRatio="none" viewBox="0 0 100 100">
-        <Defs>
-          <LinearGradient id="skyfill" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0" stopColor={top} />
-            <Stop offset="0.55" stopColor={mid} />
-            <Stop offset="1" stopColor={bottom} />
-          </LinearGradient>
-        </Defs>
-        <Rect x="0" y="0" width="100" height="100" fill="url(#skyfill)" />
-      </Svg>
+      {/* The real sky: slightly oversized so the drift and tilt never
+          show an edge. */}
+      <Animated.Image
+        source={SKY_IMAGES[phase]}
+        resizeMode="cover"
+        style={[
+          styles.skyImage,
+          { width: width * 1.12, height: height * 1.08 },
+          {
+            transform: [
+              ...tiltTransform(tilt, 6),
+              { translateX: drift.interpolate({ inputRange: [0, 1], outputRange: [-width * 0.04, width * 0.04] }) },
+              { scale: drift.interpolate({ inputRange: [0, 0.5, 1], outputRange: [1, 1.03, 1] }) },
+            ],
+          },
+        ]}
+      />
       {painted ? (
         <Animated.View style={[StyleSheet.absoluteFill, { opacity: paint }]}>
           <Svg style={StyleSheet.absoluteFill} preserveAspectRatio="none" viewBox="0 0 100 100">
             <Defs>
               <LinearGradient id="paintfill" x1="0" y1="0" x2="0" y2="1">
-                <Stop offset="0" stopColor={tinted![0]} />
-                <Stop offset="0.55" stopColor={tinted![1]} />
-                <Stop offset="1" stopColor={tinted![2]} />
+                <Stop offset="0" stopColor={painted[0]} stopOpacity={0.12} />
+                <Stop offset="0.55" stopColor={painted[1]} stopOpacity={0.2} />
+                <Stop offset="1" stopColor={painted[2]} stopOpacity={0.32} />
               </LinearGradient>
               {/* The photos' lower-sky colour as a soft glow over the
                   horizon, like a sunset or the town's lights. */}
               <RadialGradient id="horizonglow" cx="50%" cy="100%" rx="75%" ry="38%">
-                <Stop offset="0" stopColor={painted[2]} stopOpacity={0.55} />
-                <Stop offset="0.6" stopColor={painted[1]} stopOpacity={0.18} />
+                <Stop offset="0" stopColor={painted[2]} stopOpacity={0.45} />
                 <Stop offset="1" stopColor={painted[1]} stopOpacity={0} />
               </RadialGradient>
             </Defs>
@@ -175,71 +185,30 @@ export default function SkyScene({ phase, painted, tilt }: { phase: SkyPhase; pa
           </Svg>
         </Animated.View>
       ) : null}
-      {/* Far layer: the star field and the Milky Way, on a square twice the
-          screen's size so it can turn without showing its edges. Barely
-          moves with tilt — it's the farthest thing. */}
-      <Animated.View
-        style={[
-          styles.farField,
-          {
-            transform: [
-              ...tiltTransform(tilt, 5),
-              { rotate: turn.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) },
-            ],
-          },
-        ]}
-      >
-        <Svg style={StyleSheet.absoluteFill} viewBox="0 0 100 100">
-          <Defs>
-            <LinearGradient id="milkyway" x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0" stopColor="#C9C2FF" stopOpacity={0} />
-              <Stop offset="0.5" stopColor="#E6E1FF" stopOpacity={0.16} />
-              <Stop offset="1" stopColor="#C9C2FF" stopOpacity={0} />
-            </LinearGradient>
-          </Defs>
-          {/* A soft diagonal band of light… */}
-          <Rect x="-20" y="42" width="140" height="16" fill="url(#milkyway)" opacity={fieldOpacity} transform="rotate(-28 50 50)" />
-          <Rect x="-20" y="46" width="140" height="7" fill="url(#milkyway)" opacity={fieldOpacity * 0.8} transform="rotate(-28 50 50)" />
-          {/* …dusted with far more tiny stars than the rest of the sky. */}
-          {Array.from({ length: 160 }, (_, i) => {
-            const along = seeded(i + 601) * 140 - 20;
-            const across = (seeded(i + 701) + seeded(i + 801) - 1) * 7;
-            const a = (-28 * Math.PI) / 180;
-            const cx = 50 + (along - 50) * Math.cos(a) - across * Math.sin(a);
-            const cy = 50 + (along - 50) * Math.sin(a) + across * Math.cos(a);
-            return <Circle key={`m${i}`} cx={cx} cy={cy} r={0.06 + seeded(i + 901) * 0.06} fill="#fff" opacity={0.5 * fieldOpacity} />;
-          })}
-          {field
-            .filter((s) => !s.twinkle)
-            .map((s, i) => (
-              <Circle key={i} cx={s.x * 100} cy={s.y * 100} r={s.r * 0.07} fill="#fff" opacity={0.6 * fieldOpacity} />
-            ))}
-        </Svg>
-        <View style={[StyleSheet.absoluteFill, { opacity: fieldOpacity }]}>
-          {field
-            .filter((s) => s.twinkle)
-            .map((s, i) => (
-              <TwinkleDot key={i} x={s.x} y={s.y} r={s.r} delay={s.delay} />
-            ))}
-        </View>
-      </Animated.View>
+      {twinkleOpacity > 0.2 ? (
+        <Animated.View style={[StyleSheet.absoluteFill, { opacity: twinkleOpacity, transform: tiltTransform(tilt, 6) }]}>
+          {twinkles.map((s, i) => (
+            <TwinkleDot key={i} x={s.x} y={s.y} r={s.r} delay={s.delay} />
+          ))}
+        </Animated.View>
+      ) : null}
       {phase === 'night' || phase === 'dusk' ? <ShootingStar /> : null}
       {/* A glowing crescent at night, a soft low sun otherwise. */}
       <Animated.View style={[styles.orb, { transform: tiltTransform(tilt, 12) }]}>
-      <Svg width="100%" height="100%" viewBox="0 0 100 100">
-        <Defs>
-          <RadialGradient id="orbglow" cx="50%" cy="50%" r="50%">
-            <Stop offset="0" stopColor={phase === 'night' ? '#FFF4D2' : '#FFD9A0'} stopOpacity={0.35} />
-            <Stop offset="1" stopColor={phase === 'night' ? '#FFF4D2' : '#FFD9A0'} stopOpacity={0} />
-          </RadialGradient>
-        </Defs>
-        <Circle cx="50" cy="50" r="50" fill="url(#orbglow)" />
-        {phase === 'night' ? (
-          <Path d="M56 26 A25 25 0 1 0 74 66 A20 20 0 1 1 56 26 Z" fill="#FFF4D2" />
-        ) : (
-          <Circle cx="50" cy="50" r="18" fill="#FFE3B5" opacity={0.8} />
-        )}
-      </Svg>
+        <Svg width="100%" height="100%" viewBox="0 0 100 100">
+          <Defs>
+            <RadialGradient id="orbglow" cx="50%" cy="50%" r="50%">
+              <Stop offset="0" stopColor={phase === 'night' ? '#FFF4D2' : '#FFE9C2'} stopOpacity={phase === 'day' ? 0.5 : 0.35} />
+              <Stop offset="1" stopColor={phase === 'night' ? '#FFF4D2' : '#FFE9C2'} stopOpacity={0} />
+            </RadialGradient>
+          </Defs>
+          <Circle cx="50" cy="50" r="50" fill="url(#orbglow)" />
+          {phase === 'night' ? (
+            <Path d="M56 26 A25 25 0 1 0 74 66 A20 20 0 1 1 56 26 Z" fill="#FFF4D2" />
+          ) : phase === 'day' ? (
+            <Circle cx="50" cy="50" r="16" fill="#FFFBEA" />
+          ) : null}
+        </Svg>
       </Animated.View>
     </View>
   );
@@ -252,7 +221,7 @@ export function Horizon({ tilt }: { tilt?: Tilt }) {
   return (
     <Animated.View style={[styles.horizon, { transform: tiltTransform(tilt, 18) }]} pointerEvents="none">
       <Svg width="100%" height="100%" viewBox="0 0 400 120" preserveAspectRatio="none">
-        <Path d="M0 70 C60 52 120 60 170 66 C230 74 300 48 400 58 L400 120 L0 120 Z" fill="#100E28" opacity={0.65} />
+        <Path d="M0 70 C60 52 120 60 170 66 C230 74 300 48 400 58 L400 120 L0 120 Z" fill="#1A1638" opacity={0.92} />
         {/* Someone sitting on the hill, hugging their knees and looking up. */}
         <Circle cx="331" cy="40.5" r="3.6" fill="#0C0A22" />
         <Path d="M329 44 C326 47 325 51 326 55 L341 55 C341 52 339 50 336 49 L337 46 C335 45 332 44 329 44 Z" fill="#0C0A22" />
@@ -301,11 +270,9 @@ const styles = StyleSheet.create({
     bottom: -8,
     height: 118,
   },
-  farField: {
+  skyImage: {
     position: 'absolute',
-    width: '200%',
-    aspectRatio: 1,
-    left: '-50%',
-    top: '-30%',
+    left: '-6%',
+    top: '-4%',
   },
 });

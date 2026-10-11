@@ -23,7 +23,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import Svg, { Path, Defs, RadialGradient, Circle, Stop } from 'react-native-svg';
-import SkyScene, { Horizon, skyPhase, phaseWords, DescribedSkyLook } from '../../components/SkyScene';
+import SkyScene, { Horizon, skyPhase, phaseWords, DescribedSkyLook, landColors, PHASE_SKY } from '../../components/SkyScene';
 import { extractSkyPalette, paintSky, mixHex, SkyPalette } from '../../lib/skyColors';
 import SkyWeather from '../../components/SkyWeather';
 import { useTilt, tiltTransform, Tilt } from '../../lib/useTilt';
@@ -627,6 +627,8 @@ export default function SchoolSkyScreen() {
   const previewLook: DescribedSkyLook | null =
     previewing && skyScene ? { colors: skyScene.colors, clouds: skyScene.clouds, cloudColor: skyScene.cloud_color } : null;
   const shownThings = previewing && skyScene ? skyScene.things : shared.things;
+  // The ground below takes its colours from whatever sky is showing.
+  const land = landColors((previewLook ?? todaysLook)?.colors ?? PHASE_SKY[phase]);
   const moodW = moods[0] ? moodWeather(moods[0]) : null;
   // Described weather wins over mood weather — it's what people actually saw.
   const weather = shared.things.includes('rain')
@@ -714,7 +716,7 @@ export default function SchoolSkyScreen() {
         onPress={() => setSelectedId(null)}
         onLayout={(e) => setSkySize({ width: e.nativeEvent.layout.width, height: e.nativeEvent.layout.height })}
       >
-        <Horizon tilt={tilt} />
+        <Horizon tilt={tilt} land={land} />
         {!loading ? <Constellation stars={stars} width={skySize.width} height={skySize.height} /> : null}
         {constellation ? (
           <View style={styles.constellationTag} pointerEvents="none">
@@ -786,7 +788,7 @@ export default function SchoolSkyScreen() {
         )}
       </TouchableOpacity>
 
-      <View style={[styles.bottom, { paddingBottom: insets.bottom + spacing.md }, previewing && styles.hidden]}>
+      <View style={[styles.bottom, { paddingBottom: insets.bottom + spacing.md, backgroundColor: land.ground }, previewing && styles.hidden]}>
         {selectedWish ? (
           <View style={styles.card}>
             <Text style={styles.wishLabel}>🌠 {selectedWish.mine ? 'Your wish' : 'A wish from someone at your school'}</Text>
@@ -920,7 +922,7 @@ export default function SchoolSkyScreen() {
       </View>
 
       {previewing && skyScene ? (
-        <View style={[styles.previewBar, { paddingBottom: insets.bottom + spacing.md }]}>
+        <View style={[styles.previewBar, { paddingBottom: insets.bottom + spacing.md, backgroundColor: land.ground }]}>
           <Text style={styles.previewEyebrow}>✨ This is the sky you described</Text>
           <Text style={styles.previewTitle}>
             {skyScene.title} {skyScene.things.map((t) => THING_EMOJI[t]).join('')}

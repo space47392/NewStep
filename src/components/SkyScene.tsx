@@ -324,32 +324,112 @@ export default function SkyScene({
   );
 }
 
-// Rolling hills and the school's roofline with a few lit windows. Sits at
-// the bottom of the sky area; its front layer is the screen background, so
-// whatever is below it reads as solid ground.
-export function Horizon({ tilt }: { tilt?: Tilt }) {
+// The ground under the sky — far hills, near ground, the school, someone
+// sitting on the hill — takes its colours from the sky above it: green
+// hills and a sunlit school by day, warm silhouettes at sunset, dark
+// shapes with lit windows at night.
+export const PHASE_SKY: Record<SkyPhase, SkyPalette> = {
+  dawn: ['#4f5aa6', '#c69ac6', '#ffdcc0'],
+  day: ['#2a6fd0', '#5c9ae2', '#cfe7fb'],
+  dusk: ['#2a2f86', '#c9627e', '#ffc58a'],
+  night: ['#050a26', '#14215a', '#3a3f72'],
+};
+
+export type LandColors = {
+  far: string;
+  ground: string;
+  walls: string;
+  roof: string;
+  windows: string;
+  windowsLit: boolean;
+  figure: string;
+};
+
+const mix = (a: string, b: string, t: number) => {
+  const p = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+  const [x, y] = [p(a), p(b)];
+  return '#' + x.map((v, i) => Math.round(v + (y[i] - v) * t).toString(16).padStart(2, '0')).join('');
+};
+
+export function landColors(sky: SkyPalette): LandColors {
+  const low = brightness(sky[2]);
+  const avg = (brightness(sky[0]) + brightness(sky[1]) + low) / 3;
+  // A warm horizon (more red than blue) is a sunset or sunrise.
+  const warm = parseInt(sky[2].slice(1, 3), 16) > parseInt(sky[2].slice(5, 7), 16);
+  if (!warm && avg > 0.45) {
+    // Daylight: green hills, a cream school with a red roof. The ground stays
+    // deep enough for white text on the panel below.
+    return {
+      far: mix('#5f9c6e', sky[2], 0.25),
+      ground: '#1f4a33',
+      walls: '#efe3c8',
+      roof: '#c8584d',
+      windows: '#86b3d6',
+      windowsLit: false,
+      figure: '#16372a',
+    };
+  }
+  if (low > 0.55) {
+    // Sunset / sunrise: everything takes the warm light from the horizon.
+    return {
+      far: mix(sky[2], '#2a1a3a', 0.62),
+      ground: mix(sky[1], '#120c22', 0.86),
+      walls: mix(sky[2], '#3a2846', 0.66),
+      roof: mix(sky[1], '#1e1430', 0.7),
+      windows: colors.sticker.yellow,
+      windowsLit: true,
+      figure: mix(sky[1], '#0c0818', 0.85),
+    };
+  }
+  // Night.
+  return {
+    far: '#1A1638',
+    ground: colors.background,
+    walls: '#14112e',
+    roof: '#100d26',
+    windows: colors.sticker.yellow,
+    windowsLit: true,
+    figure: '#0C0A22',
+  };
+}
+
+export function Horizon({ tilt, land }: { tilt?: Tilt; land: LandColors }) {
+  const fig = land.figure;
   return (
     <Animated.View style={[styles.horizon, { transform: tiltTransform(tilt, 18) }]} pointerEvents="none">
       <Svg width="100%" height="100%" viewBox="0 0 400 120" preserveAspectRatio="none">
-        <Path d="M0 70 C60 52 120 60 170 66 C230 74 300 48 400 58 L400 120 L0 120 Z" fill="#1A1638" opacity={0.92} />
+        <Path d="M0 70 C60 52 120 60 170 66 C230 74 300 48 400 58 L400 120 L0 120 Z" fill={land.far} opacity={0.95} />
         {/* Someone sitting on the hill, hugging their knees and looking up. */}
-        <Circle cx="331" cy="40.5" r="3.6" fill="#0C0A22" />
-        <Path d="M329 44 C326 47 325 51 326 55 L341 55 C341 52 339 50 336 49 L337 46 C335 45 332 44 329 44 Z" fill="#0C0A22" />
-        <Path d="M334 47 C337 45 340 46 341 49 L342 55 L338 55 L337.5 50 Z" fill="#0C0A22" />
+        <Circle cx="331" cy="40.5" r="3.6" fill={fig} />
+        <Path d="M329 44 C326 47 325 51 326 55 L341 55 C341 52 339 50 336 49 L337 46 C335 45 332 44 329 44 Z" fill={fig} />
+        <Path d="M334 47 C337 45 340 46 341 49 L342 55 L338 55 L337.5 50 Z" fill={fig} />
         {/* A small tree beside them. */}
-        <Path d="M356 52 L356 44" stroke="#0C0A22" strokeWidth={1.4} />
-        <Circle cx="356" cy="40" r="5.5" fill="#0C0A22" />
-        <Circle cx="352" cy="43" r="3.8" fill="#0C0A22" />
-        <Circle cx="360" cy="43" r="3.8" fill="#0C0A22" />
-        <Path
-          d="M0 92 C50 84 90 86 120 88 L120 64 L150 64 L150 54 L175 40 L200 54 L200 64 L262 64 L262 76 C310 70 350 78 400 74 L400 120 L0 120 Z"
-          fill={colors.background}
-        />
-        {/* A few lit windows in the school. */}
-        <Rect x="160" y="70" width="6" height="6" fill={colors.sticker.yellow} opacity={0.75} />
-        <Rect x="184" y="70" width="6" height="6" fill={colors.sticker.yellow} opacity={0.5} />
-        <Rect x="222" y="74" width="6" height="6" fill={colors.sticker.yellow} opacity={0.65} />
-        <Rect x="240" y="74" width="6" height="6" fill={colors.sticker.yellow} opacity={0.35} />
+        <Path d="M356 52 L356 44" stroke={fig} strokeWidth={1.4} />
+        <Circle cx="356" cy="40" r="5.5" fill={fig} />
+        <Circle cx="352" cy="43" r="3.8" fill={fig} />
+        <Circle cx="360" cy="43" r="3.8" fill={fig} />
+        {/* The school: two wings, a main hall with a pitched roof. */}
+        <Rect x="120" y="64" width="142" height="28" fill={land.walls} />
+        <Rect x="150" y="54" width="50" height="38" fill={land.walls} />
+        <Path d="M146 55 L175 39 L204 55 Z" fill={land.roof} />
+        <Rect x="118" y="62" width="32" height="3" fill={land.roof} />
+        <Rect x="200" y="62" width="64" height="3" fill={land.roof} />
+        {[126, 138, 208, 222, 236, 250].map((x, i) => (
+          <Rect
+            key={x}
+            x={x}
+            y={70}
+            width={6}
+            height={6}
+            fill={land.windows}
+            opacity={land.windowsLit ? [0.75, 0.35, 0.65, 0.3, 0.55, 0.25][i] : 0.9}
+          />
+        ))}
+        <Rect x="160" y="62" width="6" height="7" fill={land.windows} opacity={land.windowsLit ? 0.7 : 0.9} />
+        <Rect x="184" y="62" width="6" height="7" fill={land.windows} opacity={land.windowsLit ? 0.45 : 0.9} />
+        <Rect x="170" y="76" width="10" height="16" rx="1" fill={land.roof} />
+        {/* The near ground, in front of the school's base. */}
+        <Path d="M0 92 C50 84 90 86 120 89 L262 89 C310 76 350 80 400 76 L400 120 L0 120 Z" fill={land.ground} />
       </Svg>
     </Animated.View>
   );

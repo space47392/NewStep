@@ -2,9 +2,9 @@ import { useEffect, useMemo, useRef } from 'react';
 import { Animated, Easing, StyleSheet, View, useWindowDimensions } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { colors } from '../constants/theme';
-import { SkyPalette } from '../lib/skyColors';
+import { brightness, SkyPalette } from '../lib/skyColors';
 import { Tilt, tiltTransform } from '../lib/useTilt';
-import { SkyThing } from '../lib/sky';
+import { SkyClouds, SkyThing } from '../lib/sky';
 import SkyThings from './SkyThings';
 
 // The School Sky backdrop: a sky that follows the real time of day, a field
@@ -99,6 +99,58 @@ function ShootingStar() {
   );
 }
 
+// Soft clouds painted from a description: how many depends on how cloudy
+// it was, tinted with the description's cloud colour, drifting slowly.
+const CLOUD_COUNT: Record<SkyClouds, number> = { none: 0, few: 2, scattered: 4, overcast: 8 };
+
+function DescribedCloud({ i, color, width, height, overcast }: { i: number; color: string; width: number; height: number; overcast: boolean }) {
+  const t = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(t, { toValue: 1, duration: 50000 + i * 9000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(t, { toValue: 0, duration: 50000 + i * 9000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [t, i]);
+  const w = width * (overcast ? 1.1 : 0.55 + seeded(i + 31) * 0.35);
+  const h = w * 0.34;
+  const x = (seeded(i + 11) - 0.2) * width;
+  const y = height * (overcast ? 0.05 + i * 0.085 : 0.16 + seeded(i + 21) * 0.5);
+  const id = `dc${i}`;
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={{
+        position: 'absolute',
+        left: x - w / 4,
+        top: y,
+        opacity: overcast ? 0.62 : 0.78,
+        transform: [{ translateX: t.interpolate({ inputRange: [0, 1], outputRange: [-width * 0.08, width * 0.08] }) }],
+      }}
+    >
+      <Svg width={w} height={h} viewBox="0 0 100 34">
+        <Defs>
+          <RadialGradient id={id} cx="50%" cy="55%" r="50%">
+            <Stop offset="0" stopColor={color} stopOpacity={0.95} />
+            <Stop offset="0.6" stopColor={color} stopOpacity={0.55} />
+            <Stop offset="1" stopColor={color} stopOpacity={0} />
+          </RadialGradient>
+        </Defs>
+        {/* A few overlapping puffs make one soft cloud. */}
+        <Circle cx="30" cy="20" r="14" fill={`url(#${id})`} />
+        <Circle cx="50" cy="15" r="17" fill={`url(#${id})`} />
+        <Circle cx="70" cy="20" r="14" fill={`url(#${id})`} />
+        <Circle cx="50" cy="24" r="16" fill={`url(#${id})`} />
+      </Svg>
+    </Animated.View>
+  );
+}
+
+export type DescribedSkyLook = { colors: SkyPalette; clouds: SkyClouds; cloudColor: string };
+
 // Hand-made sky backdrops (assets/sky): a realistic sky for each time of
 // day — dawn pastels, a clear blue day with cumulus, a sunset with clouds
 // lit from below, a starry night with the Milky Way. Generated once and
@@ -113,16 +165,21 @@ const SKY_IMAGES: Record<SkyPhase, number> = {
 // painted: today's sky colours from classmates' photos. It fades in as a
 // light tint over the real sky — never replaces it.
 // things: what classmates described seeing (rainbow, birds…), drawn in.
+// described: a sky someone described in words. Unlike photo colours it
+// repaints the whole sky — colours, clouds and all — so the screen looks
+// like what they said.
 export default function SkyScene({
   phase,
   painted,
   tilt,
   things = [],
+  described,
 }: {
   phase: SkyPhase;
   painted?: SkyPalette | null;
   tilt?: Tilt;
   things?: SkyThing[];
+  described?: DescribedSkyLook | null;
 }) {
   const { width, height } = useWindowDimensions();
   // A very slow drift, like clouds and stars moving across the sky.
@@ -145,6 +202,16 @@ export default function SkyScene({
     Animated.timing(paint, { toValue: 1, duration: 1600, easing: Easing.inOut(Easing.quad), useNativeDriver: true }).start();
   }, [painted?.join(','), paint]);
 
+  const describedKey = described ? described.colors.join(',') + described.clouds + described.cloudColor : '';
+  const repaint = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (!described) return;
+    repaint.setValue(0);
+    Animated.timing(repaint, { toValue: 1, duration: 1400, easing: Easing.inOut(Easing.quad), useNativeDriver: true }).start();
+  }, [describedKey, repaint]);
+  // A described sky decides for itself whether it's dark enough for stars.
+  const darkSky = described ? brightness(described.colors[0]) < 0.3 : phase === 'night' || phase === 'dusk';
+
   // A few stars on top of the image that twinkle, so the night is alive.
   const twinkles = useMemo(
     () =>
@@ -156,7 +223,7 @@ export default function SkyScene({
       })),
     []
   );
-  const twinkleOpacity = STARFIELD_OPACITY[phase];
+  const twinkleOpacity = described ? (darkSky || things.includes('stars') ? 0.9 : 0) : STARFIELD_OPACITY[phase];
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
@@ -198,6 +265,35 @@ export default function SkyScene({
           </Svg>
         </Animated.View>
       ) : null}
+      {described ? (
+        <Animated.View style={[StyleSheet.absoluteFill, { opacity: repaint }]}>
+          <Svg style={StyleSheet.absoluteFill} preserveAspectRatio="none" viewBox="0 0 100 100">
+            <Defs>
+              <LinearGradient id="descfill" x1="0" y1="0" x2="0" y2="1">
+                <Stop offset="0" stopColor={described.colors[0]} stopOpacity={0.94} />
+                <Stop offset="0.55" stopColor={described.colors[1]} stopOpacity={0.9} />
+                <Stop offset="1" stopColor={described.colors[2]} stopOpacity={0.92} />
+              </LinearGradient>
+              <RadialGradient id="descglow" cx="50%" cy="100%" rx="80%" ry="40%">
+                <Stop offset="0" stopColor={described.colors[2]} stopOpacity={0.7} />
+                <Stop offset="1" stopColor={described.colors[2]} stopOpacity={0} />
+              </RadialGradient>
+            </Defs>
+            <Rect x="0" y="0" width="100" height="100" fill="url(#descfill)" />
+            <Rect x="0" y="45" width="100" height="55" fill="url(#descglow)" />
+          </Svg>
+          {Array.from({ length: CLOUD_COUNT[described.clouds] }, (_, i) => (
+            <DescribedCloud
+              key={i}
+              i={i}
+              color={described.cloudColor}
+              width={width}
+              height={height}
+              overcast={described.clouds === 'overcast'}
+            />
+          ))}
+        </Animated.View>
+      ) : null}
       {twinkleOpacity > 0.2 ? (
         <Animated.View style={[StyleSheet.absoluteFill, { opacity: twinkleOpacity, transform: tiltTransform(tilt, 6) }]}>
           {twinkles.map((s, i) => (
@@ -206,20 +302,20 @@ export default function SkyScene({
         </Animated.View>
       ) : null}
       <SkyThings things={things} />
-      {phase === 'night' || phase === 'dusk' ? <ShootingStar /> : null}
+      {darkSky ? <ShootingStar /> : null}
       {/* A glowing crescent at night, a soft low sun otherwise. */}
       <Animated.View style={[styles.orb, { transform: tiltTransform(tilt, 12) }]}>
         <Svg width="100%" height="100%" viewBox="0 0 100 100">
           <Defs>
             <RadialGradient id="orbglow" cx="50%" cy="50%" r="50%">
-              <Stop offset="0" stopColor={phase === 'night' ? '#FFF4D2' : '#FFE9C2'} stopOpacity={phase === 'day' ? 0.5 : 0.35} />
+              <Stop offset="0" stopColor={phase === 'night' ? '#FFF4D2' : '#FFE9C2'} stopOpacity={described && !things.includes('moon') && !things.includes('sun') ? 0 : phase === 'day' ? 0.5 : 0.35} />
               <Stop offset="1" stopColor={phase === 'night' ? '#FFF4D2' : '#FFE9C2'} stopOpacity={0} />
             </RadialGradient>
           </Defs>
           <Circle cx="50" cy="50" r="50" fill="url(#orbglow)" />
-          {phase === 'night' || (things.includes('moon') && !things.includes('sun')) ? (
+          {(described ? things.includes('moon') : phase === 'night' || things.includes('moon')) && !things.includes('sun') ? (
             <Path d="M56 26 A25 25 0 1 0 74 66 A20 20 0 1 1 56 26 Z" fill="#FFF4D2" />
-          ) : phase === 'day' || things.includes('sun') ? (
+          ) : (described ? things.includes('sun') : phase === 'day' || things.includes('sun')) ? (
             <Circle cx="50" cy="50" r="16" fill="#FFFBEA" />
           ) : null}
         </Svg>

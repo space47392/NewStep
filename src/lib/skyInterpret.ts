@@ -80,8 +80,18 @@ export function interpretSky(raw: string, timeOfDay: Phase): SkyScene | null {
   if (!includesAny(text, SKY_HINTS)) return null;
 
   const namedPhase = PHASE_WORDS.find((p) => includesAny(text, p.words))?.phase ?? null;
-  const phase = namedPhase ?? timeOfDay;
-  const colorHits = COLOR_WORDS.filter((c) => includesAny(text, c.words));
+  // No time named? What they saw says it: the sun means day, the moon or
+  // stars mean night, a bright or clear sky means day.
+  const sawSun = includesAny(text.replace(/sunset|sunrise/g, ' '), ['sun', '해가', '해 ', '햇', '태양']);
+  const sawNight = includesAny(text.replace(/별똥별/g, ' '), ['moon', 'star', '달', '별']);
+  const bright = includesAny(text, ['bright', 'sunny', 'clear', '밝', '맑', '화창']);
+  const phase: Phase = namedPhase ?? (sawSun || (bright && !sawNight) ? 'day' : sawNight ? 'night' : timeOfDay);
+  // In the daytime, warm colour words usually describe the sun, not the sky
+  // ("bright yellow sun"), so they don't repaint a blue sky.
+  const sunColors = ['Golden', 'Orange', 'Red'];
+  const colorHits = COLOR_WORDS.filter(
+    (c) => includesAny(text, c.words) && !(phase === 'day' && sawSun && sunColors.includes(c.name))
+  );
 
   // Start from the time of day, then paint in each colour mentioned.
   let palette: SkyPalette = [...PHASE_PALETTE[phase]] as SkyPalette;
@@ -111,7 +121,8 @@ export function interpretSky(raw: string, timeOfDay: Phase): SkyScene | null {
   // Only call it a sunset/sunrise when the student did.
   const noun = namedPhase ? { dawn: 'sunrise', day: 'sky', dusk: 'sunset', night: 'night' }[namedPhase] : 'sky';
   let title: string;
-  if (finalThings.includes('rainbow')) title = 'Rainbow after the rain';
+  if (phase === 'day' && finalThings.includes('sun') && !colorHits.some((c) => c.name !== 'Blue') && clouds !== 'overcast') title = 'Sunny day';
+  else if (finalThings.includes('rainbow')) title = 'Rainbow after the rain';
   else if (finalThings.includes('shooting_star')) title = 'Night of a shooting star';
   else if (finalThings.includes('lightning')) title = 'Stormy sky';
   else if (finalThings.includes('snow')) title = 'Snowy sky';

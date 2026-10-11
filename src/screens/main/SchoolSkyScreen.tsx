@@ -23,8 +23,8 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import Svg, { Path, Defs, RadialGradient, Circle, Stop } from 'react-native-svg';
-import SkyScene, { Horizon, skyPhase, phaseWords } from '../../components/SkyScene';
-import { extractSkyPalette, paintSky, SkyPalette } from '../../lib/skyColors';
+import SkyScene, { Horizon, skyPhase, phaseWords, DescribedSkyLook } from '../../components/SkyScene';
+import { extractSkyPalette, paintSky, mixHex, SkyPalette } from '../../lib/skyColors';
 import SkyWeather from '../../components/SkyWeather';
 import { useTilt, tiltTransform, Tilt } from '../../lib/useTilt';
 import { useAuth } from '../../contexts/AuthContext';
@@ -350,6 +350,9 @@ export default function SchoolSkyScreen() {
   const [skyScene, setSkyScene] = useState<DescribedSky | null>(null);
   const [painting, setPainting] = useState(false);
   const [paintError, setPaintError] = useState<string | null>(null);
+  // After "Paint my sky" the sheet steps aside and the whole screen shows
+  // the described sky before it's saved.
+  const [previewing, setPreviewing] = useState(false);
   const [reportTarget, setReportTarget] = useState<{ type: ReportTargetType; id: string } | null>(null);
   const [twinkles, setTwinkles] = useState<TwinkleSummary>({ counts: {}, sentTo: new Set() });
   const [bursts, setBursts] = useState<Record<string, number>>({});
@@ -534,6 +537,7 @@ export default function SchoolSkyScreen() {
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setSkyScene(scene);
+      setPreviewing(true);
     } catch (err) {
       setPaintError(err instanceof Error ? err.message : "Couldn't paint the sky right now.");
     } finally {
@@ -560,6 +564,7 @@ export default function SchoolSkyScreen() {
       if (!photoUrl && myStar?.photo_url) removeSkyPhoto(user.id).catch(() => {});
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setComposerOpen(false);
+      setPreviewing(false);
       showToast(myStar ? 'Your star is updated ✨' : 'Your star is in the sky ✨');
       await load();
       if (user) setSelectedId(user.id);
@@ -608,6 +613,20 @@ export default function SchoolSkyScreen() {
   const moods = dominantMoods(stars);
   // What classmates described seeing today (rainbow, birds, rain…).
   const shared = sharedSky(stars);
+  // The sky as classmates described it today: their colours averaged band
+  // by band, the most common cloudiness, clouds tinted from the horizon.
+  const describedStars = stars.filter((st) => st.sky_desc && st.sky_colors);
+  const todaysLook: DescribedSkyLook | null = describedStars.length
+    ? (() => {
+        const colors = [0, 1, 2].map((band) =>
+          describedStars.reduce((acc, st, i) => (i === 0 ? st.sky_colors![band] : mixHex(acc, st.sky_colors![band], 1 / (i + 1))), '')
+        ) as SkyPalette;
+        return { colors, clouds: shared.clouds ?? 'few', cloudColor: mixHex(colors[2], '#ffffff', 0.45) };
+      })()
+    : null;
+  const previewLook: DescribedSkyLook | null =
+    previewing && skyScene ? { colors: skyScene.colors, clouds: skyScene.clouds, cloudColor: skyScene.cloud_color } : null;
+  const shownThings = previewing && skyScene ? skyScene.things : shared.things;
   const moodW = moods[0] ? moodWeather(moods[0]) : null;
   // Described weather wins over mood weather — it's what people actually saw.
   const weather = shared.things.includes('rain')
@@ -622,7 +641,13 @@ export default function SchoolSkyScreen() {
   return (
     <View style={styles.screen}>
       <StatusBar style="light" />
-      <SkyScene phase={phase} painted={painted} tilt={tilt} things={shared.things} />
+      <SkyScene
+        phase={phase}
+        painted={previewLook || todaysLook ? null : painted}
+        tilt={tilt}
+        things={shownThings}
+        described={previewLook ?? todaysLook}
+      />
       <SkyWeather kind={weather} />
 
       <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
@@ -761,7 +786,7 @@ export default function SchoolSkyScreen() {
         )}
       </TouchableOpacity>
 
-      <View style={[styles.bottom, { paddingBottom: insets.bottom + spacing.md }]}>
+      <View style={[styles.bottom, { paddingBottom: insets.bottom + spacing.md }, previewing && styles.hidden]}>
         {selectedWish ? (
           <View style={styles.card}>
             <Text style={styles.wishLabel}>🌠 {selectedWish.mine ? 'Your wish' : 'A wish from someone at your school'}</Text>
@@ -894,7 +919,35 @@ export default function SchoolSkyScreen() {
         )}
       </View>
 
-      <Modal visible={composerOpen} transparent animationType="slide" onRequestClose={() => setComposerOpen(false)}>
+      {previewing && skyScene ? (
+        <View style={[styles.previewBar, { paddingBottom: insets.bottom + spacing.md }]}>
+          <Text style={styles.previewEyebrow}>✨ This is the sky you described</Text>
+          <Text style={styles.previewTitle}>
+            {skyScene.title} {skyScene.things.map((t) => THING_EMOJI[t]).join('')}
+          </Text>
+          <Text style={styles.previewDesc} numberOfLines={2}>
+            “{skyText.trim()}”
+          </Text>
+          <View style={styles.cardActions}>
+            <PrimaryButton title="Edit" size="sm" variant="outline" onPress={() => setPreviewing(false)} style={styles.cardButton} />
+            <PrimaryButton
+              title={myStar ? 'Update my star' : 'Put it in the sky'}
+              size="sm"
+              icon="sparkles"
+              loading={saving}
+              onPress={handleSave}
+              style={styles.cardButton}
+            />
+          </View>
+        </View>
+      ) : null}
+
+      <Modal
+        visible={composerOpen && !previewing}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setComposerOpen(false)}
+      >
         <KeyboardAvoidingView style={styles.modalBackdrop} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setComposerOpen(false)} />
           <View style={[styles.sheet, { paddingBottom: insets.bottom + spacing.lg }]}>
@@ -1316,6 +1369,36 @@ const styles = StyleSheet.create({
     paddingRight: 4,
     paddingVertical: 3,
     flexShrink: 1,
+  },
+  hidden: {
+    opacity: 0,
+  },
+  previewBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    gap: spacing.sm,
+    backgroundColor: colors.background,
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+  },
+  previewEyebrow: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
+    color: colors.sticker.yellow,
+  },
+  previewTitle: {
+    fontFamily: fontFamily.brand,
+    fontSize: fontSize.xl,
+    color: '#fff',
+  },
+  previewDesc: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    color: 'rgba(255,255,255,0.75)',
   },
   sheetScroll: {
     flexGrow: 0,

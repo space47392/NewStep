@@ -35,6 +35,10 @@ import {
   removeMyStar,
   uploadSkyPhoto,
   removeSkyPhoto,
+  describeSky,
+  sharedSky,
+  THING_EMOJI,
+  SkyScene as DescribedSky,
   fetchTodayTwinkles,
   sendTwinkle,
   fetchWishes,
@@ -341,6 +345,11 @@ export default function SchoolSkyScreen() {
   // (a local file, uploaded on save), or none.
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [photoIsNew, setPhotoIsNew] = useState(false);
+  // "Look up": the student's own words about the sky, and how the AI read them.
+  const [skyText, setSkyText] = useState('');
+  const [skyScene, setSkyScene] = useState<DescribedSky | null>(null);
+  const [painting, setPainting] = useState(false);
+  const [paintError, setPaintError] = useState<string | null>(null);
   const [reportTarget, setReportTarget] = useState<{ type: ReportTargetType; id: string } | null>(null);
   const [twinkles, setTwinkles] = useState<TwinkleSummary>({ counts: {}, sentTo: new Set() });
   const [bursts, setBursts] = useState<Record<string, number>>({});
@@ -464,6 +473,11 @@ export default function SchoolSkyScreen() {
     setNote(myStar?.note ?? '');
     setPhotoUri(myStar?.photo_url ?? null);
     setPhotoIsNew(false);
+    setSkyText(myStar?.sky_desc ?? '');
+    setSkyScene(myStar?.sky_desc && myStar.sky_colors && myStar.sky_title
+      ? { colors: myStar.sky_colors, clouds: myStar.sky_clouds ?? 'few', cloud_color: '#ffffff', things: myStar.sky_things ?? [], title: myStar.sky_title }
+      : null);
+    setPaintError(null);
     setSelectedId(null);
     setComposerOpen(true);
   };
@@ -479,6 +493,10 @@ export default function SchoolSkyScreen() {
       setNote(myStar.note ?? '');
       setPhotoUri(myStar.photo_url ?? null);
       setPhotoIsNew(false);
+      setSkyText(myStar.sky_desc ?? '');
+      setSkyScene(myStar?.sky_desc && myStar.sky_colors && myStar.sky_title
+      ? { colors: myStar.sky_colors, clouds: myStar.sky_clouds ?? 'few', cloud_color: '#ffffff', things: myStar.sky_things ?? [], title: myStar.sky_title }
+      : null);
     }
   }, [composerOpen, loading, myStar]);
 
@@ -501,6 +519,28 @@ export default function SchoolSkyScreen() {
     setPhotoIsNew(true);
   };
 
+  // Sends the description to the AI painter (describe-sky Edge Function).
+  const handlePaint = async () => {
+    const text = skyText.trim();
+    if (painting || text.length < 2) return;
+    setPainting(true);
+    setPaintError(null);
+    try {
+      const scene = await describeSky(text, phase);
+      if (!scene) {
+        setSkyScene(null);
+        setPaintError("Let's keep it about the sky ☁️ Try describing what you see.");
+        return;
+      }
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setSkyScene(scene);
+    } catch (err) {
+      setPaintError(err instanceof Error ? err.message : "Couldn't paint the sky right now.");
+    } finally {
+      setPainting(false);
+    }
+  };
+
   const handleSave = async () => {
     if (saving || !user) return;
     setSaving(true);
@@ -514,7 +554,9 @@ export default function SchoolSkyScreen() {
         skyColors = myStar?.sky_colors ?? null;
       }
       const photoUrl = photoUri && photoIsNew ? await uploadSkyPhoto(user.id, photoUri) : photoUri;
-      await setMyStar(mood, note, photoUrl, skyColors);
+      // A painted description only counts if it still matches the text.
+      const scene = skyScene && skyText.trim() ? skyScene : null;
+      await setMyStar({ mood, note, photoUrl, skyColors, desc: scene ? skyText : null, scene });
       if (!photoUrl && myStar?.photo_url) removeSkyPhoto(user.id).catch(() => {});
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setComposerOpen(false);
@@ -564,13 +606,23 @@ export default function SchoolSkyScreen() {
   const painted = paintSky(palettes);
   // Mood weather and today's constellation, from the moods in the sky.
   const moods = dominantMoods(stars);
-  const weather = moods[0] ? moodWeather(moods[0]) : null;
+  // What classmates described seeing today (rainbow, birds, rain…).
+  const shared = sharedSky(stars);
+  const moodW = moods[0] ? moodWeather(moods[0]) : null;
+  // Described weather wins over mood weather — it's what people actually saw.
+  const weather = shared.things.includes('rain')
+    ? 'rain'
+    : shared.clouds === 'overcast'
+      ? 'clouds'
+      : shared.things.includes('shooting_star')
+        ? 'meteors'
+        : moodW;
   const constellation = stars.length >= 3 ? constellationName(moods) : null;
 
   return (
     <View style={styles.screen}>
       <StatusBar style="light" />
-      <SkyScene phase={phase} painted={painted} tilt={tilt} />
+      <SkyScene phase={phase} painted={painted} tilt={tilt} things={shared.things} />
       <SkyWeather kind={weather} />
 
       <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
@@ -746,6 +798,25 @@ export default function SchoolSkyScreen() {
               </View>
             </View>
             {selected.note ? <Text style={styles.cardNote}>“{selected.note}”</Text> : null}
+            {selected.sky_desc ? (
+              <View style={styles.cardSky}>
+                {selected.sky_colors ? (
+                  <View style={styles.cardSkySwatch}>
+                    {selected.sky_colors.map((c, i) => (
+                      <View key={i} style={{ flex: 1, backgroundColor: c }} />
+                    ))}
+                  </View>
+                ) : null}
+                <View style={styles.sceneText}>
+                  <Text style={styles.cardSkyTitle}>
+                    {selected.sky_title ?? 'Their sky'} {(selected.sky_things ?? []).map((t) => THING_EMOJI[t]).join('')}
+                  </Text>
+                  <Text style={styles.cardSkyDesc} numberOfLines={3}>
+                    “{selected.sky_desc}”
+                  </Text>
+                </View>
+              </View>
+            ) : null}
             {selected.user_id === user?.id && (twinkles.counts[selected.user_id] ?? 0) > 0 ? (
               <Text style={styles.twinkleReceived}>
                 ✨ {twinkles.counts[selected.user_id]} {twinkles.counts[selected.user_id] === 1 ? 'classmate' : 'classmates'} sent you a twinkle today
@@ -828,6 +899,7 @@ export default function SchoolSkyScreen() {
           <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setComposerOpen(false)} />
           <View style={[styles.sheet, { paddingBottom: insets.bottom + spacing.lg }]}>
             <View style={styles.sheetHandle} />
+            <ScrollView style={styles.sheetScroll} contentContainerStyle={styles.sheetContent} keyboardShouldPersistTaps="handled">
             <Text style={styles.sheetTitle}>How's today going?</Text>
             <Text style={styles.sheetSub}>Your star shows to classmates for 24 hours.</Text>
             <View style={styles.moodGrid}>
@@ -851,6 +923,51 @@ export default function SchoolSkyScreen() {
                 );
               })}
             </View>
+            <View style={styles.lookUp}>
+              <Text style={styles.lookUpTitle}>👀 Look up for a moment.</Text>
+              <Text style={styles.lookUpSub}>What does the sky look like right now? Describe it and we'll paint it.</Text>
+              <View style={styles.lookUpRow}>
+                <TextInput
+                  style={[styles.noteInput, styles.lookUpInput]}
+                  placeholder="e.g. pink sunset, clouds like cotton candy"
+                  placeholderTextColor={colors.textLight}
+                  value={skyText}
+                  onChangeText={(t) => {
+                    setSkyText(t);
+                    setPaintError(null);
+                  }}
+                  maxLength={200}
+                  multiline
+                />
+              </View>
+              <PrimaryButton
+                title={skyScene ? 'Paint it again' : 'Paint my sky'}
+                icon="color-palette-outline"
+                size="sm"
+                variant={skyScene ? 'outline' : 'primary'}
+                loading={painting}
+                disabled={skyText.trim().length < 2}
+                onPress={handlePaint}
+              />
+              {paintError ? <Text style={styles.paintError}>{paintError}</Text> : null}
+              {skyScene ? (
+                <View style={styles.scenePreview}>
+                  <View style={styles.sceneSwatch}>
+                    {skyScene.colors.map((c, i) => (
+                      <View key={i} style={{ flex: 1, backgroundColor: c }} />
+                    ))}
+                  </View>
+                  <View style={styles.sceneText}>
+                    <Text style={styles.sceneTitle}>{skyScene.title}</Text>
+                    <Text style={styles.sceneThings}>
+                      {skyScene.things.map((t) => THING_EMOJI[t]).join(' ') || '☁️'}
+                      {'  ·  '}
+                      {skyScene.clouds === 'none' ? 'clear' : skyScene.clouds === 'overcast' ? 'cloudy' : `${skyScene.clouds} clouds`}
+                    </Text>
+                  </View>
+                </View>
+              ) : null}
+            </View>
             {photoUri ? (
               <View style={styles.composerPhotoRow}>
                 <Image source={{ uri: photoUri }} style={styles.composerPhoto} />
@@ -867,13 +984,9 @@ export default function SchoolSkyScreen() {
                 </View>
               </View>
             ) : (
-              <TouchableOpacity style={styles.snapButton} onPress={handleSnapSky} activeOpacity={0.85}>
-                <Text style={styles.snapEmoji}>📷</Text>
-                <View style={styles.snapText}>
-                  <Text style={styles.snapTitle}>Snap the sky</Text>
-                  <Text style={styles.snapSub}>Look up and take a photo of the sky right now</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color={colors.primaryDark} />
+              <TouchableOpacity style={styles.photoLink} onPress={handleSnapSky} activeOpacity={0.8}>
+                <Ionicons name="camera-outline" size={16} color={colors.primaryDark} />
+                <Text style={styles.composerLinkText}>Add a photo of it too (optional)</Text>
               </TouchableOpacity>
             )}
             <TextInput
@@ -893,6 +1006,7 @@ export default function SchoolSkyScreen() {
               loading={saving}
               onPress={handleSave}
             />
+            </ScrollView>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -1202,6 +1316,97 @@ const styles = StyleSheet.create({
     paddingRight: 4,
     paddingVertical: 3,
     flexShrink: 1,
+  },
+  sheetScroll: {
+    flexGrow: 0,
+  },
+  sheetContent: {
+    gap: spacing.sm,
+  },
+  lookUp: {
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    backgroundColor: colors.primaryLight,
+  },
+  lookUpTitle: {
+    fontFamily: fontFamily.brand,
+    fontSize: fontSize.lg,
+    color: colors.textDark,
+  },
+  lookUpSub: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    color: colors.textMid,
+    marginTop: -4,
+  },
+  lookUpRow: {
+    flexDirection: 'row',
+  },
+  lookUpInput: {
+    flex: 1,
+    minHeight: 64,
+    textAlignVertical: 'top',
+  },
+  paintError: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
+    color: colors.secondaryDark,
+  },
+  scenePreview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: colors.cardBg,
+    borderRadius: radius.md,
+    padding: spacing.sm,
+  },
+  sceneSwatch: {
+    width: 44,
+    height: 56,
+    borderRadius: radius.sm,
+    overflow: 'hidden',
+  },
+  sceneText: {
+    flex: 1,
+    gap: 2,
+  },
+  sceneTitle: {
+    fontFamily: fontFamily.brand,
+    fontSize: fontSize.md,
+    color: colors.textDark,
+  },
+  sceneThings: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    color: colors.textMid,
+  },
+  photoLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 4,
+  },
+  cardSky: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    alignItems: 'center',
+  },
+  cardSkySwatch: {
+    width: 34,
+    height: 46,
+    borderRadius: radius.sm,
+    overflow: 'hidden',
+  },
+  cardSkyTitle: {
+    fontFamily: fontFamily.brand,
+    fontSize: fontSize.md,
+    color: colors.textDark,
+  },
+  cardSkyDesc: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    color: colors.textMid,
   },
   galleryBackdrop: {
     flex: 1,

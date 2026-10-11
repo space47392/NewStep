@@ -4,6 +4,8 @@ import Svg, { Circle, Defs, LinearGradient, Path, RadialGradient, Rect, Stop } f
 import { colors } from '../constants/theme';
 import { SkyPalette } from '../lib/skyColors';
 import { Tilt, tiltTransform } from '../lib/useTilt';
+import { SkyThing } from '../lib/sky';
+import SkyThings from './SkyThings';
 
 // The School Sky backdrop: a sky that follows the real time of day, a field
 // of tiny stars, the odd shooting star, and a horizon with the school's
@@ -110,7 +112,18 @@ const SKY_IMAGES: Record<SkyPhase, number> = {
 
 // painted: today's sky colours from classmates' photos. It fades in as a
 // light tint over the real sky — never replaces it.
-export default function SkyScene({ phase, painted, tilt }: { phase: SkyPhase; painted?: SkyPalette | null; tilt?: Tilt }) {
+// things: what classmates described seeing (rainbow, birds…), drawn in.
+export default function SkyScene({
+  phase,
+  painted,
+  tilt,
+  things = [],
+}: {
+  phase: SkyPhase;
+  painted?: SkyPalette | null;
+  tilt?: Tilt;
+  things?: SkyThing[];
+}) {
   const { width, height } = useWindowDimensions();
   // A very slow drift, like clouds and stars moving across the sky.
   const drift = useRef(new Animated.Value(0)).current;
@@ -192,6 +205,7 @@ export default function SkyScene({ phase, painted, tilt }: { phase: SkyPhase; pa
           ))}
         </Animated.View>
       ) : null}
+      <SkyThings things={things} />
       {phase === 'night' || phase === 'dusk' ? <ShootingStar /> : null}
       {/* A glowing crescent at night, a soft low sun otherwise. */}
       <Animated.View style={[styles.orb, { transform: tiltTransform(tilt, 12) }]}>
@@ -203,9 +217,9 @@ export default function SkyScene({ phase, painted, tilt }: { phase: SkyPhase; pa
             </RadialGradient>
           </Defs>
           <Circle cx="50" cy="50" r="50" fill="url(#orbglow)" />
-          {phase === 'night' ? (
+          {phase === 'night' || (things.includes('moon') && !things.includes('sun')) ? (
             <Path d="M56 26 A25 25 0 1 0 74 66 A20 20 0 1 1 56 26 Z" fill="#FFF4D2" />
-          ) : phase === 'day' ? (
+          ) : phase === 'day' || things.includes('sun') ? (
             <Circle cx="50" cy="50" r="16" fill="#FFFBEA" />
           ) : null}
         </Svg>

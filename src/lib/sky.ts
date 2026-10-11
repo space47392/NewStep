@@ -30,8 +30,14 @@ export type SkyStar = {
   note: string | null;
   // A real-sky photo taken with the camera (school_sky_photos.sql).
   photo_url: string | null;
-  // Three colours read from the photo (school_sky_colors.sql).
+  // Three sky colours — from the AI-read description, or from a photo.
   sky_colors: SkyPalette | null;
+  // The student's own words about the sky and how it was read
+  // (school_sky_describe.sql).
+  sky_desc: string | null;
+  sky_title: string | null;
+  sky_clouds: SkyClouds | null;
+  sky_things: SkyThing[] | null;
   updated_at: string;
   profile: { id: string; full_name: string | null; username: string | null; avatar_url: string | null } | null;
 };
@@ -42,7 +48,7 @@ export async function fetchSchoolSky(limit = 60): Promise<SkyStar[]> {
   const since = new Date(Date.now() - STAR_LIFETIME_MS).toISOString();
   const { data, error } = await supabase
     .from('sky_stars')
-    .select('user_id, mood, note, photo_url, sky_colors, updated_at, profile:profiles!sky_stars_user_id_fkey ( id, full_name, username, avatar_url )')
+    .select('user_id, mood, note, photo_url, sky_colors, sky_desc, sky_title, sky_clouds, sky_things, updated_at, profile:profiles!sky_stars_user_id_fkey ( id, full_name, username, avatar_url )')
     .gt('updated_at', since)
     .order('updated_at', { ascending: false })
     .limit(limit);
@@ -50,19 +56,90 @@ export async function fetchSchoolSky(limit = 60): Promise<SkyStar[]> {
   return (data ?? []) as unknown as SkyStar[];
 }
 
-export async function setMyStar(
-  mood: SkyMood,
-  note: string,
-  photoUrl: string | null,
-  skyColors: SkyPalette | null
-): Promise<void> {
+export type SkyClouds = 'none' | 'few' | 'scattered' | 'overcast';
+export type SkyThing =
+  | 'moon' | 'sun' | 'stars' | 'rainbow' | 'rain' | 'snow' | 'birds' | 'airplane' | 'fog' | 'lightning' | 'shooting_star';
+
+// How the AI read a student's description of the sky.
+export type SkyScene = {
+  colors: SkyPalette;
+  clouds: SkyClouds;
+  cloud_color: string;
+  things: SkyThing[];
+  title: string;
+};
+
+// Sends the student's words to the describe-sky Edge Function, which asks
+// Claude to turn them into painting instructions. Returns null when the
+// text wasn't a harmless sky description.
+export async function describeSky(text: string, timeOfDay: string): Promise<SkyScene | null> {
+  const { data, error } = await supabase.functions.invoke('describe-sky', { body: { text, timeOfDay } });
+  if (error) {
+    // The function's own message (rate limit, sign-in) when there is one.
+    let message = "Couldn't paint the sky right now.";
+    try {
+      const body = await (error as { context?: Response }).context?.json();
+      if (body?.error) message = body.error;
+    } catch {
+      // keep the generic message
+    }
+    throw new Error(message);
+  }
+  if (!data?.appropriate) return null;
+  return data as SkyScene;
+}
+
+export async function setMyStar(params: {
+  mood: SkyMood;
+  note: string;
+  photoUrl: string | null;
+  skyColors: SkyPalette | null;
+  desc: string | null;
+  scene: SkyScene | null;
+}): Promise<void> {
+  const { mood, note, photoUrl, skyColors, desc, scene } = params;
   const { error } = await supabase.rpc('set_my_star', {
     p_mood: mood,
     p_note: note.trim() || null,
     p_photo_url: photoUrl,
-    p_sky_colors: photoUrl ? skyColors : null,
+    p_sky_colors: scene ? scene.colors : photoUrl ? skyColors : null,
+    p_sky_desc: scene && desc ? desc.trim() : null,
+    p_sky_title: scene?.title ?? null,
+    p_sky_clouds: scene?.clouds ?? null,
+    p_sky_things: scene?.things ?? null,
   });
   if (error) throw error;
+}
+
+export const THING_EMOJI: Record<SkyThing, string> = {
+  moon: '🌙',
+  sun: '☀️',
+  stars: '✨',
+  rainbow: '🌈',
+  rain: '🌧️',
+  snow: '❄️',
+  birds: '🐦',
+  airplane: '✈️',
+  fog: '🌫️',
+  lightning: '⚡',
+  shooting_star: '🌠',
+};
+
+// What today's described skies have in common: things at least one
+// classmate saw (most-mentioned first), and the cloudiest common reading.
+export function sharedSky(stars: { sky_things: SkyThing[] | null; sky_clouds: SkyClouds | null }[]) {
+  const counts = new Map<SkyThing, number>();
+  const cloudVotes: Record<SkyClouds, number> = { none: 0, few: 0, scattered: 0, overcast: 0 };
+  for (const s of stars) {
+    (s.sky_things ?? []).forEach((t) => counts.set(t, (counts.get(t) ?? 0) + 1));
+    if (s.sky_clouds) cloudVotes[s.sky_clouds] += 1;
+  }
+  const things = [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([t]) => t).slice(0, 5);
+  const described = Object.values(cloudVotes).reduce((a, b) => a + b, 0);
+  const clouds = described
+    ? ((Object.entries(cloudVotes) as [SkyClouds, number][]).sort((a, b) => b[1] - a[1])[0][0])
+    : null;
+  return { things, clouds };
 }
 
 // One sky photo per student at a fixed path, overwritten each time — same

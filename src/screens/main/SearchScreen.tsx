@@ -760,7 +760,7 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg,
   },
   title: {
-    fontFamily: fontFamily.bold,
+    fontFamily: fontFamily.brand,
     fontSize: fontSize.xxl,
     color: colors.textDark,
     marginBottom: spacing.md,

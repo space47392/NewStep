@@ -49,16 +49,9 @@ export default function PostPreviewCard({ post, onPress, showCategory = true }: 
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.cardBg,
-    // Matches the radius every other primary card in the app already uses
-    // (Feed/Post Detail/Profile/Notifications/Follow lists/School) — this
-    // component alone used the smaller radius.md, which read as visually
-    // inconsistent wherever a preview card sits near one of those (Search,
-    // Help, School, Saved Posts).
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-    ...shadow.subtle,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.hairline,
   },
   header: {
     flexDirection: 'row',

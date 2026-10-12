@@ -47,8 +47,8 @@ const styles = StyleSheet.create({
   },
   title: {
     flexShrink: 1,
-    fontFamily: fontFamily.bold,
-    fontSize: fontSize.lg,
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.md,
     color: colors.textDark,
   },
   seeAll: {

@@ -152,7 +152,7 @@ export default function VolunteerScreen() {
           <View style={styles.titleRow}>
             <NSIcon name="star" size={30} />
             <Text style={styles.title} numberOfLines={2}>
-              Community Contributors
+              Community
             </Text>
             {/* Presentation-only — contributors.length is already in local
                 state (Step 10A). Matches Help's existing "N open" badge
@@ -269,7 +269,7 @@ const styles = StyleSheet.create({
   },
   title: {
     flexShrink: 1,
-    fontFamily: fontFamily.bold,
+    fontFamily: fontFamily.brand,
     fontSize: fontSize.xxl,
     color: colors.textDark,
   },

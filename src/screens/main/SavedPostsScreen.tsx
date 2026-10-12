@@ -182,8 +182,7 @@ export default function SavedPostsScreen() {
           accessibilityLabel="Go back"
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Ionicons name="arrow-back" size={20} color={colors.primary} />
-          <Text style={styles.backText}>Back</Text>
+          <Ionicons name="arrow-back" size={20} color={colors.textDark} accessibilityLabel="Back" />
         </TouchableOpacity>
         <View style={styles.list}>
           <View style={styles.titleIconRow}>
@@ -207,8 +206,7 @@ export default function SavedPostsScreen() {
         accessibilityLabel="Go back"
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >
-        <Ionicons name="arrow-back" size={20} color={colors.primary} />
-        <Text style={styles.backText}>Back</Text>
+        <Ionicons name="arrow-back" size={20} color={colors.textDark} accessibilityLabel="Back" />
       </TouchableOpacity>
 
       <FlatList
@@ -267,16 +265,23 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  // A quiet round back button, same on every inner screen.
   backButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: colors.cardBg,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 4,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
+    alignSelf: 'flex-start',
+    marginLeft: spacing.lg,
+    marginTop: spacing.lg,
   },
   backText: {
     fontFamily: fontFamily.semibold,
-    color: colors.primary,
+    color: colors.textDark,
     fontSize: fontSize.md,
   },
   list: {
@@ -292,7 +297,7 @@ const styles = StyleSheet.create({
     marginBottom: 0,
   },
   title: {
-    fontFamily: fontFamily.bold,
+    fontFamily: fontFamily.brand,
     fontSize: fontSize.xxl,
     color: colors.textDark,
     marginBottom: spacing.lg,

@@ -242,8 +242,7 @@ export default function UserProfileScreen() {
       <View style={styles.container}>
         <View style={styles.topBar}>
           <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={20} color={colors.primary} />
-            <Text style={styles.backText}>Back</Text>
+            <Ionicons name="arrow-back" size={20} color={colors.textDark} accessibilityLabel="Back" />
           </TouchableOpacity>
         </View>
         <EmptyState icon="person-outline" title="Profile not found" subtitle="This account may have been removed." />
@@ -268,8 +267,7 @@ export default function UserProfileScreen() {
         <FadeInView>
           <View style={styles.topBar}>
             <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-              <Ionicons name="arrow-back" size={20} color={colors.primary} />
-              <Text style={styles.backText}>Back</Text>
+              <Ionicons name="arrow-back" size={20} color={colors.textDark} accessibilityLabel="Back" />
             </TouchableOpacity>
             {!isOwnProfile && (
               <TouchableOpacity
@@ -443,14 +441,21 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: spacing.lg,
   },
+  // A quiet round back button, same on every inner screen.
   backButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: colors.cardBg,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 4,
+    alignSelf: 'flex-start',
   },
   backText: {
     fontFamily: fontFamily.semibold,
-    color: colors.primary,
+    color: colors.textDark,
     fontSize: fontSize.md,
   },
   menuButton: {

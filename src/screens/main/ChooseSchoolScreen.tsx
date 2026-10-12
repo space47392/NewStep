@@ -345,14 +345,21 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg,
     paddingBottom: spacing.sm,
   },
+  // A quiet round back button, same on every inner screen.
   backButton: {
+    height: 38,
+    paddingHorizontal: 12,
+    borderRadius: 19,
+    backgroundColor: colors.cardBg,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 4,
+    alignSelf: 'flex-start',
   },
   backText: {
     fontFamily: fontFamily.semibold,
-    color: colors.primary,
+    color: colors.textDark,
     fontSize: fontSize.md,
   },
   header: {
@@ -360,7 +367,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   title: {
-    fontFamily: fontFamily.bold,
+    fontFamily: fontFamily.brand,
     fontSize: fontSize.xxl,
     color: colors.textDark,
   },

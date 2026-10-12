@@ -302,8 +302,7 @@ export default function NotificationsScreen() {
         onPress={() => navigation.goBack()}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >
-        <Ionicons name="arrow-back" size={20} color={colors.primary} />
-        <Text style={styles.backText}>Back</Text>
+        <Ionicons name="arrow-back" size={20} color={colors.textDark} accessibilityLabel="Back" />
       </TouchableOpacity>
 
       <FlatList
@@ -417,20 +416,29 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  // A quiet round back button, same on every inner screen.
   backButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: colors.cardBg,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 4,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
+    alignSelf: 'flex-start',
+    marginLeft: spacing.lg,
+    marginTop: spacing.lg,
   },
   backText: {
     fontFamily: fontFamily.semibold,
-    color: colors.primary,
+    color: colors.textDark,
     fontSize: fontSize.md,
   },
   list: {
-    padding: spacing.lg,
+    paddingHorizontal: spacing.md + 4,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.lg,
   },
   titleRow: {
     flexDirection: 'row',
@@ -439,7 +447,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   title: {
-    fontFamily: fontFamily.bold,
+    fontFamily: fontFamily.brand,
     fontSize: fontSize.xxl,
     color: colors.textDark,
   },
@@ -447,7 +455,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: colors.primaryLight,
+    backgroundColor: colors.cardBg,
     borderRadius: radius.full,
     paddingHorizontal: spacing.sm + 2,
     paddingVertical: 6,
@@ -496,24 +504,24 @@ const styles = StyleSheet.create({
     position: 'relative',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-    backgroundColor: colors.cardBg,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-    ...shadow.card,
+    gap: spacing.sm + 2,
+    paddingVertical: spacing.sm + 4,
+    paddingHorizontal: spacing.sm,
+    marginHorizontal: -spacing.sm,
+    borderRadius: radius.md,
   },
   rowUnread: {
-    backgroundColor: colors.primaryLight,
+    backgroundColor: 'rgba(183,177,255,0.07)',
   },
   unreadDot: {
     position: 'absolute',
-    top: spacing.md,
+    top: '50%',
+    marginTop: -4,
     right: spacing.md,
     width: 8,
     height: 8,
     borderRadius: radius.full,
-    backgroundColor: colors.secondary,
+    backgroundColor: colors.sticker.lilac,
   },
   iconAvatar: {
     width: 44,

@@ -314,8 +314,7 @@ export default function SchoolScreen() {
         onPress={() => navigation.goBack()}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >
-        <Ionicons name="arrow-back" size={20} color={colors.primary} />
-        <Text style={styles.backText}>Back</Text>
+        <Ionicons name="arrow-back" size={20} color={colors.textDark} accessibilityLabel="Back" />
       </TouchableOpacity>
 
       <FadeInView style={styles.header}>
@@ -557,15 +556,22 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     paddingBottom: spacing.xl,
   },
+  // A quiet round back button, same on every inner screen.
   backButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: colors.cardBg,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 4,
+    alignSelf: 'flex-start',
     marginBottom: spacing.md,
   },
   backText: {
     fontFamily: fontFamily.semibold,
-    color: colors.primary,
+    color: colors.textDark,
     fontSize: fontSize.md,
   },
   header: {

@@ -467,8 +467,7 @@ export default function PostDetailScreen() {
           onPress={() => navigation.goBack()}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Ionicons name="arrow-back" size={20} color={colors.primary} />
-          <Text style={styles.backText}>Back</Text>
+          <Ionicons name="arrow-back" size={20} color={colors.textDark} accessibilityLabel="Back" />
         </TouchableOpacity>
         {!postDeleted && (
           <TouchableOpacity
@@ -727,30 +726,34 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg,
     paddingBottom: spacing.sm,
   },
+  // A quiet round back button, same on every inner screen.
   backButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: colors.cardBg,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 4,
+    alignSelf: 'flex-start',
   },
   backText: {
     fontFamily: fontFamily.semibold,
-    color: colors.primary,
+    color: colors.textDark,
     fontSize: fontSize.md,
   },
   menuButton: {
     padding: spacing.xs,
   },
   list: {
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md + 4,
     paddingBottom: spacing.lg,
   },
   postCard: {
     position: 'relative',
-    backgroundColor: colors.cardBg,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.lg,
-    ...shadow.card,
+    paddingTop: spacing.md,
+    marginBottom: spacing.md,
   },
   deletingOverlay: {
     position: 'absolute',
@@ -801,10 +804,9 @@ const styles = StyleSheet.create({
   },
   postContent: {
     fontFamily: fontFamily.regular,
-    fontSize: fontSize.md,
+    fontSize: 17,
     color: colors.textDark,
-    lineHeight: 21,
-    marginBottom: spacing.md,
+    lineHeight: 25,
   },
   photoWrap: {
     marginBottom: spacing.md,
@@ -828,12 +830,15 @@ const styles = StyleSheet.create({
     padding: 2,
   },
   commentsLabel: {
-    fontFamily: fontFamily.semibold,
-    fontSize: fontSize.sm,
-    color: colors.textMid,
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.xs,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    color: colors.textLight,
+    marginTop: spacing.sm,
+    paddingTop: spacing.md,
     borderTopWidth: 1,
-    borderTopColor: colors.border,
-    paddingTop: spacing.sm,
+    borderTopColor: colors.hairline,
   },
   commentRow: {
     flexDirection: 'row',
@@ -843,9 +848,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.cardBg,
     borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.sm,
+    borderTopLeftRadius: 4,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm + 4,
     marginLeft: spacing.sm,
   },
   commentName: {
@@ -868,19 +873,19 @@ const styles = StyleSheet.create({
   inputRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    padding: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.md,
     borderTopWidth: 1,
-    borderTopColor: colors.border,
-    backgroundColor: colors.cardBg,
+    borderTopColor: colors.hairline,
+    backgroundColor: colors.background,
   },
   input: {
     flex: 1,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
+    backgroundColor: colors.cardBg,
+    borderRadius: 22,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingVertical: 10,
     fontFamily: fontFamily.regular,
     fontSize: fontSize.md,
     color: colors.textDark,

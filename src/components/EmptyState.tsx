@@ -15,18 +15,19 @@ type Props = {
   tint?: string;
 };
 
-export default function EmptyState({ icon, title, subtitle, emoji, nsIcon, tint }: Props) {
+export default function EmptyState({ icon, title, subtitle, emoji, nsIcon }: Props) {
   return (
     <View style={styles.container}>
-      <View style={[styles.iconCircle, tint ? { backgroundColor: tint } : null]}>
+      {/* One quiet circle everywhere; per-screen tints made empty states loud. */}
+      <View style={styles.iconCircle}>
         {nsIcon ? (
           <View style={styles.sticker}>
-            <NSIcon name={nsIcon} size={44} />
+            <NSIcon name={nsIcon} size={36} />
           </View>
         ) : emoji ? (
           <Text style={styles.emoji}>{emoji}</Text>
         ) : (
-          <Ionicons name={icon} size={32} color={colors.primary} />
+          <Ionicons name={icon} size={26} color={colors.primaryDark} />
         )}
       </View>
       <Text style={styles.title}>{title}</Text>
@@ -38,14 +39,14 @@ export default function EmptyState({ icon, title, subtitle, emoji, nsIcon, tint 
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
-    paddingTop: spacing.xxl,
+    paddingTop: spacing.xl,
     paddingHorizontal: spacing.xl,
   },
   iconCircle: {
-    width: 72,
-    height: 72,
+    width: 56,
+    height: 56,
     borderRadius: radius.full,
-    backgroundColor: colors.primaryLight,
+    backgroundColor: colors.cardBg,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: spacing.md,

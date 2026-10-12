@@ -301,6 +301,18 @@ export default function SkyScene({
           ))}
         </Animated.View>
       ) : null}
+      {/* A faint warm glow rising from the horizon, like town lights or the
+          last of the sun — keeps even the darkest night feeling cosy. */}
+      <Svg style={StyleSheet.absoluteFill} preserveAspectRatio="none" viewBox="0 0 100 100" pointerEvents="none">
+        <Defs>
+          <RadialGradient id="warmglow" cx="50%" cy="100%" rx="85%" ry="45%">
+            <Stop offset="0" stopColor="#FFB46E" stopOpacity={darkSky ? 0.26 : 0.14} />
+            <Stop offset="0.6" stopColor="#F08A6A" stopOpacity={darkSky ? 0.08 : 0.04} />
+            <Stop offset="1" stopColor="#F08A6A" stopOpacity={0} />
+          </RadialGradient>
+        </Defs>
+        <Rect x="0" y="40" width="100" height="60" fill="url(#warmglow)" />
+      </Svg>
       <SkyThings things={things} />
       {darkSky ? <ShootingStar /> : null}
       {/* A glowing crescent at night, a soft low sun otherwise. */}

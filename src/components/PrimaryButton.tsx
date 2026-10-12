@@ -12,7 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../constants/theme';
 
-type Variant = 'primary' | 'outline' | 'destructive' | 'success';
+type Variant = 'primary' | 'outline' | 'destructive' | 'success' | 'warm' | 'warmGhost';
 
 type Props = {
   title: string;
@@ -32,6 +32,9 @@ const VARIANT_STYLES: Record<Variant, { bg: string; text: string; border?: strin
   // accentDark, not success: white on the bright mint was ~1.8:1.
   success: { bg: colors.successSolid, text: '#fff' },
   outline: { bg: colors.cardBg, text: colors.primary, border: colors.primary },
+  // School Sky's honey-lit buttons.
+  warm: { bg: colors.warm.honey, text: colors.warm.honeyInk },
+  warmGhost: { bg: colors.warm.glassSoft, text: colors.warm.cream, border: colors.warm.line },
 };
 
 export default function PrimaryButton({

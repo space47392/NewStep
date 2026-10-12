@@ -753,7 +753,7 @@ export default function SchoolSkyScreen() {
           />
         ) : null}
         {loading ? (
-          <ActivityIndicator color={colors.sticker.lilac} style={styles.loading} />
+          <ActivityIndicator color={colors.warm.honey} style={styles.loading} />
         ) : stars.length === 0 ? (
           <View style={styles.empty}>
             <Text style={styles.emptyTitle}>No stars yet</Text>
@@ -791,9 +791,10 @@ export default function SchoolSkyScreen() {
             </Text>
             <View style={styles.cardActions}>
               {selectedWish.mine ? (
-                <PrimaryButton title="Let it go" size="sm" variant="outline" onPress={() => handleDeleteWish(selectedWish)} style={styles.cardButton} />
+                <PrimaryButton title="Let it go" size="sm" variant="warmGhost" onPress={() => handleDeleteWish(selectedWish)} style={styles.cardButton} />
               ) : (
                 <PrimaryButton
+              variant="warm"
                   title={selectedWish.cheered ? 'Cheered 💛' : 'Cheer this wish 💛'}
                   size="sm"
                   disabled={selectedWish.cheered}
@@ -855,12 +856,14 @@ export default function SchoolSkyScreen() {
             <View style={styles.cardActions}>
               {selected.user_id === user?.id ? (
                 <>
-                  <PrimaryButton title="Change" size="sm" icon="create-outline" onPress={openComposer} style={styles.cardButton} />
-                  <PrimaryButton title="Remove" size="sm" variant="outline" onPress={handleRemove} style={styles.cardButton} />
+                  <PrimaryButton
+              variant="warm" title="Change" size="sm" icon="create-outline" onPress={openComposer} style={styles.cardButton} />
+                  <PrimaryButton title="Remove" size="sm" variant="warmGhost" onPress={handleRemove} style={styles.cardButton} />
                 </>
               ) : (
                 <>
                   <PrimaryButton
+              variant="warm"
                     title={twinkles.sentTo.has(selected.user_id) ? 'Twinkled ✨' : 'Twinkle ✨'}
                     size="sm"
                     disabled={twinkles.sentTo.has(selected.user_id)}
@@ -870,7 +873,7 @@ export default function SchoolSkyScreen() {
                   <PrimaryButton
                     title="Say hi"
                     size="sm"
-                    variant="outline"
+                    variant="warmGhost"
                     icon="chatbubble-ellipses-outline"
                     loading={openingChat}
                     onPress={() => handleSayHi(selected)}
@@ -906,6 +909,7 @@ export default function SchoolSkyScreen() {
               </Text>
             ) : null}
             <PrimaryButton
+              variant="warm"
               title={myStar ? 'Change your star' : 'Add your star'}
               icon="sparkles-outline"
               onPress={openComposer}
@@ -924,8 +928,9 @@ export default function SchoolSkyScreen() {
             “{skyText.trim()}”
           </Text>
           <View style={styles.cardActions}>
-            <PrimaryButton title="Edit" size="sm" variant="outline" onPress={() => setPreviewing(false)} style={styles.cardButton} />
+            <PrimaryButton title="Edit" size="sm" variant="warmGhost" onPress={() => setPreviewing(false)} style={styles.cardButton} />
             <PrimaryButton
+              variant="warm"
               title={myStar ? 'Update my star' : 'Put it in the sky'}
               size="sm"
               icon="sparkles"
@@ -949,14 +954,14 @@ export default function SchoolSkyScreen() {
             <View style={styles.sheetHandle} />
             <ScrollView style={styles.sheetScroll} contentContainerStyle={styles.sheetContent} keyboardShouldPersistTaps="handled">
             <Text style={styles.sheetTitle}>How's today going?</Text>
-            <Text style={styles.sheetSub}>Your star shows to classmates for 24 hours.</Text>
+            <Text style={styles.sheetSub}>Take a breath. Your star stays up for a day.</Text>
             <View style={styles.moodGrid}>
               {SKY_MOODS.map((m) => {
                 const on = m.key === mood;
                 return (
                   <TouchableOpacity
                     key={m.key}
-                    style={[styles.moodChip, on && { borderColor: m.color, backgroundColor: colors.raised }]}
+                    style={[styles.moodChip, on && { borderColor: colors.warm.honey, backgroundColor: 'rgba(245,194,122,0.12)' }]}
                     onPress={() => {
                       Haptics.selectionAsync();
                       setMood(m.key);
@@ -966,7 +971,7 @@ export default function SchoolSkyScreen() {
                     accessibilityLabel={m.label}
                   >
                     <Text style={styles.moodEmoji}>{m.emoji}</Text>
-                    <Text style={[styles.moodLabel, on && { color: m.color }]}>{m.label}</Text>
+                    <Text style={[styles.moodLabel, on && { color: colors.warm.cream }]}>{m.label}</Text>
                   </TouchableOpacity>
                 );
               })}
@@ -978,7 +983,7 @@ export default function SchoolSkyScreen() {
                 <TextInput
                   style={[styles.noteInput, styles.lookUpInput]}
                   placeholder="e.g. pink sunset, clouds like cotton candy"
-                  placeholderTextColor={colors.textLight}
+                  placeholderTextColor={colors.warm.creamFaint}
                   value={skyText}
                   onChangeText={(t) => {
                     setSkyText(t);
@@ -992,7 +997,7 @@ export default function SchoolSkyScreen() {
                 title={skyScene ? 'Paint it again' : 'Paint my sky'}
                 icon="color-palette-outline"
                 size="sm"
-                variant={skyScene ? 'outline' : 'primary'}
+                variant={skyScene ? 'warmGhost' : 'warm'}
                 loading={painting}
                 disabled={skyText.trim().length < 2}
                 onPress={handlePaint}
@@ -1022,7 +1027,7 @@ export default function SchoolSkyScreen() {
                 <View style={styles.composerPhotoActions}>
                   <Text style={styles.composerPhotoTitle}>Your sky 📷</Text>
                   <TouchableOpacity onPress={handleSnapSky} style={styles.composerLink}>
-                    <Ionicons name="camera-reverse-outline" size={16} color={colors.primaryDark} />
+                    <Ionicons name="camera-reverse-outline" size={16} color={colors.warm.honey} />
                     <Text style={styles.composerLinkText}>Retake</Text>
                   </TouchableOpacity>
                   <TouchableOpacity onPress={() => setPhotoUri(null)} style={styles.composerLink}>
@@ -1033,14 +1038,14 @@ export default function SchoolSkyScreen() {
               </View>
             ) : (
               <TouchableOpacity style={styles.photoLink} onPress={handleSnapSky} activeOpacity={0.8}>
-                <Ionicons name="camera-outline" size={16} color={colors.primaryDark} />
+                <Ionicons name="camera-outline" size={16} color={colors.warm.honey} />
                 <Text style={styles.composerLinkText}>Add a photo of it too (optional)</Text>
               </TouchableOpacity>
             )}
             <TextInput
               style={styles.noteInput}
               placeholder="Add a line (optional)"
-              placeholderTextColor={colors.textLight}
+              placeholderTextColor={colors.warm.creamFaint}
               value={note}
               onChangeText={setNote}
               maxLength={SKY_NOTE_MAX}
@@ -1049,6 +1054,7 @@ export default function SchoolSkyScreen() {
               {note.length}/{SKY_NOTE_MAX}
             </Text>
             <PrimaryButton
+              variant="warm"
               title={myStar ? 'Update my star' : 'Put it in the sky'}
               icon="sparkles"
               loading={saving}
@@ -1068,7 +1074,7 @@ export default function SchoolSkyScreen() {
             <TextInput
               style={styles.noteInput}
               placeholder="I wish…"
-              placeholderTextColor={colors.textLight}
+              placeholderTextColor={colors.warm.creamFaint}
               value={wishText}
               onChangeText={setWishText}
               maxLength={WISH_MAX}
@@ -1077,7 +1083,8 @@ export default function SchoolSkyScreen() {
             <Text style={styles.noteCount}>
               {wishText.length}/{WISH_MAX}
             </Text>
-            <PrimaryButton title="Send it to the sky" icon="sparkles" loading={wishSaving} disabled={!wishText.trim()} onPress={handleMakeWish} />
+            <PrimaryButton
+              variant="warm" title="Send it to the sky" icon="sparkles" loading={wishSaving} disabled={!wishText.trim()} onPress={handleMakeWish} />
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -1146,7 +1153,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: colors.warm.glassSoft,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1156,12 +1163,12 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: fontFamily.brand,
     fontSize: fontSize.xl,
-    color: '#fff',
+    color: colors.warm.cream,
   },
   subtitle: {
     fontFamily: fontFamily.medium,
     fontSize: fontSize.sm,
-    color: colors.sticker.lilac,
+    color: colors.warm.creamMuted,
   },
   sky: {
     flex: 1,
@@ -1199,7 +1206,7 @@ const styles = StyleSheet.create({
   weatherLine: {
     fontFamily: fontFamily.regular,
     fontSize: fontSize.xs,
-    color: 'rgba(255,255,255,0.75)',
+    color: colors.warm.creamFaint,
     marginTop: 2,
   },
   constellationTag: {
@@ -1286,12 +1293,12 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(10,9,26,0.7)',
   },
   wishSheet: {
-    backgroundColor: colors.cardBg,
-    borderRadius: radius.xl,
+    backgroundColor: '#1E1928',
+    borderRadius: 26,
     padding: spacing.lg,
     gap: spacing.sm,
     borderWidth: 1,
-    borderColor: 'rgba(255,196,120,0.35)',
+    borderColor: 'rgba(255,196,120,0.3)',
   },
   wishEmoji: {
     fontSize: 40,
@@ -1321,7 +1328,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
     fontFamily: fontFamily.medium,
     fontSize: 11,
-    color: 'rgba(255,255,255,0.6)',
+    color: colors.warm.creamMuted,
     maxWidth: 84,
   },
   starNameMine: {
@@ -1358,7 +1365,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: colors.warm.glassSoft,
     borderRadius: radius.full,
     paddingLeft: 10,
     paddingRight: 4,
@@ -1383,17 +1390,17 @@ const styles = StyleSheet.create({
   previewEyebrow: {
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.sm,
-    color: colors.sticker.yellow,
+    color: colors.warm.honey,
   },
   previewTitle: {
     fontFamily: fontFamily.brand,
     fontSize: fontSize.xl,
-    color: '#fff',
+    color: colors.warm.cream,
   },
   previewDesc: {
     fontFamily: fontFamily.regular,
     fontSize: fontSize.sm,
-    color: 'rgba(255,255,255,0.75)',
+    color: colors.warm.creamMuted,
   },
   sheetScroll: {
     flexGrow: 0,
@@ -1404,18 +1411,20 @@ const styles = StyleSheet.create({
   lookUp: {
     gap: spacing.sm,
     padding: spacing.md,
-    borderRadius: radius.lg,
-    backgroundColor: colors.primaryLight,
+    borderRadius: 20,
+    backgroundColor: 'rgba(245,194,122,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(245,194,122,0.18)',
   },
   lookUpTitle: {
     fontFamily: fontFamily.brand,
     fontSize: fontSize.lg,
-    color: colors.textDark,
+    color: colors.warm.cream,
   },
   lookUpSub: {
     fontFamily: fontFamily.regular,
     fontSize: fontSize.sm,
-    color: colors.textMid,
+    color: colors.warm.creamMuted,
     marginTop: -4,
   },
   lookUpRow: {
@@ -1435,8 +1444,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    backgroundColor: colors.cardBg,
-    borderRadius: radius.md,
+    backgroundColor: colors.warm.glassSoft,
+    borderRadius: 16,
     padding: spacing.sm,
   },
   sceneSwatch: {
@@ -1452,12 +1461,12 @@ const styles = StyleSheet.create({
   sceneTitle: {
     fontFamily: fontFamily.brand,
     fontSize: fontSize.md,
-    color: colors.textDark,
+    color: colors.warm.cream,
   },
   sceneThings: {
     fontFamily: fontFamily.regular,
     fontSize: fontSize.sm,
-    color: colors.textMid,
+    color: colors.warm.creamMuted,
   },
   photoLink: {
     flexDirection: 'row',
@@ -1558,7 +1567,7 @@ const styles = StyleSheet.create({
   paintedText: {
     fontFamily: fontFamily.medium,
     fontSize: 11,
-    color: '#fff',
+    color: colors.warm.creamMuted,
     flexShrink: 1,
   },
   swatches: {
@@ -1675,7 +1684,7 @@ const styles = StyleSheet.create({
   composerLinkText: {
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.sm,
-    color: colors.primaryDark,
+    color: colors.warm.honey,
   },
   empty: {
     alignItems: 'center',
@@ -1703,14 +1712,14 @@ const styles = StyleSheet.create({
   hint: {
     fontFamily: fontFamily.regular,
     fontSize: fontSize.sm,
-    color: colors.textLight,
+    color: colors.warm.creamFaint,
     textAlign: 'center',
   },
   card: {
-    backgroundColor: colors.cardBg,
-    borderRadius: radius.lg,
+    backgroundColor: colors.warm.glass,
+    borderRadius: 22,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.warm.line,
     padding: spacing.md,
     gap: spacing.sm,
   },
@@ -1725,17 +1734,18 @@ const styles = StyleSheet.create({
   cardName: {
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.md,
-    color: colors.textDark,
+    color: colors.warm.cream,
   },
   cardMeta: {
     fontFamily: fontFamily.regular,
     fontSize: fontSize.sm,
-    color: colors.textLight,
+    color: colors.warm.creamFaint,
   },
   cardNote: {
     fontFamily: fontFamily.medium,
     fontSize: fontSize.md,
-    color: colors.textDark,
+    color: colors.warm.cream,
+    lineHeight: 22,
   },
   cardActions: {
     flexDirection: 'row',
@@ -1747,33 +1757,35 @@ const styles = StyleSheet.create({
   modalBackdrop: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(10,9,26,0.6)',
+    backgroundColor: 'rgba(12,9,20,0.45)',
   },
   sheet: {
-    backgroundColor: colors.cardBg,
-    borderTopLeftRadius: radius.xl,
-    borderTopRightRadius: radius.xl,
+    backgroundColor: '#1E1928',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderTopWidth: 1,
+    borderColor: colors.warm.line,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
     gap: spacing.sm,
   },
   sheetHandle: {
     alignSelf: 'center',
-    width: 40,
+    width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: colors.border,
+    backgroundColor: colors.warm.line,
     marginBottom: spacing.sm,
   },
   sheetTitle: {
     fontFamily: fontFamily.brand,
     fontSize: fontSize.xl,
-    color: colors.textDark,
+    color: colors.warm.cream,
   },
   sheetSub: {
     fontFamily: fontFamily.regular,
     fontSize: fontSize.sm,
-    color: colors.textLight,
+    color: colors.warm.creamFaint,
     marginTop: -spacing.xs,
   },
   moodGrid: {
@@ -1786,10 +1798,11 @@ const styles = StyleSheet.create({
     width: '31%',
     flexGrow: 1,
     alignItems: 'center',
-    paddingVertical: spacing.sm,
-    borderRadius: radius.md,
-    borderWidth: 2,
-    borderColor: colors.border,
+    paddingVertical: spacing.sm + 2,
+    borderRadius: 16,
+    backgroundColor: colors.warm.glassSoft,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
     gap: 2,
   },
   moodEmoji: {
@@ -1798,24 +1811,22 @@ const styles = StyleSheet.create({
   moodLabel: {
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.sm,
-    color: colors.textMid,
+    color: colors.warm.creamMuted,
   },
   noteInput: {
-    backgroundColor: colors.background,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
+    backgroundColor: colors.warm.glassSoft,
+    borderRadius: 16,
     paddingHorizontal: spacing.md,
     paddingVertical: 12,
     fontFamily: fontFamily.regular,
     fontSize: fontSize.md,
-    color: colors.textDark,
+    color: colors.warm.cream,
   },
   noteCount: {
     alignSelf: 'flex-end',
     fontFamily: fontFamily.regular,
     fontSize: fontSize.xs,
-    color: colors.textLight,
+    color: colors.warm.creamFaint,
     marginTop: -spacing.xs,
   },
 });

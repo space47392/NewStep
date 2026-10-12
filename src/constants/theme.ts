@@ -45,6 +45,18 @@ export const colors = {
   // Sticker outline ink (NSIcon, InterestIcon, TabGlyph). Stays dark in
   // every theme — it's part of the sticker art, not text.
   ink: '#1A1A2E',
+  // School Sky's warm night: honey light and cream text over the sky, so
+  // it feels like looking up from somewhere cosy rather than at a screen.
+  warm: {
+    honey: '#F5C27A',
+    honeyInk: '#2A1D12',
+    cream: '#FFF3E2',
+    creamMuted: 'rgba(255,238,218,0.72)',
+    creamFaint: 'rgba(255,238,218,0.5)',
+    glass: 'rgba(26,21,40,0.78)',
+    glassSoft: 'rgba(255,236,214,0.07)',
+    line: 'rgba(255,224,186,0.16)',
+  },
   // NewStep sticker icon fills (NSIcon).
   sticker: {
     yellow: '#FFD45C',

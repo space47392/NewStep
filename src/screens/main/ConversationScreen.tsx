@@ -680,7 +680,7 @@ export default function ConversationScreen() {
           style={styles.backButton}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Ionicons name="arrow-back" size={20} color={colors.primary} />
+          <Ionicons name="arrow-back" size={20} color={colors.textDark} />
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.headerUser}
@@ -1144,8 +1144,8 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg,
     paddingBottom: spacing.sm + 2,
     gap: spacing.sm,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.hairline,
   },
   backButton: {
     marginRight: spacing.xs,
@@ -1375,8 +1375,6 @@ const styles = StyleSheet.create({
   },
   bubbleTheirs: {
     backgroundColor: colors.cardBg,
-    borderWidth: 1,
-    borderColor: colors.border,
   },
   bubbleDeleted: {
     backgroundColor: colors.background,
@@ -1466,19 +1464,19 @@ const styles = StyleSheet.create({
   inputRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    padding: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.md,
     borderTopWidth: 1,
-    borderTopColor: colors.border,
-    backgroundColor: colors.cardBg,
+    borderTopColor: colors.hairline,
+    backgroundColor: colors.background,
   },
   input: {
     flex: 1,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
+    backgroundColor: colors.cardBg,
+    borderRadius: 22,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingVertical: 10,
     fontFamily: fontFamily.regular,
     fontSize: fontSize.md,
     color: colors.textDark,

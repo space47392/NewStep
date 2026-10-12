@@ -312,7 +312,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   list: {
-    padding: spacing.lg,
+    paddingHorizontal: spacing.md + 4,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.lg,
   },
   titleIconRow: {
     flexDirection: 'row',
@@ -377,11 +379,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
     backgroundColor: colors.cardBg,
-    borderRadius: radius.full,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderRadius: radius.md,
     paddingHorizontal: spacing.md,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
   },
   searchInput: {
     flex: 1,
@@ -461,7 +461,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
   },
   title: {
-    fontFamily: fontFamily.bold,
+    fontFamily: fontFamily.brand,
     fontSize: fontSize.xxl,
     color: colors.textDark,
     marginBottom: spacing.lg,
@@ -469,16 +469,12 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.cardBg,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-    ...shadow.card,
+    paddingVertical: spacing.sm + 4,
   },
   // Unread chats stand out at a glance, not only by the small count badge.
   rowUnread: {
-    borderWidth: 1.5,
-    borderColor: colors.primaryLight,
+    // Unread reads through bold text and the badge, no outline.
+    opacity: 1,
   },
   nameUnread: {
     fontFamily: fontFamily.bold,
@@ -502,7 +498,7 @@ const styles = StyleSheet.create({
   lastMessage: {
     fontFamily: fontFamily.regular,
     fontSize: fontSize.sm,
-    color: colors.textMid,
+    color: colors.textLight,
     marginTop: 2,
   },
   draftLabel: {
@@ -523,18 +519,18 @@ const styles = StyleSheet.create({
     color: colors.textLight,
   },
   unreadBadge: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.sticker.lilac,
     borderRadius: radius.full,
-    minWidth: 22,
-    height: 22,
-    paddingHorizontal: 6,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 5,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: spacing.xs,
+    marginTop: 6,
   },
   unreadBadgeText: {
     fontFamily: fontFamily.bold,
-    color: '#fff',
-    fontSize: fontSize.xs,
+    color: colors.ink,
+    fontSize: 10,
   },
 });

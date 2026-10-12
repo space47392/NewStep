@@ -115,11 +115,13 @@ export default function TabNavigator() {
         tabBarInactiveTintColor: colors.tabInactive,
         tabBarStyle: {
           backgroundColor: colors.tabBar,
-          borderTopWidth: 0,
-          height: 64 + insets.bottom,
+          // Flows on from the screen, with a hairline instead of a shadow.
+          borderTopWidth: 1,
+          borderTopColor: colors.hairline,
+          elevation: 0,
+          height: 62 + insets.bottom,
           paddingTop: 8,
           paddingBottom: 10 + insets.bottom,
-          ...shadow.floating,
         },
         // Slightly smaller/tighter than before — 6 tabs (Home/Search/Help/
         // Chat/Community/Profile) share the row, and "Community" was the

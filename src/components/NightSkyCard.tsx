@@ -183,7 +183,7 @@ export default function NightSkyCard({ children, style, onLayout, sky }: Props) 
             </View>
           ) : null}
           {Array.from({ length: cloudCount }, (_, i) => (
-            <HeaderCloud key={i} x={[0.5, 0.05, 0.3][i]} y={[0.18, 0.55, 0.05][i]} w={[150, 120, 100][i]} color={sky.cloudColor} />
+            <HeaderCloud key={i} x={[0.42, 0.72, 0.2][i]} y={[0.3, 0.52, 0.04][i]} w={[130, 110, 90][i]} color={sky.cloudColor} />
           ))}
         </Animated.View>
       ) : null}
@@ -204,8 +204,8 @@ const styles = StyleSheet.create({
   },
   orb: {
     position: 'absolute',
-    right: 14,
-    top: 46,
+    right: 64,
+    top: 50,
   },
   dust: {
     position: 'absolute',

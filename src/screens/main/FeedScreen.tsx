@@ -760,9 +760,12 @@ export default function FeedScreen() {
             <View style={styles.greetingText}>
             {myFirstName ? (
               <>
-                <View style={styles.brandRow}>
-                  <AppLogo size={20} />
-                  <Text style={styles.brandLabel}>NewStep</Text>
+                <View style={styles.brandTopRow}>
+                  <View style={styles.brandRow}>
+                    <AppLogo size={20} />
+                    <Text style={styles.brandLabel}>NewStep</Text>
+                  </View>
+                  {bell}
                 </View>
                 <Text style={styles.greeting} numberOfLines={1}>
                   Hi, {myFirstName} 👋
@@ -772,7 +775,7 @@ export default function FeedScreen() {
               <Text style={styles.pageTitle}>NewStep</Text>
             )}
             </View>
-            {!mySchoolName && bell}
+            {!myFirstName && bell}
             </View>
 
             {/* One identity line instead of three separate widgets (title,
@@ -789,22 +792,14 @@ export default function FeedScreen() {
                     navigation.navigate('School', { schoolId: mySchoolId ?? undefined, schoolName: mySchoolName })
                   }
                 >
-                  <NSIcon name="school" size={22} />
                   <Text style={[styles.identityText, styles.identityTextShrink]} numberOfLines={1}>
                     {`${mySchoolName} · ${mySchoolStudentCount} ${mySchoolStudentCount === 1 ? 'student' : 'students'}${
                       openHelpCount > 0 ? ` · ${openHelpCount} need help` : ''
                     }`}
                   </Text>
-                  <Ionicons name="chevron-forward" size={14} color="#fff" />
+                  <Ionicons name="chevron-forward" size={13} color="rgba(255,255,255,0.8)" />
                 </TouchableOpacity>
-              ) : (
-                // Keeps the bell pinned to the right edge, same as the
-                // populated case — the actual "no school" call-to-action is
-                // its own banner below, not a truncating inline string
-                // (Step 31.5).
-                <View style={styles.identityTextWrap} />
-              )}
-              {bell}
+              ) : null}
             </View>
             ) : null}
             {mySchoolName && user ? (
@@ -828,20 +823,20 @@ export default function FeedScreen() {
                     arrows dropped so both buttons fit one row on a ~384dp
                     phone at the existing text size (Step 12A). */}
                 <Text style={styles.welcomeSubtitle}>
-                  👋 New here? Find your community and introduce yourself to other students.
+                  👋 New here? Say hi and find your people.
                 </Text>
                 <View style={styles.welcomeActions}>
                   <TouchableOpacity
                     style={styles.welcomeButton}
                     onPress={() => navigation.navigate('School', { schoolId: mySchoolId ?? undefined, schoolName: mySchoolName })}
                   >
-                    <Text style={styles.welcomeButtonText}>Discover your community</Text>
+                    <Text style={styles.welcomeButtonText}>Explore your school ›</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.welcomeButtonSecondary}
                     onPress={() => navigation.navigate('CreatePost')}
                   >
-                    <Text style={styles.welcomeButtonSecondaryText}>Introduce yourself</Text>
+                    <Text style={styles.welcomeButtonSecondaryText}>Introduce yourself ›</Text>
                   </TouchableOpacity>
                 </View>
               </FadeInView>
@@ -868,7 +863,7 @@ export default function FeedScreen() {
                 section" rather than a bare row of circles — pure presentation,
                 same stories, same order, same seen/pause/expiry logic as before. */}
             <View style={styles.storyCard}>
-              {mySchoolName && <Text style={styles.storyRailLabel}>Stories from {mySchoolName}</Text>}
+              <Text style={styles.storyRailLabel}>Stories</Text>
               <FlatList
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -923,7 +918,7 @@ export default function FeedScreen() {
                 onPress={() => setFeedMode('forYou')}
                 hitSlop={{ top: 8, bottom: 8 }}
               >
-                <Text style={[styles.feedModeText, feedMode === 'forYou' && styles.feedModeTextActive]}>For You</Text>
+                <Text style={[styles.feedModeText, feedMode === 'forYou' && styles.feedModeTextActive]}>For you</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.feedModeTab, feedMode === 'following' && styles.feedModeTabActive]}
@@ -1206,17 +1201,20 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   list: {
-    padding: spacing.lg,
+    paddingHorizontal: spacing.md + 4,
+    paddingTop: spacing.lg,
     // FAB's own offset + size, plus a full extra spacing.xxl of clear gap
     // above it (not just barely touching) — see the comment above.
     paddingBottom: FAB_BOTTOM_OFFSET + FAB_SIZE + spacing.xxl,
   },
   welcomeCard: {
     position: 'relative',
-    backgroundColor: colors.primaryLight,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.md,
+    marginBottom: spacing.lg,
   },
   welcomeDismiss: {
     position: 'absolute',
@@ -1228,10 +1226,9 @@ const styles = StyleSheet.create({
   // Now the banner's first line, so it carries the ✕ clearance the removed
   // headline used to.
   welcomeSubtitle: {
-    fontFamily: fontFamily.regular,
+    fontFamily: fontFamily.medium,
     fontSize: fontSize.sm,
-    color: colors.textMid,
-    lineHeight: 19,
+    color: colors.textDark,
     paddingRight: spacing.xl,
   },
   // flexWrap kept — larger font scales or narrower phones still wrap
@@ -1239,54 +1236,40 @@ const styles = StyleSheet.create({
   welcomeActions: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.sm,
-    marginTop: spacing.sm,
+    gap: spacing.md,
+    marginTop: 6,
   },
   welcomeButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: colors.cardBg,
-    borderRadius: radius.full,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
   },
   welcomeButtonText: {
     fontFamily: fontFamily.semibold,
-    fontSize: fontSize.xs,
-    color: colors.primary,
+    fontSize: fontSize.sm,
+    color: colors.primaryDark,
   },
   welcomeButtonSecondary: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: colors.primary,
-    borderRadius: radius.full,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
   },
   welcomeButtonSecondaryText: {
     fontFamily: fontFamily.semibold,
-    fontSize: fontSize.xs,
-    color: '#fff',
+    fontSize: fontSize.sm,
+    color: colors.primaryDark,
   },
   storyCard: {
-    backgroundColor: colors.cardBg,
-    borderRadius: radius.lg,
-    paddingTop: spacing.xs,
-    paddingHorizontal: spacing.md,
-    marginBottom: spacing.sm,
-    ...shadow.subtle,
+    marginBottom: spacing.lg,
   },
   storyRailLabel: {
-    fontFamily: fontFamily.semibold,
-    fontSize: fontSize.sm,
-    color: colors.textDark,
-    marginBottom: spacing.xs,
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.xs,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    color: colors.textLight,
+    marginBottom: spacing.sm,
   },
   storyRail: {
-    paddingBottom: spacing.xs,
-    gap: spacing.sm,
+    gap: spacing.md,
   },
   storyItem: {
     alignItems: 'center',
@@ -1342,11 +1325,11 @@ const styles = StyleSheet.create({
   // Full-bleed: cancels the list's own side/top padding so the sky meets
   // the screen edges, with only the bottom corners rounded.
   skyCard: {
-    marginHorizontal: -spacing.lg,
+    marginHorizontal: -(spacing.md + 4),
     marginTop: -spacing.lg,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md + 4,
     paddingBottom: spacing.lg,
-    marginBottom: spacing.md,
+    marginBottom: spacing.lg,
     borderTopLeftRadius: 0,
     borderTopRightRadius: 0,
   },
@@ -1365,6 +1348,11 @@ const styles = StyleSheet.create({
   greetingText: {
     flex: 1,
   },
+  brandTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1375,20 +1363,19 @@ const styles = StyleSheet.create({
   },
   brandLabel: {
     fontFamily: fontFamily.brand,
-    fontSize: fontSize.sm,
-    color: colors.sticker.lilac,
+    fontSize: fontSize.md,
+    color: '#fff',
   },
   greeting: {
-    fontFamily: fontFamily.extrabold,
-    fontSize: fontSize.xl,
+    fontFamily: fontFamily.brand,
+    fontSize: 28,
     color: '#fff',
-    marginBottom: spacing.xs,
+    marginTop: spacing.sm,
   },
   identityRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-    marginTop: spacing.xs,
+    marginTop: 2,
   },
   // Replaces the old inline "Add your school in Profile..." fallback text,
   // which truncated awkwardly at one line — a short, fixed-text card instead
@@ -1418,21 +1405,15 @@ const styles = StyleSheet.create({
   },
   // A frosted pill on the night card.
   identityTextWrap: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    borderRadius: radius.full,
-    paddingVertical: 6,
-    paddingLeft: 6,
-    paddingRight: spacing.md,
+    gap: 4,
+    flexShrink: 1,
   },
   identityText: {
-    flex: 1,
-    fontFamily: fontFamily.semibold,
+    fontFamily: fontFamily.medium,
     fontSize: fontSize.sm,
-    color: '#fff',
+    color: 'rgba(255,255,255,0.85)',
   },
   bellButton: {
     position: 'relative',
@@ -1465,28 +1446,26 @@ const styles = StyleSheet.create({
   },
   feedModeRow: {
     flexDirection: 'row',
-    backgroundColor: colors.cardBg,
-    borderRadius: radius.full,
-    padding: 3,
-    marginTop: spacing.md,
+    gap: spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.hairline,
   },
   feedModeTab: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: spacing.xs,
-    borderRadius: radius.full,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+    marginBottom: -1,
   },
   feedModeTabActive: {
-    backgroundColor: colors.primaryLight,
-    ...shadow.subtle,
+    borderBottomColor: colors.sticker.lilac,
   },
   feedModeText: {
     fontFamily: fontFamily.semibold,
-    fontSize: fontSize.sm,
-    color: colors.textMid,
+    fontSize: fontSize.md,
+    color: colors.textLight,
   },
   feedModeTextActive: {
-    color: colors.primaryDark,
+    color: colors.textDark,
   },
   loadMoreButton: {
     alignItems: 'center',
@@ -1499,11 +1478,11 @@ const styles = StyleSheet.create({
   },
   fab: {
     position: 'absolute',
-    right: spacing.lg,
+    right: spacing.md + 4,
     bottom: FAB_BOTTOM_OFFSET,
     width: FAB_SIZE,
     height: FAB_SIZE,
-    borderRadius: radius.full,
+    borderRadius: 18,
     backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
@@ -1513,14 +1492,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-    marginBottom: spacing.sm,
+    marginBottom: 6,
   },
   card: {
-    backgroundColor: colors.cardBg,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-    ...shadow.card,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.hairline,
   },
   deletingOverlay: {
     position: 'absolute',
@@ -1542,7 +1519,7 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     fontSize: fontSize.md,
     color: colors.textDark,
-    lineHeight: 21,
+    lineHeight: 22,
   },
   photoWrap: {
     marginTop: spacing.sm,

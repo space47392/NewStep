@@ -80,8 +80,8 @@ export default function SkyPeek({ userId, onOpen }: Props) {
             : 'Be the first star today'}
       </Text>
       <View style={styles.cta}>
-        <Text style={styles.ctaText}>{mine ? 'See' : 'Add star'}</Text>
-        <Ionicons name="sparkles" size={12} color={colors.ink} />
+        <Text style={styles.ctaText}>{mine ? 'See sky' : 'Add star'}</Text>
+        <Ionicons name="chevron-forward" size={13} color={colors.sticker.yellow} />
       </View>
     </TouchableOpacity>
   );
@@ -92,28 +92,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    marginTop: spacing.sm,
-    paddingVertical: 6,
-    paddingLeft: 6,
-    paddingRight: 6,
-    borderRadius: radius.full,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.14)',
+    // A quiet line under the greeting, set off by a hairline above.
+    marginTop: spacing.md,
+    paddingTop: spacing.sm + 2,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.16)',
   },
   rowLoading: {
     opacity: 0.6,
   },
   ctaGhost: {
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    width: 72,
+    width: 60,
   },
   bubbles: {
     flexDirection: 'row',
   },
   bubble: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     borderWidth: 1.5,
     backgroundColor: colors.night,
     justifyContent: 'center',
@@ -135,15 +132,11 @@ const styles = StyleSheet.create({
   cta: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: colors.sticker.yellow,
-    borderRadius: radius.full,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    gap: 2,
   },
   ctaText: {
     fontFamily: fontFamily.bold,
-    fontSize: fontSize.xs,
-    color: colors.ink,
+    fontSize: fontSize.sm,
+    color: colors.sticker.yellow,
   },
 });

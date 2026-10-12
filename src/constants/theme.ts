@@ -15,13 +15,17 @@ export const colors = {
   accent: '#43D9A2',
   accentLight: '#173832',
   accentDark: '#7EE6BE',
-  background: '#16152B',
-  cardBg: '#211F3B',
+  // Calm, flat surfaces: most content sits straight on the background,
+  // separated by hairlines; cards only where something needs grouping.
+  background: '#121122',
+  cardBg: '#1C1A33',
   textDark: '#F2F1FA',
   textMid: '#C4C2DC',
   textLight: '#9592B3',
-  border: '#302D50',
-  tabBar: '#1B1A34',
+  border: '#2C2A48',
+  // Thin separators between rows and sections.
+  hairline: '#232140',
+  tabBar: '#121122',
   tabActive: '#B7B1FF',
   tabInactive: '#6E6B90',
   error: '#FF6B6B',
@@ -62,9 +66,9 @@ export const spacing = {
 
 export const radius = {
   sm: 8,
-  md: 14,
-  lg: 20,
-  xl: 28,
+  md: 12,
+  lg: 16,
+  xl: 24,
   full: 999,
 };
 
@@ -93,13 +97,8 @@ export const fontFamily = {
 
 // Soft, consistent card elevation used across the app instead of one-off shadow props.
 export const shadow = {
-  card: {
-    shadowColor: '#1A1A2E',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 3,
-  },
+  // Flat on purpose (calm UI): cards are set apart by colour, not shadow.
+  card: {},
   floating: {
     shadowColor: '#1A1A2E',
     shadowOffset: { width: 0, height: 6 },
@@ -109,11 +108,5 @@ export const shadow = {
   },
   // Lighter than `card` — for small elements (chat bubbles, badges) that need
   // just a hint of lift rather than a full card shadow.
-  subtle: {
-    shadowColor: '#1A1A2E',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
-  },
+  subtle: {},
 };

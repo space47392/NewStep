@@ -64,7 +64,7 @@ export default function HelpProgress({
   const popScale = pop.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.6, 1.6, 1] });
 
   return (
-    <View style={[styles.panel, { backgroundColor: done ? colors.accentLight : colors.secondaryLight }]}>
+    <View style={[styles.panel, { backgroundColor: done ? 'rgba(126,230,190,0.06)' : 'rgba(255,155,176,0.06)' }]}>
       {showPair ? (
         <PairRow
           style={styles.pairRow}
@@ -157,7 +157,10 @@ export default function HelpProgress({
 const styles = StyleSheet.create({
   panel: {
     borderRadius: radius.md,
-    padding: spacing.sm + spacing.xs,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.sm + spacing.xs,
     marginTop: spacing.sm,
     marginBottom: spacing.xs,
     gap: spacing.sm + spacing.xs,

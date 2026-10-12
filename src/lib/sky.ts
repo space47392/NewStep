@@ -281,6 +281,13 @@ export async function cheerWish(wishId: string): Promise<void> {
   if (error) throw error;
 }
 
+// Hides the wish for me and keeps the report for review
+// (school_sky_safety.sql). Nothing is hidden for others by report count.
+export async function reportWish(wishId: string, reason?: string): Promise<void> {
+  const { error } = await supabase.rpc('report_wish', { p_wish: wishId, p_reason: reason ?? null });
+  if (error) throw error;
+}
+
 export async function deleteWish(wishId: string): Promise<void> {
   const { error } = await supabase.from('sky_wishes').delete().eq('id', wishId);
   if (error) throw error;

@@ -13,6 +13,7 @@ import {
   Image,
   FlatList,
   ScrollView,
+  Alert,
   StyleSheet,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
@@ -26,6 +27,7 @@ import Svg, { Path, Defs, RadialGradient, LinearGradient, Rect, Circle, Stop } f
 import SkyScene, { Horizon, skyPhase, phaseWords, DescribedSkyLook, landColors, PHASE_SKY } from '../../components/SkyScene';
 import { extractSkyPalette, paintSky, mixHex, SkyPalette } from '../../lib/skyColors';
 import SkyWeather from '../../components/SkyWeather';
+import { hasBlockedWords, KIND_WORDS_MESSAGE } from '../../lib/contentFilter';
 import { useTilt, tiltTransform, Tilt } from '../../lib/useTilt';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -46,6 +48,7 @@ import {
   makeWish,
   cheerWish,
   deleteWish,
+  reportWish,
   dominantMoods,
   moodWeather,
   weatherLine,
@@ -437,6 +440,10 @@ export default function SchoolSkyScreen() {
 
   const handleMakeWish = async () => {
     if (wishSaving || !wishText.trim()) return;
+    if (hasBlockedWords(wishText)) {
+      showToast(KIND_WORDS_MESSAGE);
+      return;
+    }
     setWishSaving(true);
     try {
       await makeWish(wishText);
@@ -460,6 +467,26 @@ export default function SchoolSkyScreen() {
       setWishes((ws) => ws.map((w) => (w.id === wish.id ? { ...w, cheered: false, cheers: w.cheers - 1 } : w)));
       showToast(err instanceof Error ? err.message : "Couldn't cheer that wish");
     }
+  };
+
+  const handleReportWish = (wish: SkyWish) => {
+    Alert.alert('Report this wish?', "It'll be hidden for you and sent for review. Thanks for keeping the sky kind.", [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Report',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await reportWish(wish.id);
+            setSelectedWishId(null);
+            setWishes((ws) => ws.filter((w) => w.id !== wish.id));
+            showToast('Reported — thank you 💛');
+          } catch (err) {
+            showToast(err instanceof Error ? err.message : "Couldn't report the wish");
+          }
+        },
+      },
+    ]);
   };
 
   const handleDeleteWish = async (wish: SkyWish) => {
@@ -527,6 +554,10 @@ export default function SchoolSkyScreen() {
   const handlePaint = async () => {
     const text = skyText.trim();
     if (painting || text.length < 2) return;
+    if (hasBlockedWords(text)) {
+      setPaintError(KIND_WORDS_MESSAGE);
+      return;
+    }
     setPainting(true);
     setPaintError(null);
     try {
@@ -548,6 +579,10 @@ export default function SchoolSkyScreen() {
 
   const handleSave = async () => {
     if (saving || !user) return;
+    if (hasBlockedWords(note) || hasBlockedWords(skyText)) {
+      showToast(KIND_WORDS_MESSAGE);
+      return;
+    }
     setSaving(true);
     try {
       // A fresh photo also gets its colours read for the painted sky; a kept
@@ -802,6 +837,16 @@ export default function SchoolSkyScreen() {
                   style={styles.cardButton}
                 />
               )}
+              {!selectedWish.mine ? (
+                <TouchableOpacity
+                  onPress={() => handleReportWish(selectedWish)}
+                  style={styles.reportButton}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  accessibilityLabel="Report this wish"
+                >
+                  <Ionicons name="flag-outline" size={18} color={colors.warm.creamFaint} />
+                </TouchableOpacity>
+              ) : null}
             </View>
           </View>
         ) : selected ? (

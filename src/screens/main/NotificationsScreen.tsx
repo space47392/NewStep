@@ -268,6 +268,8 @@ export default function NotificationsScreen() {
         navigation.navigate('UserProfile', { userId: target.userId });
       } else if (target.screen === 'SchoolSky') {
         navigation.navigate('SchoolSky');
+      } else if (target.screen === 'Lanterns') {
+        navigation.navigate('Lanterns');
       } else {
         // points_earned / achievement_earned
         navigation.navigate('Tabs', { screen: 'Profile' });

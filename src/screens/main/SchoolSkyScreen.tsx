@@ -28,6 +28,7 @@ import SkyScene, { Horizon, skyPhase, phaseWords, DescribedSkyLook, landColors, 
 import { extractSkyPalette, paintSky, mixHex, SkyPalette } from '../../lib/skyColors';
 import SkyWeather from '../../components/SkyWeather';
 import { hasBlockedWords, KIND_WORDS_MESSAGE } from '../../lib/contentFilter';
+import { fetchLanterns, Lantern } from '../../lib/lanterns';
 import { useTilt, tiltTransform, Tilt } from '../../lib/useTilt';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -269,6 +270,50 @@ function CatchableStar({ width, height, frequent, onCatch }: { width: number; he
   );
 }
 
+// A classmate's lantern, drifting up slowly with a warm glow.
+function FloatingLantern({ lantern, index, width, height, onPress }: { lantern: Lantern; index: number; width: number; height: number; onPress: () => void }) {
+  const drift = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(drift, { toValue: 1, duration: 5200 + (index % 3) * 900, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(drift, { toValue: 0, duration: 5200 + (index % 3) * 900, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [drift, index]);
+  let h = 7;
+  for (let i = 0; i < lantern.id.length; i++) h = (h * 33 + lantern.id.charCodeAt(i)) >>> 0;
+  const x = 0.08 + ((h % 1000) / 1000) * 0.84;
+  const y = 0.42 + (((h >> 10) % 1000) / 1000) * 0.28;
+  return (
+    <Animated.View
+      style={{
+        position: 'absolute',
+        left: x * width - 14,
+        top: y * height,
+        transform: [
+          { translateY: drift.interpolate({ inputRange: [0, 1], outputRange: [0, -14] }) },
+          { rotate: drift.interpolate({ inputRange: [0, 1], outputRange: ['-4deg', '4deg'] }) },
+        ],
+      }}
+    >
+      <TouchableOpacity
+        onPress={onPress}
+        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        accessibilityRole="button"
+        accessibilityLabel={`A lantern: ${lantern.text}`}
+        style={styles.lanternWrap}
+      >
+        <View style={styles.lanternGlow} />
+        <View style={styles.lanternTop} />
+        <View style={[styles.lanternBody, lantern.mine && styles.lanternBodyMine]} />
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
 // Today's wishes, as small warm lights floating just above the horizon.
 function WishLight({ wish, index, width, height, selected, onPress }: { wish: SkyWish; index: number; width: number; height: number; selected: boolean; onPress: () => void }) {
   const bob = useRef(new Animated.Value(0)).current;
@@ -361,6 +406,7 @@ export default function SchoolSkyScreen() {
   const [twinkles, setTwinkles] = useState<TwinkleSummary>({ counts: {}, sentTo: new Set() });
   const [bursts, setBursts] = useState<Record<string, number>>({});
   const [wishes, setWishes] = useState<SkyWish[]>([]);
+  const [lanterns, setLanterns] = useState<Lantern[]>([]);
   const [selectedWishId, setSelectedWishId] = useState<string | null>(null);
   const [wishOpen, setWishOpen] = useState(false);
   // "Today's real sky": the photos the sky was painted from, opened from
@@ -382,6 +428,9 @@ export default function SchoolSkyScreen() {
         fetchTodayTwinkles(user.id).catch(() => ({ counts: {}, sentTo: new Set<string>() })),
         fetchWishes().catch(() => [] as SkyWish[]),
       ]);
+      fetchLanterns()
+        .then(setLanterns)
+        .catch(() => setLanterns([]));
       setStars(sky.filter((s) => !blocked.has(s.user_id)));
       setTwinkles(tw);
       setWishes(ws);
@@ -752,6 +801,20 @@ export default function SchoolSkyScreen() {
           </View>
         ) : null}
         {!loading
+          ? lanterns.slice(0, 8).map((l, i) => (
+              <FloatingLantern
+                key={l.id}
+                lantern={l}
+                index={i}
+                width={skySize.width}
+                height={skySize.height}
+                onPress={() =>
+                  navigation.navigate('LanternDetail', { lanternId: l.id, text: l.text, mine: l.mine, crisis: l.crisis, createdAt: l.created_at })
+                }
+              />
+            ))
+          : null}
+        {!loading
           ? wishes.map((w, i) => (
               <WishLight
                 key={w.id}
@@ -953,6 +1016,24 @@ export default function SchoolSkyScreen() {
                   : 'Catch a shooting star to make a wish 🌠'}
               </Text>
             ) : null}
+            <TouchableOpacity
+              style={styles.lanternLink}
+              onPress={() => navigation.navigate('Lanterns')}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Open Lanterns"
+            >
+              <Text style={styles.lanternLinkEmoji}>🏮</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.lanternLinkTitle}>Lanterns</Text>
+                <Text style={styles.lanternLinkSub} numberOfLines={1}>
+                  {lanterns.length
+                    ? `${lanterns.length} ${lanterns.length === 1 ? 'worry is' : 'worries are'} floating — send some warmth`
+                    : 'Something on your mind? Send it up, no name'}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={colors.warm.creamFaint} />
+            </TouchableOpacity>
             <PrimaryButton
               variant="warm"
               title={myStar ? 'Change your star' : 'Add your star'}
@@ -1477,6 +1558,61 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     fontSize: fontSize.sm,
     color: colors.warm.creamMuted,
+  },
+  lanternWrap: {
+    width: 28,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  lanternGlow: {
+    position: 'absolute',
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: 'rgba(255,170,90,0.2)',
+  },
+  lanternTop: {
+    width: 10,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: '#8A4B2A',
+    marginBottom: 1,
+  },
+  lanternBody: {
+    width: 18,
+    height: 22,
+    borderRadius: 6,
+    backgroundColor: '#FFB46E',
+    borderWidth: 1.5,
+    borderColor: '#FFD9A8',
+  },
+  lanternBodyMine: {
+    borderColor: '#fff',
+  },
+  lanternLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.warm.glass,
+    borderWidth: 1,
+    borderColor: colors.warm.line,
+    borderRadius: 18,
+    paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.md,
+  },
+  lanternLinkEmoji: {
+    fontSize: 22,
+  },
+  lanternLinkTitle: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.md,
+    color: colors.warm.cream,
+  },
+  lanternLinkSub: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
+    color: colors.warm.creamFaint,
   },
   sheetStar: {
     alignSelf: 'center',

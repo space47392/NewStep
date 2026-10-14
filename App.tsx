@@ -99,6 +99,8 @@ export default function App() {
           navigateToMainStack('UserProfile', { userId: target.userId });
         } else if (target.screen === 'SchoolSky') {
           navigateToMainStack('SchoolSky', undefined);
+        } else if (target.screen === 'Lanterns') {
+          navigateToMainStack('Lanterns', undefined);
         } else {
           navigateToMainStack('Tabs', { screen: 'Profile' });
         }

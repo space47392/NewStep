@@ -222,7 +222,8 @@ export type NotificationTarget =
   | { screen: 'Conversation'; conversationId: string; actorId: string | null }
   | { screen: 'UserProfile'; userId: string }
   | { screen: 'ProfileTab' }
-  | { screen: 'SchoolSky' };
+  | { screen: 'SchoolSky' }
+  | { screen: 'Lanterns' };
 
 export function resolveNotificationTarget(fields: {
   type: string;
@@ -252,6 +253,9 @@ export function resolveNotificationTarget(fields: {
   }
   if (type === 'sky_twinkle' || type === 'wish_cheer') {
     return { screen: 'SchoolSky' };
+  }
+  if (type === 'lantern_note') {
+    return { screen: 'Lanterns' };
   }
   return null;
 }
@@ -357,6 +361,7 @@ const CATEGORY_BY_TYPE: Record<NotificationType, NotificationCategory> = {
   story_wave: 'social',
   sky_twinkle: 'social',
   wish_cheer: 'social',
+  lantern_note: 'social',
   volunteer: 'help',
   help_completed: 'help',
   thanks_received: 'help',
@@ -416,6 +421,8 @@ export function formatNotificationMessage(
       return `${actorName} sent your star a twinkle ✨`;
     case 'wish_cheer':
       return 'Someone cheered your wish 💛';
+    case 'lantern_note':
+      return `${actorName} sent your lantern a warm note 💛`;
     default:
       return 'New notification';
   }
@@ -504,6 +511,8 @@ export function getNotificationIcon(type: NotificationType): string {
       return '✨';
     case 'wish_cheer':
       return '💛';
+    case 'lantern_note':
+      return '🏮';
     default:
       return '🔔';
   }

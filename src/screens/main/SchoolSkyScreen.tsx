@@ -286,7 +286,8 @@ function FloatingLantern({ lantern, index, width, height, onPress }: { lantern: 
   let h = 7;
   for (let i = 0; i < lantern.id.length; i++) h = (h * 33 + lantern.id.charCodeAt(i)) >>> 0;
   const x = 0.08 + ((h % 1000) / 1000) * 0.84;
-  const y = 0.42 + (((h >> 10) % 1000) / 1000) * 0.28;
+  // Below the empty-sky message, above the wish lights on the horizon.
+  const y = Math.min(0.5 + (((h >> 10) % 1000) / 1000) * 0.14, (height - 240) / height);
   return (
     <Animated.View
       style={{

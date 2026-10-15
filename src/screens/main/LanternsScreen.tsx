@@ -111,6 +111,9 @@ export default function LanternsScreen() {
     }
   };
 
+  // A starter on its own (e.g. "I feel alone when") is not finished yet.
+  const readyToSend = text.trim().length >= 2 && !LANTERN_STARTERS.some((s) => s.trim() === text.trim());
+
   // "Me too" straight from the list.
   const handleHug = async (l: Lantern) => {
     const next = !l.hugged_by_me;
@@ -130,7 +133,7 @@ export default function LanternsScreen() {
   };
 
   const handleSend = () => {
-    if (sending || text.trim().length < 2) return;
+    if (sending || !readyToSend) return;
     if (hasBlockedWords(text)) {
       showToast(KIND_WORDS_MESSAGE);
       return;
@@ -312,7 +315,7 @@ export default function LanternsScreen() {
                 title={showSupport ? 'Send my lantern too' : 'Let it float up'}
                 icon="flame"
                 loading={sending}
-                disabled={text.trim().length < 2}
+                disabled={!readyToSend}
                 onPress={showSupport ? doSend : handleSend}
               />
             </ScrollView>

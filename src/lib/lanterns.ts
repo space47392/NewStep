@@ -28,6 +28,15 @@ export const LANTERN_MAX = 300;
 export const NOTE_MAX = 200;
 
 // Gentle starters for a warm note.
+// Gentle ways to begin, for when it is hard to know where to start.
+export const LANTERN_STARTERS = [
+  "Lately I've been worried about ",
+  "I feel alone when ",
+  "I'm stressed about ",
+  "Today was hard because ",
+  "I wish someone knew that ",
+];
+
 export const NOTE_STARTERS = [
   'That sounds really hard 💛',
   "You're not alone in this.",

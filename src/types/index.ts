@@ -82,7 +82,7 @@ export type MainStackParamList = {
   SchoolSky: { schoolName?: string; openComposer?: boolean } | undefined;
   SkyDiary: undefined;
   // School Sky Lanterns (school_sky_lanterns.sql).
-  Lanterns: undefined;
+  Lanterns: { compose?: boolean } | undefined;
   LanternDetail: { lanternId: string; text: string; mine: boolean; crisis: boolean; createdAt: string };
   FollowList: { userId: string; mode: 'followers' | 'following' };
   SavedPosts: undefined;

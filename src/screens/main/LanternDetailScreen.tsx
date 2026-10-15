@@ -33,6 +33,7 @@ import { hasBlockedWords, KIND_WORDS_MESSAGE } from '../../lib/contentFilter';
 import { formatRelativeTime } from '../../lib/time';
 import Avatar from '../../components/Avatar';
 import SupportLines from '../../components/SupportLines';
+import LanternBackdrop from '../../components/LanternBackdrop';
 import { LanternGlyph } from './LanternsScreen';
 import { colors, spacing, fontSize, fontFamily } from '../../constants/theme';
 import { MainStackParamList } from '../../types';
@@ -148,6 +149,7 @@ export default function LanternDetailScreen() {
   return (
     <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <StatusBar style="light" />
+      <LanternBackdrop />
       <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconButton} accessibilityLabel="Back">
           <Ionicons name="arrow-back" size={20} color={colors.warm.cream} />
@@ -165,10 +167,12 @@ export default function LanternDetailScreen() {
         ListHeaderComponent={
           <View style={styles.lantern}>
             <LanternGlyph size={40} />
+            <View style={styles.lanternPaper}>
             <Text style={styles.lanternWho}>
               {mine ? 'Your lantern' : 'Someone at your school'} · {formatRelativeTime(createdAt)}
             </Text>
             <Text style={styles.lanternText}>{text}</Text>
+            </View>
             {crisis ? (
               <View style={{ alignSelf: 'stretch', marginTop: spacing.sm }}>
                 <SupportLines compact={!mine} />
@@ -248,7 +252,7 @@ export default function LanternDetailScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#15111F',
+    backgroundColor: '#1B1426',
   },
   header: {
     flexDirection: 'row',
@@ -275,17 +279,25 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     marginBottom: spacing.sm,
   },
+  lanternPaper: {
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: '#FFF1DE',
+    borderRadius: 24,
+    padding: spacing.lg,
+    marginTop: spacing.sm,
+  },
   lanternWho: {
     fontFamily: fontFamily.medium,
     fontSize: fontSize.sm,
-    color: colors.warm.honey,
-    marginTop: spacing.sm,
+    color: '#B07A4A',
   },
   lanternText: {
     fontFamily: fontFamily.regular,
     fontSize: 18,
     lineHeight: 27,
-    color: colors.warm.cream,
+    color: '#4A2E1E',
     textAlign: 'center',
   },
   section: {
@@ -299,7 +311,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.sm,
     alignItems: 'flex-start',
-    backgroundColor: colors.warm.glassSoft,
+    backgroundColor: 'rgba(52,34,48,0.92)',
     borderRadius: 18,
     padding: spacing.sm + 4,
   },
@@ -323,6 +335,7 @@ const styles = StyleSheet.create({
     color: colors.warm.cream,
   },
   composer: {
+    backgroundColor: 'rgba(48,28,36,0.95)',
     borderTopWidth: 1,
     borderTopColor: colors.warm.line,
     paddingTop: spacing.sm,

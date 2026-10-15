@@ -37,6 +37,7 @@ import FadeInView from '../../components/FadeInView';
 import NSIcon from '../../components/NSIcon';
 import AppLogo from '../../components/AppLogo';
 import NightSkyCard from '../../components/NightSkyCard';
+import LanternInvite from '../../components/LanternInvite';
 import SkyPeek from '../../components/SkyPeek';
 import { useTodaySky } from '../../lib/useTodaySky';
 import PrimaryButton from '../../components/PrimaryButton';
@@ -842,6 +843,13 @@ export default function FeedScreen() {
               </FadeInView>
             )}
 
+            {/* Lanterns, always one tap away: a place to let a worry out. */}
+            {mySchoolName && user ? (
+              <LanternInvite
+                onWrite={() => navigation.navigate('Lanterns', { compose: true })}
+                onOpen={() => navigation.navigate('Lanterns')}
+              />
+            ) : null}
 
             {!mySchoolName && (
               <View style={styles.chooseSchoolCard}>

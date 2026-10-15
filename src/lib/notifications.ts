@@ -254,7 +254,7 @@ export function resolveNotificationTarget(fields: {
   if (type === 'sky_twinkle' || type === 'wish_cheer') {
     return { screen: 'SchoolSky' };
   }
-  if (type === 'lantern_note') {
+  if (type === 'lantern_note' || type === 'lantern_thanks') {
     return { screen: 'Lanterns' };
   }
   return null;
@@ -362,6 +362,7 @@ const CATEGORY_BY_TYPE: Record<NotificationType, NotificationCategory> = {
   sky_twinkle: 'social',
   wish_cheer: 'social',
   lantern_note: 'social',
+  lantern_thanks: 'social',
   volunteer: 'help',
   help_completed: 'help',
   thanks_received: 'help',
@@ -423,6 +424,8 @@ export function formatNotificationMessage(
       return 'Someone cheered your wish 💛';
     case 'lantern_note':
       return `${actorName} sent your lantern a warm note 💛`;
+    case 'lantern_thanks':
+      return 'Your warm note helped someone 💛';
     default:
       return 'New notification';
   }
@@ -513,6 +516,8 @@ export function getNotificationIcon(type: NotificationType): string {
       return '💛';
     case 'lantern_note':
       return '🏮';
+    case 'lantern_thanks':
+      return '💛';
     default:
       return '🔔';
   }

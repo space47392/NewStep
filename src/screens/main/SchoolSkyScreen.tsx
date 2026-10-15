@@ -13,7 +13,6 @@ import {
   Image,
   FlatList,
   ScrollView,
-  Alert,
   StyleSheet,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
@@ -29,6 +28,7 @@ import { extractSkyPalette, paintSky, mixHex, SkyPalette } from '../../lib/skyCo
 import SkyWeather from '../../components/SkyWeather';
 import { hasBlockedWords, KIND_WORDS_MESSAGE } from '../../lib/contentFilter';
 import { fetchLanterns, Lantern } from '../../lib/lanterns';
+import { useWarmSheet } from '../../components/WarmSheet';
 import { useTilt, tiltTransform, Tilt } from '../../lib/useTilt';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -372,6 +372,7 @@ function Constellation({ stars, width, height }: { stars: SkyStar[]; width: numb
 }
 
 export default function SchoolSkyScreen() {
+  const { ask, sheet } = useWarmSheet();
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
   const route = useRoute<RouteProp<MainStackParamList, 'SchoolSky'>>();
   const { user } = useAuth();
@@ -520,23 +521,26 @@ export default function SchoolSkyScreen() {
   };
 
   const handleReportWish = (wish: SkyWish) => {
-    Alert.alert('Report this wish?', "It'll be hidden for you and sent for review. Thanks for keeping the sky kind.", [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Report',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await reportWish(wish.id);
-            setSelectedWishId(null);
-            setWishes((ws) => ws.filter((w) => w.id !== wish.id));
-            showToast('Reported — thank you 💛');
-          } catch (err) {
-            showToast(err instanceof Error ? err.message : "Couldn't report the wish");
-          }
+    ask({
+      title: 'Report this wish?',
+      message: "It'll be hidden for you and sent for review. Thanks for keeping the sky kind.",
+      actions: [
+        {
+          label: 'Report',
+          danger: true,
+          onPress: async () => {
+            try {
+              await reportWish(wish.id);
+              setSelectedWishId(null);
+              setWishes((ws) => ws.filter((w) => w.id !== wish.id));
+              showToast('Reported — thank you 💛');
+            } catch (err) {
+              showToast(err instanceof Error ? err.message : "Couldn't report the wish");
+            }
+          },
         },
-      },
-    ]);
+      ],
+    });
   };
 
   const handleDeleteWish = async (wish: SkyWish) => {
@@ -810,7 +814,7 @@ export default function SchoolSkyScreen() {
                 width={skySize.width}
                 height={skySize.height}
                 onPress={() =>
-                  navigation.navigate('LanternDetail', { lanternId: l.id, text: l.text, mine: l.mine, crisis: l.crisis, createdAt: l.created_at })
+                  navigation.navigate('LanternDetail', { lanternId: l.id, text: l.text, mine: l.mine, crisis: l.crisis, createdAt: l.created_at, hugCount: l.hug_count, huggedByMe: l.hugged_by_me })
                 }
               />
             ))
@@ -1291,6 +1295,7 @@ export default function SchoolSkyScreen() {
         </View>
       </Modal>
       <ReportSheet target={reportTarget} reporterId={user?.id} onClose={() => setReportTarget(null)} />
+      {sheet}
     </View>
   );
 }

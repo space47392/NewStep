@@ -83,7 +83,7 @@ export type MainStackParamList = {
   SkyDiary: undefined;
   // School Sky Lanterns (school_sky_lanterns.sql).
   Lanterns: { compose?: boolean } | undefined;
-  LanternDetail: { lanternId: string; text: string; mine: boolean; crisis: boolean; createdAt: string };
+  LanternDetail: { lanternId: string; text: string; mine: boolean; crisis: boolean; createdAt: string; hugCount?: number; huggedByMe?: boolean };
   FollowList: { userId: string; mode: 'followers' | 'following' };
   SavedPosts: undefined;
   ChooseSchool: undefined;
@@ -320,7 +320,8 @@ export type NotificationType =
   // School Sky (school_sky_social.sql)
   | 'sky_twinkle'
   | 'wish_cheer'
-  | 'lantern_note';
+  | 'lantern_note'
+  | 'lantern_thanks';
 
 // See notifications_schema.sql — stores only IDs/relationships, never
 // duplicated profile or post data. actor/achievement are joined at read time

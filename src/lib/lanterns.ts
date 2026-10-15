@@ -11,6 +11,9 @@ export type Lantern = {
   mine: boolean;
   note_count: number;
   noted_by_me: boolean;
+  // "Me too" (school_sky_lanterns_care.sql).
+  hug_count: number;
+  hugged_by_me: boolean;
 };
 
 export type LanternNote = {
@@ -22,12 +25,13 @@ export type LanternNote = {
   author_id: string | null;
   author_name: string | null;
   author_avatar: string | null;
+  // The lantern's writer said this note helped.
+  helped: boolean;
 };
 
 export const LANTERN_MAX = 300;
 export const NOTE_MAX = 200;
 
-// Gentle starters for a warm note.
 // Gentle ways to begin, for when it is hard to know where to start.
 export const LANTERN_STARTERS = [
   "Lately I've been worried about ",
@@ -37,6 +41,7 @@ export const LANTERN_STARTERS = [
   "I wish someone knew that ",
 ];
 
+// Gentle starters for a warm note.
 export const NOTE_STARTERS = [
   'That sounds really hard 💛',
   "You're not alone in this.",
@@ -56,7 +61,8 @@ export function soundsLikeCrisis(text: string): boolean {
 export async function fetchLanterns(): Promise<Lantern[]> {
   const { data, error } = await supabase.rpc('fetch_lanterns');
   if (error) throw error;
-  return (data ?? []) as Lantern[];
+  // Before school_sky_lanterns_care.sql runs, the "Me too" fields are missing.
+  return ((data ?? []) as Lantern[]).map((l) => ({ ...l, hug_count: l.hug_count ?? 0, hugged_by_me: !!l.hugged_by_me }));
 }
 
 export async function sendLantern(text: string): Promise<void> {
@@ -72,7 +78,7 @@ export async function deleteMyLantern(id: string): Promise<void> {
 export async function fetchLanternNotes(lanternId: string): Promise<LanternNote[]> {
   const { data, error } = await supabase.rpc('fetch_lantern_notes', { p_lantern: lanternId });
   if (error) throw error;
-  return (data ?? []) as LanternNote[];
+  return ((data ?? []) as LanternNote[]).map((n) => ({ ...n, helped: !!n.helped }));
 }
 
 export async function addLanternNote(lanternId: string, text: string): Promise<void> {
@@ -95,5 +101,18 @@ export async function reportLantern(target: { lanternId?: string; noteId?: strin
     p_lantern: target.lanternId ?? null,
     p_note: target.noteId ?? null,
   });
+  if (error) throw error;
+}
+
+// "Me too": returns true when I now feel it too, false when taken back.
+export async function toggleLanternHug(lanternId: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc('toggle_lantern_hug', { p_lantern: lanternId });
+  if (error) throw error;
+  return !!data;
+}
+
+// The lantern's writer thanks a note; its writer is told, without learning who.
+export async function markLanternNoteHelped(noteId: string): Promise<void> {
+  const { error } = await supabase.rpc('mark_lantern_note_helped', { p_note: noteId });
   if (error) throw error;
 }

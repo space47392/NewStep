@@ -19,7 +19,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useToast } from '../../contexts/ToastContext';
-import { fetchLanterns, sendLantern, soundsLikeCrisis, Lantern, LANTERN_MAX, LANTERN_STARTERS } from '../../lib/lanterns';
+import { fetchLanterns, sendLantern, soundsLikeCrisis, toggleLanternHug, Lantern, LANTERN_MAX, LANTERN_STARTERS } from '../../lib/lanterns';
 import { hasBlockedWords, KIND_WORDS_MESSAGE } from '../../lib/contentFilter';
 import { formatRelativeTime } from '../../lib/time';
 import LanternBackdrop from '../../components/LanternBackdrop';
@@ -111,6 +111,24 @@ export default function LanternsScreen() {
     }
   };
 
+  // "Me too" straight from the list.
+  const handleHug = async (l: Lantern) => {
+    const next = !l.hugged_by_me;
+    const bump = (on: boolean) =>
+      setLanterns((all) =>
+        all.map((x) => (x.id === l.id ? { ...x, hugged_by_me: on, hug_count: Math.max(0, x.hug_count + (on ? 1 : -1)) } : x))
+      );
+    bump(next);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      const now = await toggleLanternHug(l.id);
+      if (now !== next) bump(now);
+    } catch (err) {
+      bump(!next);
+      showToast(err instanceof Error ? err.message : "Couldn't do that");
+    }
+  };
+
   const handleSend = () => {
     if (sending || text.trim().length < 2) return;
     if (hasBlockedWords(text)) {
@@ -197,7 +215,7 @@ export default function LanternsScreen() {
             <TouchableOpacity
               style={[styles.card, item.mine && styles.cardMine]}
               activeOpacity={0.85}
-              onPress={() => navigation.navigate('LanternDetail', { lanternId: item.id, text: item.text, mine: item.mine, crisis: item.crisis, createdAt: item.created_at })}
+              onPress={() => navigation.navigate('LanternDetail', { lanternId: item.id, text: item.text, mine: item.mine, crisis: item.crisis, createdAt: item.created_at, hugCount: item.hug_count, huggedByMe: item.hugged_by_me })}
               accessibilityRole="button"
               accessibilityLabel={`A lantern: ${item.text}`}
             >
@@ -212,12 +230,27 @@ export default function LanternsScreen() {
               <View style={styles.cardBottom}>
                 <Text style={styles.cardNotes}>
                   {item.note_count > 0
-                    ? `💛 ${item.note_count} warm ${item.note_count === 1 ? 'note' : 'notes'}`
+                    ? `💛 ${item.note_count} ${item.note_count === 1 ? 'note' : 'notes'}`
                     : item.mine
                       ? 'Warm notes will find you here'
-                      : 'No notes yet'}
+                      : ''}
+                  {item.mine && item.hug_count > 0 ? `  ·  🫂 ${item.hug_count} feel the same` : ''}
                   {item.noted_by_me ? '  ·  you sent one' : ''}
                 </Text>
+                {!item.mine ? (
+                  <TouchableOpacity
+                    style={[styles.hugPill, item.hugged_by_me && styles.hugPillOn]}
+                    onPress={() => handleHug(item)}
+                    hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: item.hugged_by_me }}
+                    accessibilityLabel="Me too"
+                  >
+                    <Text style={[styles.hugPillText, item.hugged_by_me && styles.hugPillTextOn]}>
+                      🫂 Me too{item.hug_count > 0 ? ` ${item.hug_count}` : ''}
+                    </Text>
+                  </TouchableOpacity>
+                ) : null}
                 {!item.mine && !item.noted_by_me ? (
                   <View style={styles.warmthPill}>
                     <Ionicons name="heart" size={12} color={colors.warm.honeyInk} />
@@ -446,6 +479,25 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.medium,
     fontSize: fontSize.sm,
     color: colors.warm.creamMuted,
+  },
+  hugPill: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(245,194,122,0.35)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  hugPillOn: {
+    backgroundColor: 'rgba(245,194,122,0.22)',
+    borderColor: colors.warm.honey,
+  },
+  hugPillText: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.xs,
+    color: colors.warm.cream,
+  },
+  hugPillTextOn: {
+    color: colors.warm.honey,
   },
   warmthPill: {
     flexDirection: 'row',

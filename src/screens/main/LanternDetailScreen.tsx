@@ -8,7 +8,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
-  Alert,
   StyleSheet,
 } from 'react-native';
 import { useFocusEffect, useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -25,6 +24,8 @@ import {
   deleteMyLanternNote,
   deleteMyLantern,
   reportLantern,
+  toggleLanternHug,
+  markLanternNoteHelped,
   LanternNote,
   NOTE_MAX,
   NOTE_STARTERS,
@@ -34,6 +35,7 @@ import { formatRelativeTime } from '../../lib/time';
 import Avatar from '../../components/Avatar';
 import SupportLines from '../../components/SupportLines';
 import LanternBackdrop from '../../components/LanternBackdrop';
+import { useWarmSheet } from '../../components/WarmSheet';
 import { LanternGlyph } from './LanternsScreen';
 import { colors, spacing, fontSize, fontFamily } from '../../constants/theme';
 import { MainStackParamList } from '../../types';
@@ -43,13 +45,17 @@ import { MainStackParamList } from '../../types';
 
 export default function LanternDetailScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
-  const { lanternId, text, mine, crisis, createdAt } = useRoute<RouteProp<MainStackParamList, 'LanternDetail'>>().params;
+  const { lanternId, text, mine, crisis, createdAt, hugCount = 0, huggedByMe = false } =
+    useRoute<RouteProp<MainStackParamList, 'LanternDetail'>>().params;
   const insets = useSafeAreaInsets();
   const { showToast } = useToast();
   const [notes, setNotes] = useState<LanternNote[]>([]);
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
+  const [hugs, setHugs] = useState(hugCount);
+  const [hugged, setHugged] = useState(huggedByMe);
+  const { ask, sheet } = useWarmSheet();
 
   const load = useCallback(async () => {
     try {
@@ -88,59 +94,80 @@ export default function LanternDetailScreen() {
     }
   };
 
-  const confirm = (title: string, message: string, action: string, run: () => Promise<void>, destructive = true) =>
-    Alert.alert(title, message, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: action, style: destructive ? 'destructive' : 'default', onPress: () => run().catch((e) => showToast(e?.message ?? 'Something went wrong')) },
-    ]);
+  const run = (fn: () => Promise<void>) => () => {
+    fn().catch((e) => showToast(e?.message ?? 'Something went wrong'));
+  };
 
   const noteMenu = (n: LanternNote) => {
     if (n.mine) {
-      confirm('Delete your note?', '', 'Delete', async () => {
-        await deleteMyLanternNote(n.id);
-        await load();
+      ask({
+        title: 'Delete your note?',
+        actions: [{ label: 'Delete', danger: true, onPress: run(async () => { await deleteMyLanternNote(n.id); await load(); }) }],
       });
     } else if (mine) {
-      Alert.alert('This note', '', [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: n.hidden ? 'Show it again' : 'Hide this note',
-          onPress: async () => {
-            await setLanternNoteHidden(n.id, !n.hidden).catch(() => showToast("Couldn't change that"));
-            await load();
-          },
-        },
-        {
-          text: 'Report',
-          style: 'destructive',
-          onPress: async () => {
-            await reportLantern({ noteId: n.id }).catch(() => {});
-            showToast('Reported — thank you 💛');
-            await load();
-          },
-        },
-      ]);
+      ask({
+        title: 'This note',
+        message: n.hidden ? 'Only you can see it right now.' : undefined,
+        actions: [
+          { label: n.hidden ? 'Show it again' : 'Hide this note', onPress: run(async () => { await setLanternNoteHidden(n.id, !n.hidden); await load(); }) },
+          { label: 'Report', danger: true, onPress: run(async () => { await reportLantern({ noteId: n.id }); showToast('Reported — thank you 💛'); await load(); }) },
+        ],
+      });
     } else {
-      confirm('Report this note?', "It'll be hidden for you and sent for review.", 'Report', async () => {
-        await reportLantern({ noteId: n.id });
-        showToast('Reported — thank you 💛');
-        await load();
+      ask({
+        title: 'Report this note?',
+        message: "It'll be hidden for you and sent for review.",
+        actions: [{ label: 'Report', danger: true, onPress: run(async () => { await reportLantern({ noteId: n.id }); showToast('Reported — thank you 💛'); await load(); }) }],
       });
     }
   };
 
   const lanternMenu = () => {
     if (mine) {
-      confirm('Let this lantern go?', 'It and its notes will be removed.', 'Let it go', async () => {
-        await deleteMyLantern(lanternId);
-        navigation.goBack();
+      ask({
+        emoji: '🏮',
+        title: 'Let this lantern go?',
+        message: 'It and its notes will drift away for good.',
+        actions: [{ label: 'Let it go', danger: true, onPress: run(async () => { await deleteMyLantern(lanternId); navigation.goBack(); }) }],
       });
     } else {
-      confirm('Report this lantern?', "It'll be hidden for you and sent for review.", 'Report', async () => {
-        await reportLantern({ lanternId });
-        showToast('Reported — thank you 💛');
-        navigation.goBack();
+      ask({
+        title: 'Report this lantern?',
+        message: "It'll be hidden for you and sent for review.",
+        actions: [{ label: 'Report', danger: true, onPress: run(async () => { await reportLantern({ lanternId }); showToast('Reported — thank you 💛'); navigation.goBack(); }) }],
       });
+    }
+  };
+
+  // "Me too": a quiet way to say "I feel this too", no words needed.
+  const handleHug = async () => {
+    const next = !hugged;
+    setHugged(next);
+    setHugs((h) => h + (next ? 1 : -1));
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      const now = await toggleLanternHug(lanternId);
+      if (now !== next) {
+        setHugged(now);
+        setHugs((h) => h + (now ? 1 : -1) - (next ? 1 : -1));
+      }
+    } catch (e) {
+      setHugged(!next);
+      setHugs((h) => h - (next ? 1 : -1));
+      showToast(e instanceof Error ? e.message : "Couldn't do that");
+    }
+  };
+
+  // The lantern's writer tells a classmate their note helped.
+  const handleHelped = async (n: LanternNote) => {
+    setNotes((all) => all.map((x) => (x.id === n.id ? { ...x, helped: true } : x)));
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    try {
+      await markLanternNoteHelped(n.id);
+      showToast(`We let ${n.author_name?.split(' ')[0] ?? 'them'} know it helped 💛`);
+    } catch (e) {
+      setNotes((all) => all.map((x) => (x.id === n.id ? { ...x, helped: false } : x)));
+      showToast(e instanceof Error ? e.message : "Couldn't do that");
     }
   };
 
@@ -173,6 +200,27 @@ export default function LanternDetailScreen() {
             </Text>
             <Text style={styles.lanternText}>{text}</Text>
             </View>
+            {mine ? (
+              hugs > 0 ? (
+                <Text style={styles.hugInfo}>
+                  🫂 {hugs} {hugs === 1 ? 'classmate feels' : 'classmates feel'} the same way
+                </Text>
+              ) : null
+            ) : (
+              <TouchableOpacity
+                style={[styles.hug, hugged && styles.hugOn]}
+                onPress={handleHug}
+                activeOpacity={0.85}
+                accessibilityRole="button"
+                accessibilityState={{ selected: hugged }}
+                accessibilityLabel={hugged ? 'You said me too. Tap to take it back' : 'Me too'}
+              >
+                <Text style={[styles.hugText, hugged && styles.hugTextOn]}>
+                  🫂 {hugged ? 'You feel it too' : 'Me too'}
+                  {hugs > 0 ? `  ·  ${hugs}` : ''}
+                </Text>
+              </TouchableOpacity>
+            )}
             {crisis ? (
               <View style={{ alignSelf: 'stretch', marginTop: spacing.sm }}>
                 <SupportLines compact={!mine} />
@@ -199,6 +247,14 @@ export default function LanternDetailScreen() {
                 {item.hidden ? <Text style={styles.noteTime}>  · hidden</Text> : null}
               </Text>
               <Text style={styles.noteText}>{item.text}</Text>
+              {item.helped ? (
+                <Text style={styles.helpedBadge}>💛 {item.mine ? 'This helped them' : 'This helped'}</Text>
+              ) : mine && !item.mine ? (
+                <TouchableOpacity style={styles.helpedButton} onPress={() => handleHelped(item)} activeOpacity={0.85}>
+                  <Ionicons name="heart-outline" size={13} color={colors.warm.honey} />
+                  <Text style={styles.helpedButtonText}>This helped</Text>
+                </TouchableOpacity>
+              ) : null}
             </View>
             <TouchableOpacity onPress={() => noteMenu(item)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} accessibilityLabel="Note options">
               <Ionicons name="ellipsis-horizontal" size={16} color={colors.warm.creamFaint} />
@@ -245,6 +301,7 @@ export default function LanternDetailScreen() {
           </View>
         </View>
       ) : null}
+      {sheet}
     </KeyboardAvoidingView>
   );
 }
@@ -299,6 +356,55 @@ const styles = StyleSheet.create({
     lineHeight: 27,
     color: '#4A2E1E',
     textAlign: 'center',
+  },
+  hug: {
+    marginTop: spacing.sm,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(245,194,122,0.4)',
+    paddingHorizontal: spacing.md,
+    paddingVertical: 9,
+  },
+  hugOn: {
+    backgroundColor: colors.warm.honey,
+    borderColor: colors.warm.honey,
+  },
+  hugText: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
+    color: colors.warm.cream,
+  },
+  hugTextOn: {
+    color: colors.warm.honeyInk,
+  },
+  hugInfo: {
+    marginTop: spacing.sm,
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
+    color: colors.warm.creamMuted,
+  },
+  helpedBadge: {
+    marginTop: 4,
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.xs,
+    color: colors.warm.honey,
+  },
+  helpedButton: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(245,194,122,0.4)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  helpedButtonText: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.xs,
+    color: colors.warm.honey,
   },
   section: {
     alignSelf: 'flex-start',

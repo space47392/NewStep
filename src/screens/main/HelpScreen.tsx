@@ -14,7 +14,7 @@ import PrimaryButton from '../../components/PrimaryButton';
 import { PostCardSkeleton } from '../../components/Skeleton';
 import FadeInView from '../../components/FadeInView';
 import NSIcon from '../../components/NSIcon';
-import { colors, spacing, radius, fontSize, fontFamily } from '../../constants/theme';
+import { colors, spacing, radius, fontSize, fontFamily, typography } from '../../constants/theme';
 import { MainStackParamList, Post } from '../../types';
 
 const HELP_LIMIT = 20;
@@ -242,8 +242,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   title: {
-    fontFamily: fontFamily.brand,
-    fontSize: fontSize.xxl,
+    ...typography.largeTitle,
     color: colors.textDark,
   },
   // Secondary/help-red, matching the same category color Notifications

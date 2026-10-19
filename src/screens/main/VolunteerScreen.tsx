@@ -16,7 +16,7 @@ import ContributorRow from '../../components/ContributorRow';
 import NSIcon from '../../components/NSIcon';
 import PrimaryButton from '../../components/PrimaryButton';
 import { MainStackParamList, SchoolContributor } from '../../types';
-import { colors, spacing, radius, fontSize, fontFamily } from '../../constants/theme';
+import { colors, spacing, radius, fontSize, fontFamily, typography } from '../../constants/theme';
 
 const CONTRIBUTOR_LIMIT = 20;
 
@@ -269,8 +269,7 @@ const styles = StyleSheet.create({
   },
   title: {
     flexShrink: 1,
-    fontFamily: fontFamily.brand,
-    fontSize: fontSize.xxl,
+    ...typography.largeTitle,
     color: colors.textDark,
   },
   // Same shape/spacing as HelpScreen's countBadge — primary/star-colored

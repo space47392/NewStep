@@ -13,7 +13,7 @@ import ErrorState from '../../components/ErrorState';
 import PrimaryButton from '../../components/PrimaryButton';
 import NSIcon from '../../components/NSIcon';
 import { PostCardSkeleton } from '../../components/Skeleton';
-import { colors, spacing, fontSize, fontFamily } from '../../constants/theme';
+import { colors, spacing, fontSize, fontFamily, typography } from '../../constants/theme';
 import { MainStackParamList, Post } from '../../types';
 
 const PAGE_SIZE = 20;
@@ -297,8 +297,7 @@ const styles = StyleSheet.create({
     marginBottom: 0,
   },
   title: {
-    fontFamily: fontFamily.brand,
-    fontSize: fontSize.xxl,
+    ...typography.largeTitle,
     color: colors.textDark,
     marginBottom: spacing.lg,
   },

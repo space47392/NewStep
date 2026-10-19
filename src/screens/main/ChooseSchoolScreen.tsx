@@ -20,7 +20,7 @@ import LoadingScreen from '../../components/LoadingScreen';
 import SchoolJoinedCelebration from '../../components/SchoolJoinedCelebration';
 import NSIcon from '../../components/NSIcon';
 import OnboardingSteps from '../../components/OnboardingSteps';
-import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
+import { colors, spacing, radius, fontSize, fontFamily, shadow, typography } from '../../constants/theme';
 import { MainStackParamList, School } from '../../types';
 
 type Step = 'state' | 'city' | 'search';
@@ -367,8 +367,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   title: {
-    fontFamily: fontFamily.brand,
-    fontSize: fontSize.xxl,
+    ...typography.largeTitle,
     color: colors.textDark,
   },
   subtitle: {

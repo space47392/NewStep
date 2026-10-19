@@ -29,7 +29,7 @@ import StudentCard from '../../components/StudentCard';
 import NSIcon from '../../components/NSIcon';
 import LoadingScreen from '../../components/LoadingScreen';
 import FadeInView from '../../components/FadeInView';
-import { colors, spacing, radius, fontSize, fontFamily } from '../../constants/theme';
+import { colors, spacing, radius, fontSize, fontFamily, typography } from '../../constants/theme';
 import { MainStackParamList, School } from '../../types';
 
 const GRADES = ['6th', '7th', '8th', '9th', '10th', '11th', '12th'];
@@ -420,8 +420,7 @@ const styles = StyleSheet.create({
     fontSize: fontSize.md,
   },
   title: {
-    fontFamily: fontFamily.brand,
-    fontSize: fontSize.xxl,
+    ...typography.largeTitle,
     color: colors.textDark,
     marginBottom: spacing.lg,
   },

@@ -17,7 +17,7 @@ import { ConversationRowSkeleton } from '../../components/Skeleton';
 import FadeInView from '../../components/FadeInView';
 import NSIcon from '../../components/NSIcon';
 import { Conversation, MainStackParamList } from '../../types';
-import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
+import { colors, spacing, radius, fontSize, fontFamily, shadow, typography } from '../../constants/theme';
 
 export default function ChatScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
@@ -461,8 +461,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
   },
   title: {
-    fontFamily: fontFamily.brand,
-    fontSize: fontSize.xxl,
+    ...typography.largeTitle,
     color: colors.textDark,
     marginBottom: spacing.lg,
   },

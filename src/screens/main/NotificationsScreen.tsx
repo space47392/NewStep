@@ -24,7 +24,7 @@ import EmptyState from '../../components/EmptyState';
 import ErrorState from '../../components/ErrorState';
 import LoadingScreen from '../../components/LoadingScreen';
 import FadeInView from '../../components/FadeInView';
-import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
+import { colors, spacing, radius, fontSize, fontFamily, shadow, typography } from '../../constants/theme';
 import { AppNotification, MainStackParamList } from '../../types';
 
 const PAGE_SIZE = 20;
@@ -449,8 +449,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   title: {
-    fontFamily: fontFamily.brand,
-    fontSize: fontSize.xxl,
+    ...typography.largeTitle,
     color: colors.textDark,
   },
   markAllButton: {

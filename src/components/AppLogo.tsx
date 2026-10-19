@@ -38,7 +38,7 @@ export default function AppLogo({ size = 72, style, variant = 'icon' }: Props) {
           </Defs>
           <Rect x="0" y="0" width={glow} height={glow} fill="url(#markGlow)" />
         </Svg>
-        <SvgXml xml={MARK_XML} width={size * 1.5} height={size * 1.5} />
+        <SvgXml xml={MARK_XML} width={size * 1.05} height={size * 1.05} />
       </View>
     );
   }

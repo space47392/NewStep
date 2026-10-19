@@ -112,8 +112,8 @@ export const fontFamily = {
 };
 
 // Type scale: every text style the app needs, with line heights set so
-// paragraphs breathe. Spread into a style: { ...type.body, color }.
-export const type = {
+// paragraphs breathe. Spread into a style: { ...typography.body, color }.
+export const typography = {
   // Big screen titles ("Notifications", "Chat").
   largeTitle: { fontFamily: 'Poppins_700Bold', fontSize: 28, lineHeight: 34, letterSpacing: -0.4 },
   title: { fontFamily: 'Poppins_700Bold', fontSize: 22, lineHeight: 28, letterSpacing: -0.3 },

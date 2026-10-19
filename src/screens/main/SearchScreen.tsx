@@ -34,7 +34,7 @@ import ContributorRow from '../../components/ContributorRow';
 import AuthorRow from '../../components/AuthorRow';
 import NSIcon from '../../components/NSIcon';
 import { PostCardSkeleton } from '../../components/Skeleton';
-import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
+import { colors, spacing, radius, fontSize, fontFamily, shadow, typography } from '../../constants/theme';
 import InterestIcon from '../../components/InterestIcon';
 import {
   MainStackParamList,
@@ -760,8 +760,7 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg,
   },
   title: {
-    fontFamily: fontFamily.brand,
-    fontSize: fontSize.xxl,
+    ...typography.largeTitle,
     color: colors.textDark,
     marginBottom: spacing.md,
   },

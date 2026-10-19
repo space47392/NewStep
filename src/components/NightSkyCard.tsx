@@ -139,9 +139,9 @@ export default function NightSkyCard({ children, style, onLayout, sky }: Props) 
       <Svg style={StyleSheet.absoluteFill} preserveAspectRatio="none" viewBox="0 0 100 100">
         <Defs>
           <RadialGradient id="glow" cx="78%" cy="20%" r="90%">
-            <Stop offset="0" stopColor="#3A2F95" />
-            <Stop offset="0.55" stopColor={colors.night} />
-            <Stop offset="1" stopColor="#120E3A" />
+            <Stop offset="0" stopColor="#45336E" />
+            <Stop offset="0.55" stopColor="#2B2140" />
+            <Stop offset="1" stopColor="#1B1622" />
           </RadialGradient>
         </Defs>
         <Rect x="0" y="0" width="100" height="100" fill="url(#glow)" />
@@ -200,7 +200,7 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: radius.xl,
     overflow: 'hidden',
-    backgroundColor: colors.night,
+    backgroundColor: '#2B2140',
   },
   orb: {
     position: 'absolute',

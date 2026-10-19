@@ -214,7 +214,7 @@ function Foot() {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: colors.night,
+    backgroundColor: colors.background,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 10,

@@ -13,7 +13,7 @@ import ErrorState from '../../components/ErrorState';
 import PrimaryButton from '../../components/PrimaryButton';
 import { ConversationRowSkeleton } from '../../components/Skeleton';
 import FadeInView from '../../components/FadeInView';
-import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
+import { colors, spacing, radius, fontSize, fontFamily, shadow, typography } from '../../constants/theme';
 import { MainStackParamList, PersonSearchResult } from '../../types';
 
 const PAGE_SIZE = 30;
@@ -407,8 +407,7 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   title: {
-    fontFamily: fontFamily.brand,
-    fontSize: fontSize.xxl,
+    ...typography.largeTitle,
     color: colors.textDark,
     marginBottom: spacing.lg,
   },

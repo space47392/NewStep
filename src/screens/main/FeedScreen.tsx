@@ -52,7 +52,7 @@ import SaveButton from '../../components/SaveButton';
 import InterestButton from '../../components/InterestButton';
 import PhotoCarousel from '../../components/PhotoCarousel';
 import { Post, Story, MainStackParamList, ReportTargetType } from '../../types';
-import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
+import { colors, spacing, radius, fontSize, fontFamily, shadow, typography } from '../../constants/theme';
 
 // Shared by both feeds' pagination — same page size, same .range() shape.
 const PAGE_SIZE = 20;
@@ -1325,8 +1325,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   pageTitle: {
-    fontFamily: fontFamily.brand,
-    fontSize: fontSize.xl,
+    ...typography.title,
     color: '#fff',
     marginBottom: spacing.xs,
   },
@@ -1375,8 +1374,7 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   greeting: {
-    fontFamily: fontFamily.brand,
-    fontSize: 28,
+    ...typography.largeTitle,
     color: '#fff',
     marginTop: spacing.sm,
   },

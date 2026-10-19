@@ -102,12 +102,12 @@ export default function LoginScreen({ navigation }: Props) {
                 key={i}
                 name="footsteps"
                 size={14}
-                color={colors.primary}
-                style={{ opacity: step.opacity, transform: [{ translateY: step.y }, { rotate: '-90deg' }] }}
+                color={colors.warm.honey}
+                style={{ opacity: step.opacity * 0.7, transform: [{ translateY: step.y }, { rotate: '-90deg' }] }}
               />
             ))}
           </View>
-          <AppLogo size={76} style={styles.logoBadge} />
+          <AppLogo size={76} variant="mark" style={styles.logoBadge} />
           <Text style={styles.logo}>NewStep</Text>
           <Text style={styles.tagline}>Your guide to a new school</Text>
         </FadeInView>

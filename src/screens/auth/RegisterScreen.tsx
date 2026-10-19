@@ -87,7 +87,7 @@ export default function RegisterScreen({ navigation }: Props) {
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView contentContainerStyle={styles.inner} keyboardShouldPersistTaps="handled">
         <FadeInView style={styles.header}>
-          <AppLogo size={76} style={styles.logoBadge} />
+          <AppLogo size={76} variant="mark" style={styles.logoBadge} />
           <Text style={styles.logo}>NewStep</Text>
           <Text style={styles.tagline}>
             Connect with your school. Discover people, what's happening, and ways to help.

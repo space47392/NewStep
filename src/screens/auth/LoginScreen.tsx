@@ -127,7 +127,7 @@ export default function LoginScreen({ navigation }: Props) {
           <Text style={styles.label}>Password</Text>
           <IconInput
             icon="lock-closed-outline"
-            placeholder="••••••••"
+            placeholder="Your password"
             value={password}
             onChangeText={setPassword}
             secureTextEntry

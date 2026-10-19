@@ -111,7 +111,7 @@ export default function TabNavigator() {
         // Every tab keeps the status-bar gap except Home, whose night-sky
         // header runs up behind the status bar on purpose.
         sceneStyle: { paddingTop: route.name === 'Feed' ? 0 : insets.top, backgroundColor: colors.background },
-        tabBarActiveTintColor: colors.primary,
+        tabBarActiveTintColor: colors.tabActive,
         tabBarInactiveTintColor: colors.tabInactive,
         tabBarStyle: {
           backgroundColor: colors.tabBar,
@@ -171,6 +171,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   iconPillFocused: {
-    backgroundColor: colors.primaryLight,
+    // A soft honey glow behind the selected tab.
+    backgroundColor: "rgba(245,194,122,0.16)",
   },
 });

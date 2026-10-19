@@ -1,14 +1,16 @@
-// "Soft night": the whole app sits in a muted version of the app icon's
-// starry night. Deliberately calmer than the icon's own navy (#1C1752) so
-// it reads as a backdrop, not a statement. Token names are kept from the
-// old light theme: textDark is now the *main* (light) text colour, the
-// *Light tokens are dim tinted surfaces, and the *Dark tokens are the bright
-// pastel text/icon colour used on those tints.
+// "Warm night" design system. The app sits in a warm, low-glare dark
+// (charcoal with a hint of plum, not blue-black), with warm-white text and
+// the brand violet for actions. Honey (colors.warm) marks the cosy moments.
+//
+// Token names are kept from the old light theme: textDark is the *main*
+// (light) text colour, the *Light tokens are dim tinted surfaces, and the
+// *Dark tokens are the bright text/icon colour used on those tints.
 export const colors = {
-  primary: '#7C74FF',
-  primaryLight: '#2B2856',
+  // White text on primary is ~4.5:1.
+  primary: '#7066F0',
+  primaryLight: '#2B2740',
   // Text on primaryLight (badges, links on tinted chips).
-  primaryDark: '#C9C5FF',
+  primaryDark: '#CEC9FF',
   secondary: '#FF6584',
   secondaryLight: '#3A2238',
   secondaryDark: '#FF9BB0',
@@ -17,17 +19,18 @@ export const colors = {
   accentDark: '#7EE6BE',
   // Calm, flat surfaces: most content sits straight on the background,
   // separated by hairlines; cards only where something needs grouping.
-  background: '#121122',
-  cardBg: '#1C1A33',
-  textDark: '#F2F1FA',
-  textMid: '#C4C2DC',
-  textLight: '#9592B3',
-  border: '#2C2A48',
+  background: '#15131A',
+  cardBg: '#1F1C25',
+  textDark: '#F7F3EE',
+  textMid: '#D2CBC4',
+  // Secondary text; ~5.5:1 on background.
+  textLight: '#9A928C',
+  border: '#332E3B',
   // Thin separators between rows and sections.
-  hairline: '#232140',
-  tabBar: '#121122',
-  tabActive: '#B7B1FF',
-  tabInactive: '#6E6B90',
+  hairline: '#26222C',
+  tabBar: '#15131A',
+  tabActive: '#F5C27A',
+  tabInactive: '#7A7279',
   error: '#FF6B6B',
   errorLight: '#3D1F2A',
   success: '#43D9A2',
@@ -39,7 +42,7 @@ export const colors = {
   eventDark: '#FFD45C',
   eventLight: '#3A311C',
   // A step above cards: toasts, floating buttons, sheets.
-  raised: '#2C2950',
+  raised: '#2A2631',
   // App icon / splash / footprint intro background.
   night: '#1C1752',
   // Sticker outline ink (NSIcon, InterestIcon, TabGlyph). Stays dark in
@@ -76,11 +79,12 @@ export const spacing = {
   xxl: 48,
 };
 
+// Corners: small chips 10, inputs/buttons 14, cards 20, sheets 28.
 export const radius = {
-  sm: 8,
-  md: 12,
-  lg: 16,
-  xl: 24,
+  sm: 10,
+  md: 14,
+  lg: 20,
+  xl: 28,
   full: 999,
 };
 
@@ -107,12 +111,27 @@ export const fontFamily = {
   brand: 'Fredoka_700Bold',
 };
 
+// Type scale: every text style the app needs, with line heights set so
+// paragraphs breathe. Spread into a style: { ...type.body, color }.
+export const type = {
+  // Big screen titles ("Notifications", "Chat").
+  largeTitle: { fontFamily: 'Poppins_700Bold', fontSize: 28, lineHeight: 34, letterSpacing: -0.4 },
+  title: { fontFamily: 'Poppins_700Bold', fontSize: 22, lineHeight: 28, letterSpacing: -0.3 },
+  headline: { fontFamily: 'Poppins_600SemiBold', fontSize: 17, lineHeight: 24, letterSpacing: -0.2 },
+  body: { fontFamily: 'Poppins_400Regular', fontSize: 15, lineHeight: 22 },
+  bodyStrong: { fontFamily: 'Poppins_600SemiBold', fontSize: 15, lineHeight: 22 },
+  callout: { fontFamily: 'Poppins_400Regular', fontSize: 14, lineHeight: 20 },
+  caption: { fontFamily: 'Poppins_400Regular', fontSize: 12, lineHeight: 16 },
+  // Small caps-style section labels.
+  overline: { fontFamily: 'Poppins_600SemiBold', fontSize: 12, lineHeight: 16, letterSpacing: 0.6 },
+} as const;
+
 // Soft, consistent card elevation used across the app instead of one-off shadow props.
 export const shadow = {
   // Flat on purpose (calm UI): cards are set apart by colour, not shadow.
   card: {},
   floating: {
-    shadowColor: '#1A1A2E',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.18,
     shadowRadius: 14,

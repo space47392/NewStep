@@ -763,7 +763,7 @@ export default function FeedScreen() {
               <>
                 <View style={styles.brandTopRow}>
                   <View style={styles.brandRow}>
-                    <AppLogo size={20} />
+                    <AppLogo size={22} variant="mark" glow={false} />
                     <Text style={styles.brandLabel}>NewStep</Text>
                   </View>
                   {bell}

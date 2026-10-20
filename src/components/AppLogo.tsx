@@ -1,7 +1,6 @@
 import { View, StyleSheet, StyleProp, ViewStyle } from 'react-native';
-import Svg, { Defs, LinearGradient, Rect, Stop, SvgXml } from 'react-native-svg';
+import Svg, { Defs, LinearGradient, Path, Rect, Stop, SvgXml } from 'react-native-svg';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { warmGradient } from '../constants/theme';
 
 // The "Starry Step" app icon (assets/icon.png), drawn as SVG so it stays
 // sharp at any size inside the app (login/sign-up logo, brand marks).
@@ -17,8 +16,9 @@ type Props = {
 
 export default function AppLogo({ size = 72, style, variant = 'icon' }: Props) {
   if (variant === 'mark') {
-    // The brand mark: a white footprint on a rounded tile in the warm
-    // gold-to-coral gradient (the same one as the story rings).
+    // The brand mark tells NewStep's story: a dusk sky turning from night
+    // into sunrise, a cream footprint (the new step) and a star from School
+    // Sky. The footprint is the Material Design glyph so its shape is natural.
     return (
       <View
         style={[{ width: size, height: size, borderRadius: size * 0.26, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }, style]}
@@ -26,16 +26,19 @@ export default function AppLogo({ size = 72, style, variant = 'icon' }: Props) {
         accessibilityRole="image"
         accessibilityLabel="NewStep"
       >
-        <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
+        <Svg width={size} height={size} viewBox="0 0 100 100" style={StyleSheet.absoluteFill}>
           <Defs>
-            <LinearGradient id="nsMarkTile" x1="0" y1="0" x2="1" y2="1">
-              <Stop offset="0" stopColor={warmGradient[0]} />
-              <Stop offset="1" stopColor={warmGradient[1]} />
+            <LinearGradient id="nsDusk" x1="0.3" y1="0" x2="0.7" y2="1">
+              <Stop offset="0" stopColor="#3A2A55" />
+              <Stop offset="0.55" stopColor="#6B4466" />
+              <Stop offset="1" stopColor="#E9965E" />
             </LinearGradient>
           </Defs>
-          <Rect x="0" y="0" width={size} height={size} fill="url(#nsMarkTile)" />
+          <Rect x="0" y="0" width="100" height="100" fill="url(#nsDusk)" />
+          <Path d="M12 0 C13 8 16 11 24 12 C16 13 13 16 12 24 C11 16 8 13 0 12 C8 11 11 8 12 0 Z" fill="#FFE9A8" transform="translate(64 9) scale(0.85)" />
+          <Path d="M12 0 C13 8 16 11 24 12 C16 13 13 16 12 24 C11 16 8 13 0 12 C8 11 11 8 12 0 Z" fill="#FFFFFF" opacity={0.8} transform="translate(17 21) scale(0.34)" />
         </Svg>
-        <MaterialCommunityIcons name="foot-print" size={size * 0.64} color="#FFFFFF" />
+        <MaterialCommunityIcons name="foot-print" size={size * 0.6} color="#FFF4DE" style={{ marginLeft: -size * 0.06 }} />
       </View>
     );
   }

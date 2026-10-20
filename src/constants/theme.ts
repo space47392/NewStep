@@ -1,5 +1,5 @@
-// "Warm night" design system: warm and quietly premium. A deep, warm
-// near-black, warm-white text, and a muted champagne gold for actions —
+// "Warm night" design system: warm and quietly premium. A deep espresso
+// brown-black, warm-white text, and a muted champagne gold for actions —
 // lantern light rather than bright yellow, because the app is about people
 // helping each other. Big titles are set in a soft serif (Fraunces).
 //
@@ -7,12 +7,12 @@
 // (light) text colour, the *Light tokens are dim tinted surfaces, and the
 // *Dark tokens are the bright text/icon colour used on those tints.
 export const colors = {
-  primary: '#E2B56C',
+  primary: '#E8B064',
   // Text and icons ON a primary fill (honey is light, so never white).
   onPrimary: '#2A1D12',
-  primaryLight: '#30271C',
+  primaryLight: '#3A2A1A',
   // Text on primaryLight (badges, links on tinted chips).
-  primaryDark: '#F0D3A2',
+  primaryDark: '#F5D3A0',
   secondary: '#FF6584',
   secondaryLight: '#3A2238',
   secondaryDark: '#FF9BB0',
@@ -21,17 +21,17 @@ export const colors = {
   accentDark: '#7EE6BE',
   // Calm, flat surfaces: most content sits straight on the background,
   // separated by hairlines; cards only where something needs grouping.
-  background: '#121014',
-  cardBg: '#1C1A1F',
-  textDark: '#F7F3EE',
-  textMid: '#D2CBC4',
+  background: '#16110E',
+  cardBg: '#211A16',
+  textDark: '#FAF1E6',
+  textMid: '#D9CABB',
   // Secondary text; ~5.5:1 on background.
-  textLight: '#9A928C',
-  border: '#322D35',
+  textLight: '#A39282',
+  border: '#3A2E26',
   // Thin separators between rows and sections.
-  hairline: '#25212A',
-  tabBar: '#121014',
-  tabActive: '#E2B56C',
+  hairline: '#2B221C',
+  tabBar: '#16110E',
+  tabActive: '#E8B064',
   tabInactive: '#7A7279',
   error: '#FF6B6B',
   errorLight: '#3D1F2A',
@@ -44,7 +44,7 @@ export const colors = {
   eventDark: '#FFD45C',
   eventLight: '#3A311C',
   // A step above cards: toasts, floating buttons, sheets.
-  raised: '#28242C',
+  raised: '#2C231D',
   // App icon / splash / footprint intro background.
   night: '#1C1752',
   // Sticker outline ink (NSIcon, InterestIcon, TabGlyph). Stays dark in

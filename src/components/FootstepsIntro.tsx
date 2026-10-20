@@ -12,7 +12,23 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
+import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { colors, spacing, fontSize, fontFamily } from '../constants/theme';
+
+function WarmGlow() {
+  return (
+    <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
+      <Defs>
+        <RadialGradient id="introGlow" cx="50%" cy="100%" r="85%">
+          <Stop offset="0" stopColor="#F0A55A" stopOpacity={0.24} />
+          <Stop offset="0.55" stopColor="#E8B064" stopOpacity={0.06} />
+          <Stop offset="1" stopColor="#E8B064" stopOpacity={0} />
+        </RadialGradient>
+      </Defs>
+      <Rect x="0" y="0" width="100%" height="100%" fill="url(#introGlow)" />
+    </Svg>
+  );
+}
 
 type Props = {
   onDone: () => void;
@@ -125,7 +141,7 @@ export default function FootstepsIntro({ onDone }: Props) {
     return (
       <View style={[styles.container, StyleSheet.absoluteFill]}>
         <StatusBar style="light" />
-        <Ionicons name="footsteps" size={48} color="#fff" />
+        <Ionicons name="footsteps" size={48} color={colors.primary} />
         <TouchableOpacity style={styles.staticButton} onPress={onDone} accessibilityRole="button">
           <Text style={styles.staticButtonText}>Take your first step</Text>
         </TouchableOpacity>
@@ -142,9 +158,8 @@ export default function FootstepsIntro({ onDone }: Props) {
       accessibilityLabel="Welcome to NewStep. Double tap to continue."
       onAccessibilityTap={() => leave(-1)}
     >
-      {/* White clock/battery on the purple page; App.tsx's dark style
-          comes back on its own once this unmounts. */}
       <StatusBar style="light" />
+      <WarmGlow />
       {Array.from({ length: STEPS }, (_, i) => {
         const isLeft = i % 2 === 0;
         const sway = Math.sin(i * 0.7) * 18;
@@ -237,7 +252,7 @@ const styles = StyleSheet.create({
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#fff',
+    backgroundColor: colors.primary,
   },
   toeBig: {
     width: 6,
@@ -256,14 +271,14 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 9,
     borderBottomLeftRadius: 6,
     borderBottomRightRadius: 6,
-    backgroundColor: '#fff',
+    backgroundColor: colors.primary,
   },
   heel: {
     width: 12,
     height: 9,
     marginTop: 2,
     borderRadius: 6,
-    backgroundColor: '#fff',
+    backgroundColor: colors.primary,
   },
   hint: {
     position: 'absolute',
@@ -274,12 +289,12 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.sm,
-    color: '#fff',
+    color: colors.textDark,
     opacity: 0.9,
   },
   staticButton: {
     marginTop: spacing.xl,
-    backgroundColor: '#fff',
+    backgroundColor: colors.primary,
     borderRadius: 999,
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.md,
@@ -287,6 +302,6 @@ const styles = StyleSheet.create({
   staticButtonText: {
     fontFamily: fontFamily.bold,
     fontSize: fontSize.md,
-    color: colors.primary,
+    color: colors.onPrimary,
   },
 });

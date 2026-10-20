@@ -90,9 +90,10 @@ export default function LoginScreen({ navigation }: Props) {
       {/* A faint lantern light from above. */}
       <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
         <Defs>
-          <RadialGradient id="loginGlow" cx="20%" cy="0%" r="75%">
-            <Stop offset="0" stopColor="#E2B56C" stopOpacity={0.13} />
-            <Stop offset="1" stopColor="#E2B56C" stopOpacity={0} />
+          <RadialGradient id="loginGlow" cx="25%" cy="0%" r="90%">
+            <Stop offset="0" stopColor="#F0A55A" stopOpacity={0.22} />
+            <Stop offset="0.5" stopColor="#E8B064" stopOpacity={0.07} />
+            <Stop offset="1" stopColor="#E8B064" stopOpacity={0} />
           </RadialGradient>
         </Defs>
         <Rect x="0" y="0" width="100%" height="100%" fill="url(#loginGlow)" />

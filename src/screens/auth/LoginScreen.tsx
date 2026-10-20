@@ -162,8 +162,7 @@ const styles = StyleSheet.create({
   },
   brand: {
     fontFamily: fontFamily.brand,
-    fontSize: 20,
-    letterSpacing: 0.2,
+    fontSize: fontSize.lg,
     color: colors.textDark,
   },
   title: {

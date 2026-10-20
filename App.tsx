@@ -10,7 +10,7 @@ import {
   Poppins_700Bold,
   Poppins_800ExtraBold,
 } from '@expo-google-fonts/poppins';
-import { Fraunces_600SemiBold } from '@expo-google-fonts/fraunces';
+import { Fredoka_700Bold } from '@expo-google-fonts/fredoka';
 import { AuthProvider } from './src/contexts/AuthContext';
 import { ToastProvider } from './src/contexts/ToastContext';
 import AppNavigator from './src/navigation/AppNavigator';
@@ -33,7 +33,7 @@ export default function App() {
     Poppins_600SemiBold,
     Poppins_700Bold,
     Poppins_800ExtraBold,
-    Fraunces_600SemiBold,
+    Fredoka_700Bold,
   });
 
   // Routes a tapped push notification to its actual destination — the same

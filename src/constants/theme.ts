@@ -2,19 +2,19 @@
 // near-neutral dark (only a breath of warmth) with no glows; warmth comes
 // from a lantern-gold accent and a gold-to-coral gradient on the few things
 // that should feel special (logo, story rings), because the app is about
-// people helping each other. Titles are clean bold sans; the serif is kept
-// for the "NewStep" wordmark only.
+// people helping each other. Titles are clean bold sans; the friendly,
+// rounded Fredoka is kept for the "NewStep" wordmark.
 //
 // Token names are kept from the old light theme: textDark is the *main*
 // (light) text colour, the *Light tokens are dim tinted surfaces, and the
 // *Dark tokens are the bright text/icon colour used on those tints.
 export const colors = {
-  primary: '#E8B064',
+  primary: '#F5BC5C',
   // Text and icons ON a primary fill (honey is light, so never white).
   onPrimary: '#2A1D12',
-  primaryLight: '#33281C',
+  primaryLight: '#3A2E1E',
   // Text on primaryLight (badges, links on tinted chips).
-  primaryDark: '#F5D3A0',
+  primaryDark: '#FFD99B',
   secondary: '#FF6584',
   secondaryLight: '#3A2238',
   secondaryDark: '#FF9BB0',
@@ -33,7 +33,7 @@ export const colors = {
   // Thin separators between rows and sections.
   hairline: '#262321',
   tabBar: '#121110',
-  tabActive: '#E8B064',
+  tabActive: '#F5BC5C',
   tabInactive: '#7A7279',
   error: '#FF6B6B',
   errorLight: '#3D1F2A',
@@ -111,9 +111,8 @@ export const fontFamily = {
   semibold: 'Poppins_600SemiBold',
   bold: 'Poppins_700Bold',
   extrabold: 'Poppins_800ExtraBold',
-  // The "NewStep" wordmark (and the cosy School Sky / Lanterns titles).
-  brand: 'Fraunces_600SemiBold',
-  display: 'Fraunces_600SemiBold',
+  // Fredoka — the "NewStep" wordmark (and the cosy School Sky / Lanterns titles).
+  brand: 'Fredoka_700Bold',
 };
 
 // Type scale: every text style the app needs, with line heights set so

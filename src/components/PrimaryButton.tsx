@@ -27,7 +27,7 @@ type Props = {
 };
 
 const VARIANT_STYLES: Record<Variant, { bg: string; text: string; border?: string }> = {
-  primary: { bg: colors.primary, text: '#fff' },
+  primary: { bg: colors.primary, text: colors.onPrimary },
   destructive: { bg: colors.error, text: '#fff' },
   // accentDark, not success: white on the bright mint was ~1.8:1.
   success: { bg: colors.successSolid, text: '#fff' },

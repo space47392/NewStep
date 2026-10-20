@@ -81,7 +81,7 @@ const styles = StyleSheet.create({
   stripText: {
     fontFamily: fontFamily.brand,
     fontSize: fontSize.xs,
-    color: '#fff',
+    color: colors.onPrimary,
     letterSpacing: 1.5,
   },
   body: {

@@ -143,13 +143,13 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.bold,
     fontSize: 10,
     letterSpacing: 1,
-    color: '#fff',
+    color: colors.onPrimary,
   },
   stubDay: {
     fontFamily: fontFamily.extrabold,
     fontSize: fontSize.xl,
     lineHeight: 26,
-    color: '#fff',
+    color: colors.onPrimary,
   },
   stubTextPast: {
     color: colors.textLight,

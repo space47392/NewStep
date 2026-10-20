@@ -797,7 +797,7 @@ const styles = StyleSheet.create({
   },
   chipTextSelected: {
     fontFamily: fontFamily.semibold,
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: fontSize.xs,
   },
   center: {

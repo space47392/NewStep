@@ -70,7 +70,7 @@ export default function InterestButton({ postId, initialInterested, onToggle }: 
       accessibilityLabel={interested ? 'Remove interested' : 'Mark as interested'}
       accessibilityState={{ selected: interested }}
     >
-      <Ionicons name={interested ? 'star' : 'star-outline'} size={15} color={interested ? '#fff' : colors.primary} />
+      <Ionicons name={interested ? 'star' : 'star-outline'} size={15} color={interested ? colors.onPrimary : colors.primary} />
       <Text style={[styles.text, interested && styles.textActive]}>Interested{interested ? ' ✓' : ''}</Text>
     </TouchableOpacity>
   );
@@ -96,6 +96,6 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   textActive: {
-    color: '#fff',
+    color: colors.onPrimary,
   },
 });

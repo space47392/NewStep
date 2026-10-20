@@ -1,16 +1,18 @@
 // "Warm night" design system. The app sits in a warm, low-glare dark
 // (charcoal with a hint of plum, not blue-black), with warm-white text and
-// the brand violet for actions. Honey (colors.warm) marks the cosy moments.
+// honey for actions — the colour of a lantern or morning sun, because the
+// app is about people helping each other.
 //
 // Token names are kept from the old light theme: textDark is the *main*
 // (light) text colour, the *Light tokens are dim tinted surfaces, and the
 // *Dark tokens are the bright text/icon colour used on those tints.
 export const colors = {
-  // White text on primary is ~4.5:1.
-  primary: '#7066F0',
-  primaryLight: '#2B2740',
+  primary: '#F5BC5C',
+  // Text and icons ON a primary fill (honey is light, so never white).
+  onPrimary: '#2A1D12',
+  primaryLight: '#3A2E1E',
   // Text on primaryLight (badges, links on tinted chips).
-  primaryDark: '#CEC9FF',
+  primaryDark: '#FFD99B',
   secondary: '#FF6584',
   secondaryLight: '#3A2238',
   secondaryDark: '#FF9BB0',

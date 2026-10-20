@@ -700,7 +700,7 @@ export default function PostDetailScreen() {
           onPress={handleSend}
           disabled={sending || !commentText.trim()}
         >
-          {sending ? <ActivityIndicator color="#fff" /> : <Ionicons name="send" size={18} color="#fff" />}
+          {sending ? <ActivityIndicator color={colors.onPrimary} /> : <Ionicons name="send" size={18} color={colors.onPrimary} />}
         </TouchableOpacity>
       </View>
       </>

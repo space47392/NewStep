@@ -1040,7 +1040,7 @@ export default function ConversationScreen() {
               {unseenCount === 1 ? '1 new message' : `${unseenCount} new messages`}
             </Text>
           ) : null}
-          <Ionicons name="arrow-down" size={18} color={unseenCount > 0 ? '#fff' : colors.primary} />
+          <Ionicons name="arrow-down" size={18} color={unseenCount > 0 ? colors.onPrimary : colors.primary} />
         </TouchableOpacity>
       ) : null}
       </View>
@@ -1104,9 +1104,9 @@ export default function ConversationScreen() {
               disabled={sending || !text.trim()}
             >
               {sending ? (
-                <ActivityIndicator color="#fff" />
+                <ActivityIndicator color={colors.onPrimary} />
               ) : (
-                <Ionicons name={editingMessage ? 'checkmark' : 'send'} size={18} color="#fff" />
+                <Ionicons name={editingMessage ? 'checkmark' : 'send'} size={18} color={colors.onPrimary} />
               )}
             </TouchableOpacity>
             )}
@@ -1202,7 +1202,7 @@ const styles = StyleSheet.create({
   jumpButtonText: {
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.sm,
-    color: '#fff',
+    color: colors.onPrimary,
   },
   list: {
     paddingHorizontal: spacing.lg,
@@ -1230,8 +1230,8 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   replyQuoteMine: {
-    borderLeftColor: '#fff',
-    backgroundColor: 'rgba(255,255,255,0.18)',
+    borderLeftColor: colors.onPrimary,
+    backgroundColor: 'rgba(42,29,18,0.1)',
   },
   replyQuoteTheirs: {
     borderLeftColor: colors.primary,
@@ -1242,7 +1242,7 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
   },
   replyQuoteNameMine: {
-    color: '#fff',
+    color: colors.onPrimary,
   },
   replyQuoteNameTheirs: {
     color: colors.primary,
@@ -1286,7 +1286,7 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
   },
   replyQuoteTextMine: {
-    color: 'rgba(255,255,255,0.85)',
+    color: 'rgba(42,29,18,0.75)',
   },
   replyQuoteTextTheirs: {
     color: colors.textMid,
@@ -1383,7 +1383,7 @@ const styles = StyleSheet.create({
   },
   bubbleTextMine: {
     fontFamily: fontFamily.regular,
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: fontSize.md,
   },
   bubbleTextTheirs: {

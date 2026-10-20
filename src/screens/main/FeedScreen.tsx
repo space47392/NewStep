@@ -885,9 +885,9 @@ export default function FeedScreen() {
                         <Avatar uri={null} size={48} />
                         <View style={styles.addStoryBadge}>
                           {uploadingStory ? (
-                            <ActivityIndicator size="small" color="#fff" />
+                            <ActivityIndicator size="small" color={colors.onPrimary} />
                           ) : (
-                            <Ionicons name="add" size={14} color="#fff" />
+                            <Ionicons name="add" size={14} color={colors.onPrimary} />
                           )}
                         </View>
                       </View>
@@ -1172,7 +1172,7 @@ export default function FeedScreen() {
       {scrolledPastSky ? <View pointerEvents="none" style={[styles.statusBarBacking, { height: insets.top }]} /> : null}
 
       <TouchableOpacity style={styles.fab} activeOpacity={0.85} onPress={() => navigation.navigate('CreatePost')}>
-        <Ionicons name="add" size={28} color="#fff" />
+        <Ionicons name="add" size={28} color={colors.onPrimary} />
       </TouchableOpacity>
 
       <ActionSheet visible={menuPost !== null} onClose={() => setMenuPost(null)} actions={menuActions} />

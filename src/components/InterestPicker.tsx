@@ -84,7 +84,7 @@ export default function InterestPicker({ value, onChange }: Props) {
                     <Text style={[styles.optionChipText, selected && styles.optionChipTextSelected]}>{item}</Text>
                     {selected && (
                       <View style={styles.checkDot}>
-                        <Ionicons name="checkmark" size={10} color="#fff" />
+                        <Ionicons name="checkmark" size={10} color={colors.onPrimary} />
                       </View>
                     )}
                   </TouchableOpacity>

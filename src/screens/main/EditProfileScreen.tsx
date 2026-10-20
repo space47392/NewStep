@@ -292,11 +292,11 @@ export default function EditProfileScreen() {
               Storage/avatarUrl only change once Save actually succeeds. */}
           <Avatar uri={pendingAvatar?.uri ?? avatarUrl} size={96} />
           <View style={styles.cameraBadge}>
-            <Ionicons name="camera" size={14} color="#fff" />
+            <Ionicons name="camera" size={14} color={colors.onPrimary} />
           </View>
           {uploadingAvatar && (
             <View style={styles.avatarOverlay}>
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={colors.onPrimary} />
             </View>
           )}
         </TouchableOpacity>
@@ -543,7 +543,7 @@ const styles = StyleSheet.create({
   },
   chipTextSelected: {
     fontFamily: fontFamily.semibold,
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: fontSize.sm,
   },
   cardPreview: {

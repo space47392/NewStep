@@ -131,7 +131,7 @@ const styles = StyleSheet.create({
   kicker: {
     fontFamily: fontFamily.extrabold,
     fontSize: fontSize.xs,
-    color: '#fff',
+    color: colors.onPrimary,
     opacity: 0.85,
     letterSpacing: 1.5,
   },
@@ -139,7 +139,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
     fontFamily: fontFamily.bold,
     fontSize: fontSize.xl,
-    color: '#fff',
+    color: colors.onPrimary,
   },
   schoolRow: {
     flexDirection: 'row',

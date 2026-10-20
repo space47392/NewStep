@@ -590,7 +590,7 @@ const styles = StyleSheet.create({
   schoolName: {
     fontFamily: fontFamily.bold,
     fontSize: fontSize.xxl,
-    color: '#fff',
+    color: colors.onPrimary,
   },
   schoolNameRow: {
     flexDirection: 'row',
@@ -613,7 +613,7 @@ const styles = StyleSheet.create({
   schoolLocation: {
     fontFamily: fontFamily.medium,
     fontSize: fontSize.xs,
-    color: '#fff',
+    color: colors.onPrimary,
     opacity: 0.85,
     marginTop: 2,
   },

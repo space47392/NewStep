@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Alert, Linking } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
 import IconInput from '../../components/IconInput';
@@ -20,12 +19,6 @@ type Props = {
 // this, every remount of this screen (e.g. after logging out) and the 'url'
 // event for the same open would each show the alert again.
 const handledLinks = new Set<string>();
-
-const TRAIL = [
-  { opacity: 0.15, y: 6 },
-  { opacity: 0.3, y: -2 },
-  { opacity: 0.5, y: 6 },
-];
 
 export default function LoginScreen({ navigation }: Props) {
   const [email, setEmail] = useState('');
@@ -95,18 +88,6 @@ export default function LoginScreen({ navigation }: Props) {
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={styles.inner}>
         <FadeInView style={styles.header}>
-          {/* Footprints walking up to the badge — the "new step" itself. */}
-          <View style={styles.trail} importantForAccessibility="no-hide-descendants">
-            {TRAIL.map((step, i) => (
-              <Ionicons
-                key={i}
-                name="footsteps"
-                size={14}
-                color={colors.warm.honey}
-                style={{ opacity: step.opacity * 0.7, transform: [{ translateY: step.y }, { rotate: '-90deg' }] }}
-              />
-            ))}
-          </View>
           <AppLogo size={76} variant="mark" style={styles.logoBadge} />
           <Text style={styles.logo}>NewStep</Text>
           <Text style={styles.tagline}>Your guide to a new school</Text>
@@ -174,11 +155,6 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     marginBottom: spacing.xxl,
-  },
-  trail: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    marginBottom: spacing.sm,
   },
   // The app icon itself, tilted a touch like a sticker.
   logoBadge: {

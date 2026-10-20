@@ -7,7 +7,7 @@ import PrimaryButton from '../../components/PrimaryButton';
 import FadeInView from '../../components/FadeInView';
 import AppLogo from '../../components/AppLogo';
 import FootstepsIntro from '../../components/FootstepsIntro';
-import { colors, spacing, radius, fontSize, fontFamily } from '../../constants/theme';
+import { colors, spacing, fontSize, fontFamily, typography } from '../../constants/theme';
 import { AuthStackParamList } from '../../types';
 
 type Props = {
@@ -87,28 +87,27 @@ export default function LoginScreen({ navigation }: Props) {
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={styles.inner}>
+        {/* One column, left-aligned; honey only on the mark and the button. */}
         <FadeInView style={styles.header}>
-          <AppLogo size={76} variant="mark" style={styles.logoBadge} />
-          <Text style={styles.logo}>NewStep</Text>
-          <Text style={styles.tagline}>Your guide to a new school</Text>
+          <View style={styles.brandRow}>
+            <AppLogo size={30} variant="mark" glow={false} />
+            <Text style={styles.brand}>NewStep</Text>
+          </View>
+          <Text style={styles.title}>Welcome back</Text>
+          <Text style={styles.subtitle}>Your guide to a new school.</Text>
         </FadeInView>
 
         <FadeInView style={styles.form} delay={100}>
-          <Text style={styles.label}>Email</Text>
           <IconInput
-            icon="mail-outline"
-            placeholder="you@school.edu"
+            placeholder="Email"
             value={email}
             onChangeText={setEmail}
             autoCapitalize="none"
             keyboardType="email-address"
             autoComplete="email"
           />
-
-          <Text style={styles.label}>Password</Text>
           <IconInput
-            icon="lock-closed-outline"
-            placeholder="Your password"
+            placeholder="Password"
             value={password}
             onChangeText={setPassword}
             secureTextEntry
@@ -127,9 +126,9 @@ export default function LoginScreen({ navigation }: Props) {
         </FadeInView>
 
         <FadeInView style={styles.footer} delay={200}>
-          <Text style={styles.footerText}>Don't have an account? </Text>
+          <Text style={styles.footerText}>New to NewStep? </Text>
           <TouchableOpacity onPress={() => navigation.navigate('Register')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Text style={styles.footerLink}>Sign up</Text>
+            <Text style={styles.footerLink}>Create an account</Text>
           </TouchableOpacity>
         </FadeInView>
       </View>
@@ -150,48 +149,44 @@ const styles = StyleSheet.create({
   inner: {
     flex: 1,
     justifyContent: 'center',
-    paddingHorizontal: spacing.xl,
+    paddingHorizontal: spacing.lg,
   },
   header: {
+    marginBottom: spacing.xl,
+  },
+  brandRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: spacing.xxl,
+    gap: spacing.sm,
+    marginBottom: spacing.xl,
   },
-  // The app icon itself, tilted a touch like a sticker.
-  logoBadge: {
-    marginBottom: spacing.md,
-    transform: [{ rotate: '-6deg' }],
-  },
-  logo: {
+  brand: {
     fontFamily: fontFamily.brand,
-    fontSize: fontSize.xxxl,
-    color: colors.primary,
+    fontSize: fontSize.lg,
+    color: colors.textDark,
   },
-  tagline: {
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.md,
-    color: colors.textMid,
+  title: {
+    ...typography.largeTitle,
+    color: colors.textDark,
+  },
+  subtitle: {
+    ...typography.body,
+    color: colors.textLight,
     marginTop: spacing.xs,
   },
   form: {
-    gap: spacing.sm,
-  },
-  label: {
-    fontFamily: fontFamily.semibold,
-    fontSize: fontSize.sm,
-    color: colors.textDark,
-    marginTop: spacing.sm,
+    gap: spacing.sm + 4,
   },
   forgotButton: {
     alignSelf: 'flex-end',
-    marginTop: spacing.xs,
   },
   forgotText: {
-    fontFamily: fontFamily.semibold,
-    color: colors.primary,
+    fontFamily: fontFamily.medium,
+    color: colors.textMid,
     fontSize: fontSize.sm,
   },
   button: {
-    marginTop: spacing.lg,
+    marginTop: spacing.md,
   },
   footer: {
     flexDirection: 'row',
@@ -200,12 +195,12 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontFamily: fontFamily.regular,
-    color: colors.textMid,
+    color: colors.textLight,
     fontSize: fontSize.sm,
   },
   footerLink: {
-    fontFamily: fontFamily.bold,
-    color: colors.primary,
+    fontFamily: fontFamily.semibold,
+    color: colors.textDark,
     fontSize: fontSize.sm,
   },
 });

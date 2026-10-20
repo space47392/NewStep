@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Alert, Linking } from 'react-native';
-import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
 import IconInput from '../../components/IconInput';
@@ -87,17 +86,6 @@ export default function LoginScreen({ navigation }: Props) {
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      {/* A faint lantern light from above. */}
-      <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
-        <Defs>
-          <RadialGradient id="loginGlow" cx="25%" cy="0%" r="90%">
-            <Stop offset="0" stopColor="#F0A55A" stopOpacity={0.22} />
-            <Stop offset="0.5" stopColor="#E8B064" stopOpacity={0.07} />
-            <Stop offset="1" stopColor="#E8B064" stopOpacity={0} />
-          </RadialGradient>
-        </Defs>
-        <Rect x="0" y="0" width="100%" height="100%" fill="url(#loginGlow)" />
-      </Svg>
       <View style={styles.inner}>
         {/* One column, left-aligned; honey only on the mark and the button. */}
         <FadeInView style={styles.header}>

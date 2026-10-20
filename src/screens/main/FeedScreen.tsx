@@ -37,6 +37,7 @@ import FadeInView from '../../components/FadeInView';
 import NSIcon from '../../components/NSIcon';
 import AppLogo from '../../components/AppLogo';
 import NightSkyCard from '../../components/NightSkyCard';
+import StoryRing from '../../components/StoryRing';
 import LanternInvite from '../../components/LanternInvite';
 import SkyPeek from '../../components/SkyPeek';
 import { useTodaySky } from '../../lib/useTodaySky';
@@ -898,19 +899,15 @@ export default function FeedScreen() {
                 renderItem={({ item, index }) => {
                   const mine = item.author_id === user?.id;
                   const seen = seenStoryIds.has(item.id);
-                  // Own story keeps its own color regardless of seen state; everyone
-                  // else's ring fades to a muted gray once viewed — same "seen" cue
-                  // as any commercial story rail, without touching what the ring
-                  // looks like before that (still colored/unmissable for new posts).
-                  const ringColor = mine ? colors.success : seen ? colors.border : colors.secondary;
+                  // Warm gradient ring while new (always for your own), gray once seen.
                   return (
                     <TouchableOpacity
                       style={styles.storyItem}
                       onPress={() => navigation.navigate('StoryViewer', { stories: storyRail, initialIndex: index })}
                     >
-                      <View style={[styles.storyAvatarWrap, { borderColor: ringColor }]}>
-                        <Avatar uri={item.profiles?.avatar_url} size={48} />
-                      </View>
+                      <StoryRing size={54} active={mine || !seen}>
+                        <Avatar uri={item.profiles?.avatar_url} size={46} />
+                      </StoryRing>
                       <Text style={styles.storyName} numberOfLines={1}>
                         {mine ? 'Your Story' : item.profiles?.full_name ?? 'Unknown'}
                       </Text>

@@ -1,7 +1,9 @@
-// "Warm night" design system: warm and quietly premium. A deep espresso
-// brown-black, warm-white text, and a muted champagne gold for actions —
-// lantern light rather than bright yellow, because the app is about people
-// helping each other. Big titles are set in a soft serif (Fraunces).
+// Design system: clean like Instagram, warm in the accents. Surfaces are a
+// near-neutral dark (only a breath of warmth) with no glows; warmth comes
+// from a lantern-gold accent and a gold-to-coral gradient on the few things
+// that should feel special (logo, story rings), because the app is about
+// people helping each other. Titles are clean bold sans; the serif is kept
+// for the "NewStep" wordmark only.
 //
 // Token names are kept from the old light theme: textDark is the *main*
 // (light) text colour, the *Light tokens are dim tinted surfaces, and the
@@ -10,7 +12,7 @@ export const colors = {
   primary: '#E8B064',
   // Text and icons ON a primary fill (honey is light, so never white).
   onPrimary: '#2A1D12',
-  primaryLight: '#3A2A1A',
+  primaryLight: '#33281C',
   // Text on primaryLight (badges, links on tinted chips).
   primaryDark: '#F5D3A0',
   secondary: '#FF6584',
@@ -21,16 +23,16 @@ export const colors = {
   accentDark: '#7EE6BE',
   // Calm, flat surfaces: most content sits straight on the background,
   // separated by hairlines; cards only where something needs grouping.
-  background: '#16110E',
-  cardBg: '#211A16',
-  textDark: '#FAF1E6',
-  textMid: '#D9CABB',
+  background: '#121110',
+  cardBg: '#1D1B1A',
+  textDark: '#F6F3EF',
+  textMid: '#D0CBC5',
   // Secondary text; ~5.5:1 on background.
-  textLight: '#A39282',
-  border: '#3A2E26',
+  textLight: '#9B958F',
+  border: '#33302D',
   // Thin separators between rows and sections.
-  hairline: '#2B221C',
-  tabBar: '#16110E',
+  hairline: '#262321',
+  tabBar: '#121110',
   tabActive: '#E8B064',
   tabInactive: '#7A7279',
   error: '#FF6B6B',
@@ -44,7 +46,7 @@ export const colors = {
   eventDark: '#FFD45C',
   eventLight: '#3A311C',
   // A step above cards: toasts, floating buttons, sheets.
-  raised: '#2C231D',
+  raised: '#282523',
   // App icon / splash / footprint intro background.
   night: '#1C1752',
   // Sticker outline ink (NSIcon, InterestIcon, TabGlyph). Stays dark in
@@ -109,9 +111,8 @@ export const fontFamily = {
   semibold: 'Poppins_600SemiBold',
   bold: 'Poppins_700Bold',
   extrabold: 'Poppins_800ExtraBold',
-  // The "NewStep" wordmark and cosy titles (School Sky, Lanterns).
+  // The "NewStep" wordmark (and the cosy School Sky / Lanterns titles).
   brand: 'Fraunces_600SemiBold',
-  // Fraunces — a soft serif for big titles; warm and a little premium.
   display: 'Fraunces_600SemiBold',
 };
 
@@ -119,8 +120,8 @@ export const fontFamily = {
 // paragraphs breathe. Spread into a style: { ...typography.body, color }.
 export const typography = {
   // Big screen titles ("Notifications", "Chat").
-  largeTitle: { fontFamily: 'Fraunces_600SemiBold', fontSize: 30, lineHeight: 36, letterSpacing: -0.3 },
-  title: { fontFamily: 'Fraunces_600SemiBold', fontSize: 23, lineHeight: 29, letterSpacing: -0.2 },
+  largeTitle: { fontFamily: 'Poppins_700Bold', fontSize: 28, lineHeight: 34, letterSpacing: -0.5 },
+  title: { fontFamily: 'Poppins_700Bold', fontSize: 22, lineHeight: 28, letterSpacing: -0.4 },
   headline: { fontFamily: 'Poppins_600SemiBold', fontSize: 17, lineHeight: 24, letterSpacing: -0.2 },
   body: { fontFamily: 'Poppins_400Regular', fontSize: 15, lineHeight: 22 },
   bodyStrong: { fontFamily: 'Poppins_600SemiBold', fontSize: 15, lineHeight: 22 },
@@ -129,6 +130,10 @@ export const typography = {
   // Small caps-style section labels.
   overline: { fontFamily: 'Poppins_600SemiBold', fontSize: 12, lineHeight: 16, letterSpacing: 0.6 },
 } as const;
+
+// The warm accent gradient (gold to coral), for the few special things:
+// the logo tile and unseen story rings.
+export const warmGradient = ['#F7C873', '#EE8E5A'] as const;
 
 // Soft, consistent card elevation used across the app instead of one-off shadow props.
 export const shadow = {

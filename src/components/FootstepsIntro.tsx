@@ -20,8 +20,8 @@ function WarmGlow() {
     <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
       <Defs>
         <RadialGradient id="introGlow" cx="50%" cy="100%" r="85%">
-          <Stop offset="0" stopColor="#F0A55A" stopOpacity={0.24} />
-          <Stop offset="0.55" stopColor="#E8B064" stopOpacity={0.06} />
+          <Stop offset="0" stopColor="#F0A55A" stopOpacity={0.12} />
+          <Stop offset="0.55" stopColor="#E8B064" stopOpacity={0.03} />
           <Stop offset="1" stopColor="#E8B064" stopOpacity={0} />
         </RadialGradient>
       </Defs>

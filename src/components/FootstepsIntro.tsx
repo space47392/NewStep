@@ -17,22 +17,40 @@ import { colors, spacing, fontSize, fontFamily } from '../constants/theme';
 
 const WINDOW_SIZE = 76;
 
-// NewStep's arched window as you'd see it at night from down the path: no
-// frame, just warm light pouring out of the opening, split by thin dark
-// mullions. (The flat logo looked pasted onto this moody scene.)
+function WarmGlow() {
+  return (
+    <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
+      <Defs>
+        <RadialGradient id="introGlow" cx="50%" cy="100%" r="85%">
+          <Stop offset="0" stopColor="#F0A55A" stopOpacity={0.12} />
+          <Stop offset="0.55" stopColor="#E8B064" stopOpacity={0.03} />
+          <Stop offset="1" stopColor="#E8B064" stopOpacity={0} />
+        </RadialGradient>
+      </Defs>
+      <Rect x="0" y="0" width="100%" height="100%" fill="url(#introGlow)" />
+    </Svg>
+  );
+}
+
+// An open arch of light in the dark — the window/door to the new day — with
+// its light spilling down onto the path. No frame or panes: just light, so it
+// sits in the scene instead of on top of it.
 function LitWindow({ size }: { size: number }) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" pointerEvents="none">
+    <Svg width={size} height={size * 1.6} viewBox="0 0 24 38.4" pointerEvents="none">
       <Defs>
-        <LinearGradient id="litWindow" x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0" stopColor="#FFF0C8" />
-          <Stop offset="0.6" stopColor="#FFCB7A" />
-          <Stop offset="1" stopColor="#F29C4A" />
+        <LinearGradient id="archLight" x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor="#FFF3D6" stopOpacity={0.95} />
+          <Stop offset="0.7" stopColor="#FFC877" stopOpacity={0.9} />
+          <Stop offset="1" stopColor="#F2A050" stopOpacity={0.85} />
+        </LinearGradient>
+        <LinearGradient id="spill" x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor="#F5B060" stopOpacity={0.35} />
+          <Stop offset="1" stopColor="#F5B060" stopOpacity={0} />
         </LinearGradient>
       </Defs>
-      <Path d="M5 22 V10.6 A7 7 0 0 1 19 10.6 V22 Z" fill="url(#litWindow)" />
-      <Path d="M12 3.4 V22 M5 13.4 H19" stroke={colors.background} strokeWidth={0.9} />
-      <Path d="M3.6 22.2 H20.4" stroke="#F29C4A" strokeWidth={0.8} strokeLinecap="round" opacity={0.6} />
+      <Path d="M6.5 22 V11 A5.5 5.5 0 0 1 17.5 11 V22 Z" fill="url(#archLight)" />
+      <Path d="M6.5 22 H17.5 L23 38.4 H1 Z" fill="url(#spill)" />
     </Svg>
   );
 }
@@ -157,7 +175,7 @@ export default function FootstepsIntro({ onDone }: Props) {
   // alternating left and right foot with a gentle sway so the path feels
   // walked, not ruled.
   const windowTop = height * 0.14;
-  const top = windowTop + WINDOW_SIZE + 36;
+  const top = windowTop + WINDOW_SIZE * 1.2;
   const bottom = height * 0.8;
   // The window glows brighter the closer the footsteps get.
   const glow = walk.interpolate({ inputRange: [0, STEPS - 1, STEPS + TRAIL + 1], outputRange: [0.25, 1, 0.25], extrapolate: 'clamp' });
@@ -187,9 +205,10 @@ export default function FootstepsIntro({ onDone }: Props) {
       onAccessibilityTap={() => leave(-1)}
     >
       <StatusBar style="light" />
+      <WarmGlow />
       <Animated.View
         pointerEvents="none"
-        style={{ position: 'absolute', top: windowTop + WINDOW_SIZE / 2 - glowSize / 2, left: width / 2 - glowSize / 2, opacity: glow }}
+        style={{ position: 'absolute', top: windowTop + WINDOW_SIZE * 0.45 - glowSize / 2, left: width / 2 - glowSize / 2, opacity: glow }}
       >
         <WindowLight size={glowSize} />
       </Animated.View>

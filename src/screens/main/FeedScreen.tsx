@@ -38,6 +38,7 @@ import NSIcon from '../../components/NSIcon';
 import AppLogo from '../../components/AppLogo';
 import NightSkyCard from '../../components/NightSkyCard';
 import StoryRing from '../../components/StoryRing';
+import SkyCheckSheet from '../../components/SkyCheckSheet';
 import LanternInvite from '../../components/LanternInvite';
 import SkyPeek from '../../components/SkyPeek';
 import { useTodaySky } from '../../lib/useTodaySky';
@@ -1213,6 +1214,13 @@ export default function FeedScreen() {
 
       <ActionSheet visible={menuPost !== null} onClose={() => setMenuPost(null)} actions={menuActions} />
       <ReportSheet target={reportTarget} reporterId={user?.id} onClose={() => setReportTarget(null)} />
+      {/* "Look up — how's the sky right now?" once each part of the day. */}
+      <SkyCheckSheet
+        userId={user?.id}
+        enabled={!!mySchoolName && isFocused}
+        onShared={() => showToast("Your sky is up ✨ See it in School Sky")}
+        onOpenSky={() => mySchoolName && navigation.navigate('SchoolSky', { schoolName: mySchoolName, openComposer: true })}
+      />
     </View>
   );
 }

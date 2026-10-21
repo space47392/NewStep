@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -29,6 +29,8 @@ import SkyWeather from '../../components/SkyWeather';
 import { hasBlockedWords, KIND_WORDS_MESSAGE } from '../../lib/contentFilter';
 import { fetchLanterns, Lantern } from '../../lib/lanterns';
 import { useWarmSheet } from '../../components/WarmSheet';
+import { SkyWindow, SkyTile, skiesFor, currentSlot, FALLBACK_SCENE } from '../../components/SkyCheckSheet';
+import { interpretSky } from '../../lib/skyInterpret';
 import { useTilt, tiltTransform, Tilt } from '../../lib/useTilt';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -387,6 +389,14 @@ export default function SchoolSkyScreen() {
   const [skySize, setSkySize] = useState({ width: 0, height: 0 });
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Quick sky tiles in the composer, the same as the sky check on Home.
+  const composerSkies = skiesFor(currentSlot());
+  const composerScenes = useMemo(() => {
+    const out: Record<string, NonNullable<ReturnType<typeof interpretSky>>> = {};
+    for (const c of composerSkies) out[c.label] = interpretSky(c.text, phase) ?? FALLBACK_SCENE;
+    return out;
+  }, [composerSkies, phase]);
+
   // Opened with "add my star": the composer rises once the sky has.
   const [composerOpen, setComposerOpen] = useState(false);
   useEffect(() => {
@@ -643,6 +653,9 @@ export default function SchoolSkyScreen() {
       setPainting(false);
     }
   };
+
+  // Typed words (not a tile) are what the paint button paints.
+  const ownWords = skyText.trim().length >= 2 && !composerSkies.some((c) => c.text === skyText);
 
   const handleSave = async () => {
     if (saving || !user) return;
@@ -1101,33 +1114,24 @@ export default function SchoolSkyScreen() {
       >
         <KeyboardAvoidingView style={styles.modalBackdrop} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setComposerOpen(false)} />
-          <View style={[styles.sheet, { paddingBottom: insets.bottom + spacing.lg }]}>
-            <View style={styles.sheetHandle} />
-            <ScrollView style={styles.sheetScroll} contentContainerStyle={styles.sheetContent} keyboardShouldPersistTaps="handled">
-            {/* A softly glowing star to open the sheet. */}
-            <View style={styles.sheetStar}>
-              <Svg width={44} height={44} viewBox="0 0 100 100">
-                <Defs>
-                  <RadialGradient id="sheetglow" cx="50%" cy="50%" r="50%">
-                    <Stop offset="0" stopColor={colors.warm.honey} stopOpacity={0.45} />
-                    <Stop offset="1" stopColor={colors.warm.honey} stopOpacity={0} />
-                  </RadialGradient>
-                </Defs>
-                <Circle cx="50" cy="50" r="50" fill="url(#sheetglow)" />
-                <Path d="M50 22 C53 42 58 47 78 50 C58 53 53 58 50 78 C47 58 42 53 22 50 C42 47 47 42 50 22 Z" fill={colors.warm.honey} />
-              </Svg>
+          <View style={[styles.cSheet, { paddingBottom: insets.bottom + spacing.lg }]}>
+            <View style={styles.cHandle} />
+            <ScrollView style={styles.sheetScroll} contentContainerStyle={styles.cContent} keyboardShouldPersistTaps="handled">
+            {/* NewStep's window, showing the sky you've picked or described. */}
+            <View style={styles.cWindow}>
+              <SkyWindow scene={skyScene ?? composerScenes[composerSkies[0].label]} width={104} />
             </View>
-            <Text style={styles.sheetTitle}>How's today going?</Text>
-            <Text style={styles.sheetSub}>Take a breath. Your star stays up for a day.</Text>
+            <Text style={styles.cTitle}>How's today going?</Text>
+            <Text style={styles.cSub}>Your star stays up for a day.</Text>
 
             {/* Moods: one calm row of round bubbles. */}
-            <View style={styles.moodRow}>
+            <View style={styles.cMoodRow}>
               {SKY_MOODS.map((m) => {
                 const on = m.key === mood;
                 return (
                   <TouchableOpacity
                     key={m.key}
-                    style={[styles.moodPick, on && styles.moodPickOn]}
+                    style={[styles.cMood, on && styles.cMoodOn]}
                     onPress={() => {
                       Haptics.selectionAsync();
                       setMood(m.key);
@@ -1136,81 +1140,66 @@ export default function SchoolSkyScreen() {
                     accessibilityState={{ selected: on }}
                     accessibilityLabel={m.label}
                   >
-                    <Text style={[styles.moodEmoji, on && styles.moodEmojiOn]}>{m.emoji}</Text>
+                    <Text style={styles.cMoodEmoji}>{m.emoji}</Text>
                   </TouchableOpacity>
                 );
               })}
             </View>
-            <Text style={styles.moodPicked}>Feeling {(SKY_MOODS.find((m) => m.key === mood)?.label ?? 'good').toLowerCase()}</Text>
+            <Text style={styles.cMoodLabel}>Feeling {(SKY_MOODS.find((m) => m.key === mood)?.label ?? 'good').toLowerCase()}</Text>
 
-            <View style={styles.sheetDivider} />
-
-            {/* Look up: describe the sky, paint it from inside the field. */}
-            <Text style={styles.lookUpTitle}>👀 Look up for a moment</Text>
-            <Text style={styles.lookUpSub}>What does the sky look like right now?</Text>
-            <View style={styles.fieldRow}>
+            {/* Look up: tap the sky you see, or describe it. */}
+            <Text style={styles.cSection}>👀 Look up — what's the sky like?</Text>
+            <View style={styles.cTiles}>
+              {composerSkies.map((c) => (
+                <SkyTile
+                  key={c.label}
+                  choice={c}
+                  scene={composerScenes[c.label]}
+                  selected={skyText === c.text}
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    setSkyText(c.text);
+                    setPaintError(null);
+                    setSkyScene(composerScenes[c.label]);
+                  }}
+                />
+              ))}
+            </View>
+            <View style={styles.cFieldRow}>
               <TextInput
-                style={[styles.noteInput, styles.lookUpInput]}
-                placeholder="pink sunset, clouds like cotton candy…"
-                placeholderTextColor={colors.warm.creamFaint}
-                value={skyText}
+                style={[styles.cInput, { flex: 1 }]}
+                placeholder="Or in your own words…"
+                placeholderTextColor={colors.textLight}
+                value={composerSkies.some((c) => c.text === skyText) ? '' : skyText}
                 onChangeText={(t) => {
                   setSkyText(t);
                   setPaintError(null);
                 }}
                 maxLength={200}
-                multiline
               />
               <TouchableOpacity
-                style={[styles.fieldButton, skyText.trim().length < 2 && styles.fieldButtonOff]}
+                style={[styles.cIconButton, styles.cIconButtonFilled, !ownWords && { opacity: 0.4 }]}
                 onPress={handlePaint}
-                disabled={painting || skyText.trim().length < 2}
+                disabled={painting || !ownWords}
                 accessibilityRole="button"
                 accessibilityLabel={skyScene ? 'Paint it again' : 'Paint my sky'}
               >
                 {painting ? (
-                  <ActivityIndicator size="small" color={colors.warm.honeyInk} />
+                  <ActivityIndicator size="small" color={colors.onPrimary} />
                 ) : (
-                  <Ionicons name="color-palette" size={18} color={colors.warm.honeyInk} />
+                  <Ionicons name="color-palette" size={18} color={colors.onPrimary} />
                 )}
               </TouchableOpacity>
             </View>
             {paintError ? <Text style={styles.paintError}>{paintError}</Text> : null}
-            {skyScene ? (
-              // A little postcard of the painted sky.
-              <View style={styles.postcard}>
-                <Svg style={StyleSheet.absoluteFill} preserveAspectRatio="none" viewBox="0 0 100 100">
-                  <Defs>
-                    <LinearGradient id="postcard" x1="0" y1="0" x2="0" y2="1">
-                      <Stop offset="0" stopColor={skyScene.colors[0]} />
-                      <Stop offset="0.6" stopColor={skyScene.colors[1]} />
-                      <Stop offset="1" stopColor={skyScene.colors[2]} />
-                    </LinearGradient>
-                    <LinearGradient id="postcardshade" x1="0" y1="0" x2="1" y2="0">
-                      <Stop offset="0" stopColor="#120e1e" stopOpacity={0.55} />
-                      <Stop offset="1" stopColor="#120e1e" stopOpacity={0} />
-                    </LinearGradient>
-                  </Defs>
-                  <Rect x="0" y="0" width="100" height="100" fill="url(#postcard)" />
-                  <Rect x="0" y="0" width="100" height="100" fill="url(#postcardshade)" />
-                </Svg>
-                <Text style={styles.postcardTitle}>{skyScene.title}</Text>
-                <Text style={styles.postcardThings}>
-                  {skyScene.things.map((t) => THING_EMOJI[t]).join(' ') || '☁️'}
-                  {'  '}
-                  {skyScene.clouds === 'none' ? 'clear sky' : skyScene.clouds === 'overcast' ? 'cloudy' : `${skyScene.clouds} clouds`}
-                </Text>
-              </View>
-            ) : null}
-
-            <View style={styles.sheetDivider} />
 
             {/* A line for classmates, with an optional photo of the sky. */}
-            <View style={styles.fieldRow}>
+            <Text style={styles.cSection}>A line for classmates</Text>
+            <View style={styles.cFieldRow}>
               <TextInput
-                style={[styles.noteInput, styles.noteField]}
-                placeholder="Add a line for your classmates"
-                placeholderTextColor={colors.warm.creamFaint}
+                style={[styles.cInput, { flex: 1 }]}
+                placeholder="Optional"
+                placeholderTextColor={colors.textLight}
                 value={note}
                 onChangeText={setNote}
                 maxLength={SKY_NOTE_MAX}
@@ -1223,19 +1212,18 @@ export default function SchoolSkyScreen() {
                   </TouchableOpacity>
                 </TouchableOpacity>
               ) : (
-                <TouchableOpacity style={[styles.fieldButton, styles.fieldButtonGhost]} onPress={handleSnapSky} accessibilityLabel="Add a photo of the sky">
-                  <Ionicons name="camera-outline" size={18} color={colors.warm.honey} />
+                <TouchableOpacity style={styles.cIconButton} onPress={handleSnapSky} accessibilityLabel="Add a photo of the sky">
+                  <Ionicons name="camera-outline" size={18} color={colors.textMid} />
                 </TouchableOpacity>
               )}
             </View>
             {note.length > SKY_NOTE_MAX - 20 ? (
-              <Text style={styles.noteCount}>
+              <Text style={styles.cCount}>
                 {note.length}/{SKY_NOTE_MAX}
               </Text>
             ) : null}
 
             <PrimaryButton
-              variant="warm"
               title={myStar ? 'Update my star' : 'Put it in the sky'}
               icon="sparkles"
               loading={saving}
@@ -1325,6 +1313,128 @@ export default function SchoolSkyScreen() {
 }
 
 const styles = StyleSheet.create({
+  // The star composer: a bright sheet like the rest of the app.
+  cSheet: {
+    backgroundColor: colors.background,
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    maxHeight: '92%',
+  },
+  cHandle: {
+    alignSelf: 'center',
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.border,
+    marginBottom: spacing.sm,
+  },
+  cContent: {
+    paddingBottom: spacing.sm,
+  },
+  cWindow: {
+    alignSelf: 'center',
+    marginTop: spacing.xs,
+  },
+  cTitle: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.xl,
+    color: colors.textDark,
+    textAlign: 'center',
+    marginTop: spacing.sm,
+  },
+  cSub: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    color: colors.textMid,
+    textAlign: 'center',
+    marginTop: 2,
+  },
+  cMoodRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: spacing.lg,
+    paddingHorizontal: 3,
+    paddingVertical: 3,
+  },
+  cMood: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: colors.cardBg,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cMoodOn: {
+    borderWidth: 2,
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryLight,
+    transform: [{ scale: 1.08 }],
+  },
+  cMoodEmoji: {
+    fontSize: 24,
+  },
+  cMoodLabel: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
+    color: colors.primaryDark,
+    textAlign: 'center',
+    marginTop: spacing.sm,
+  },
+  cSection: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
+    color: colors.textDark,
+    marginTop: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  cTiles: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: spacing.sm,
+  },
+  cFieldRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  cInput: {
+    backgroundColor: colors.cardBg,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 12,
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.md,
+    color: colors.textDark,
+  },
+  cIconButton: {
+    width: 46,
+    height: 46,
+    borderRadius: radius.md,
+    backgroundColor: colors.cardBg,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cIconButtonFilled: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  cCount: {
+    alignSelf: 'flex-end',
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
+    color: colors.textLight,
+    marginTop: 4,
+  },
   screen: {
     flex: 1,
     backgroundColor: dark.background,

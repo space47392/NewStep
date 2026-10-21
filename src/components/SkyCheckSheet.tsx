@@ -17,9 +17,9 @@ import { colors, spacing, radius, fontSize, fontFamily } from '../constants/them
 // (asking how you are first if you have no star today).
 
 type Slot = 'morning' | 'afternoon' | 'evening' | 'night';
-type Choice = { label: string; emoji: string; text: string };
+export type Choice = { label: string; emoji: string; text: string };
 
-function currentSlot(d = new Date()): Slot {
+export function currentSlot(d = new Date()): Slot {
   const h = d.getHours();
   if (h >= 5 && h < 11) return 'morning';
   if (h >= 11 && h < 17) return 'afternoon';
@@ -57,19 +57,19 @@ const NIGHT_SKIES: Choice[] = [
   { label: 'Deep dark', emoji: '🌌', text: 'dark night sky' },
 ];
 
-function skiesFor(slot: Slot) {
+export function skiesFor(slot: Slot) {
   if (slot === 'evening') return EVENING_SKIES;
   if (slot === 'night') return NIGHT_SKIES;
   return DAY_SKIES;
 }
 
-const FALLBACK: SkyScene = { colors: ['#9FC9F0', '#C8E2F7', '#F3F0E6'], clouds: 'none', cloud_color: '#FFFFFF', things: [], title: '' };
+export const FALLBACK_SCENE: SkyScene = { colors: ['#9FC9F0', '#C8E2F7', '#F3F0E6'], clouds: 'none', cloud_color: '#FFFFFF', things: [], title: '' };
 
 // NewStep's arched window with a sky painted inside.
 const ARCH = 'M10 84 V40 A40 40 0 0 1 90 40 V84 Z';
 const STAR_DOTS = [[24, 28], [38, 18], [58, 24], [72, 40], [30, 52], [80, 22], [48, 44], [64, 60], [20, 70]];
 
-function SkyWindow({ scene, width }: { scene: SkyScene; width: number }) {
+export function SkyWindow({ scene, width }: { scene: SkyScene; width: number }) {
   const [c0, c1, c2] = scene.colors;
   const has = (t: string) => scene.things.includes(t as never);
   const clouds = { none: 0, few: 1, scattered: 2, overcast: 4 }[scene.clouds];
@@ -128,7 +128,7 @@ function SkyWindow({ scene, width }: { scene: SkyScene; width: number }) {
   );
 }
 
-function SkyTile({ choice, scene, selected, onPress }: { choice: Choice; scene: SkyScene; selected: boolean; onPress: () => void }) {
+export function SkyTile({ choice, scene, selected, onPress }: { choice: Choice; scene: SkyScene; selected: boolean; onPress: () => void }) {
   const [c0, c1, c2] = scene.colors;
   const id = `tile${choice.label.replace(/\W/g, '')}`;
   return (
@@ -173,7 +173,7 @@ export default function SkyCheckSheet({ userId, enabled, onShared, onOpenSky }: 
   const choices = skiesFor(slot);
   const scenes = useMemo(() => {
     const out: Record<string, SkyScene> = {};
-    for (const c of choices) out[c.label] = interpretSky(c.text, phase) ?? FALLBACK;
+    for (const c of choices) out[c.label] = interpretSky(c.text, phase) ?? FALLBACK_SCENE;
     return out;
   }, [choices, phase]);
   const shown = choice ? scenes[choice.label] : scenes[choices[0].label];

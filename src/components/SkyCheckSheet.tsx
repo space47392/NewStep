@@ -1,18 +1,23 @@
-import { useCallback, useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, Modal, StyleSheet, ActivityIndicator } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { View, Text, TouchableOpacity, Modal, StyleSheet, ActivityIndicator, Animated } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
-import { describeSky, fetchSchoolSky, setMyStar, SKY_MOODS, SkyMood } from '../lib/sky';
+import Svg, { Circle, ClipPath, Defs, Ellipse, G, Line, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
+import { describeSky, fetchSchoolSky, setMyStar, SKY_MOODS, SkyMood, SkyScene } from '../lib/sky';
+import { interpretSky } from '../lib/skyInterpret';
 import { skyPhase } from './SkyScene';
+import PrimaryButton from './PrimaryButton';
 import { colors, spacing, radius, fontSize, fontFamily } from '../constants/theme';
 
 // "Look up — how's the sky right now?" Asked inside the app once each part
 // of the day (morning, afternoon, evening, night) if you haven't told us
-// yet, so people keep noticing the real sky. One tap paints your star's sky
-// in School Sky; if you have no star today it asks how you are too.
+// yet, so people keep noticing the real sky. Pick a sky tile and it is
+// painted into NewStep's arched window; one more tap puts it in School Sky
+// (asking how you are first if you have no star today).
 
 type Slot = 'morning' | 'afternoon' | 'evening' | 'night';
+type Choice = { label: string; emoji: string; text: string };
 
 function currentSlot(d = new Date()): Slot {
   const h = d.getHours();
@@ -27,35 +32,125 @@ function slotKey(userId: string, d = new Date()) {
   return `skycheck:${userId}:${day}:${currentSlot(d)}`;
 }
 
-const DAY_SKIES = [
-  { label: '☀️ Clear blue', text: 'clear blue sky' },
-  { label: '⛅ A few clouds', text: 'blue sky with a few fluffy clouds' },
-  { label: '☁️ Cloudy', text: 'grey cloudy sky' },
-  { label: '🌧 Rainy', text: 'rainy grey sky' },
-  { label: '🌫 Foggy', text: 'foggy hazy sky' },
-  { label: '🌈 Rainbow', text: 'rainbow after rain' },
+const DAY_SKIES: Choice[] = [
+  { label: 'Clear blue', emoji: '☀️', text: 'clear blue sky with the sun' },
+  { label: 'A few clouds', emoji: '⛅', text: 'blue sky with a few fluffy clouds' },
+  { label: 'Cloudy', emoji: '☁️', text: 'grey overcast cloudy sky' },
+  { label: 'Rainy', emoji: '🌧', text: 'rainy grey sky' },
+  { label: 'Foggy', emoji: '🌫', text: 'foggy hazy sky' },
+  { label: 'Rainbow', emoji: '🌈', text: 'rainbow after rain' },
 ];
-const EVENING_SKIES = [
-  { label: '🌅 Sunset glow', text: 'pink and orange sunset' },
-  { label: '🔥 Fiery', text: 'red fiery sunset' },
-  { label: '💜 Purple dusk', text: 'purple dusk sky' },
-  { label: '☁️ Cloudy', text: 'grey cloudy sky' },
-  { label: '🌧 Rainy', text: 'rainy grey sky' },
-  { label: '🌙 Moon is out', text: 'moon in the evening sky' },
+const EVENING_SKIES: Choice[] = [
+  { label: 'Sunset glow', emoji: '🌅', text: 'pink and orange sunset' },
+  { label: 'Fiery', emoji: '🔥', text: 'red fiery sunset' },
+  { label: 'Purple dusk', emoji: '💜', text: 'purple dusk sky' },
+  { label: 'Cloudy', emoji: '☁️', text: 'grey overcast cloudy dusk' },
+  { label: 'Rainy', emoji: '🌧', text: 'rainy grey evening' },
+  { label: 'Moon is out', emoji: '🌙', text: 'moon in the evening sky' },
 ];
-const NIGHT_SKIES = [
-  { label: '✨ Starry', text: 'clear night full of stars' },
-  { label: '🌙 Moon', text: 'moon in the night sky' },
-  { label: '☁️ Cloudy night', text: 'cloudy night sky' },
-  { label: '🌧 Rainy night', text: 'rainy night' },
-  { label: '🌫 Foggy', text: 'foggy night' },
-  { label: '🌌 Deep dark', text: 'dark night sky' },
+const NIGHT_SKIES: Choice[] = [
+  { label: 'Starry', emoji: '✨', text: 'clear night full of stars' },
+  { label: 'Moon', emoji: '🌙', text: 'moon in the night sky with stars' },
+  { label: 'Cloudy', emoji: '☁️', text: 'cloudy night sky' },
+  { label: 'Rainy', emoji: '🌧', text: 'rainy night' },
+  { label: 'Foggy', emoji: '🌫', text: 'foggy night' },
+  { label: 'Deep dark', emoji: '🌌', text: 'dark night sky' },
 ];
 
 function skiesFor(slot: Slot) {
   if (slot === 'evening') return EVENING_SKIES;
   if (slot === 'night') return NIGHT_SKIES;
   return DAY_SKIES;
+}
+
+const FALLBACK: SkyScene = { colors: ['#9FC9F0', '#C8E2F7', '#F3F0E6'], clouds: 'none', cloud_color: '#FFFFFF', things: [], title: '' };
+
+// NewStep's arched window with a sky painted inside.
+const ARCH = 'M10 84 V40 A40 40 0 0 1 90 40 V84 Z';
+const STAR_DOTS = [[24, 28], [38, 18], [58, 24], [72, 40], [30, 52], [80, 22], [48, 44], [64, 60], [20, 70]];
+
+function SkyWindow({ scene, width }: { scene: SkyScene; width: number }) {
+  const [c0, c1, c2] = scene.colors;
+  const has = (t: string) => scene.things.includes(t as never);
+  const clouds = { none: 0, few: 1, scattered: 2, overcast: 4 }[scene.clouds];
+  const dark = has('stars') || has('moon') && !has('sun');
+  return (
+    <Svg width={width} height={width * 0.86} viewBox="0 0 100 86">
+      <Defs>
+        <LinearGradient id="skyCheckGrad" x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor={c0} />
+          <Stop offset="0.6" stopColor={c1} />
+          <Stop offset="1" stopColor={c2} />
+        </LinearGradient>
+        <ClipPath id="skyCheckArch">
+          <Path d={ARCH} />
+        </ClipPath>
+      </Defs>
+      <G clipPath="url(#skyCheckArch)">
+        <Rect x="0" y="0" width="100" height="86" fill="url(#skyCheckGrad)" />
+        {dark || has('stars')
+          ? STAR_DOTS.map(([x, y], i) => <Circle key={i} cx={x} cy={y} r={i % 3 === 0 ? 1.1 : 0.7} fill="#FFFFFF" opacity={0.85} />)
+          : null}
+        {has('sun') ? (
+          <G>
+            <Circle cx="68" cy="34" r="13" fill="#FFF3C4" opacity={0.35} />
+            <Circle cx="68" cy="34" r="8" fill="#FFE08A" />
+          </G>
+        ) : null}
+        {has('moon') ? <Path d="M70 22 A10 10 0 1 0 78 40 A8 8 0 1 1 70 22 Z" fill="#FFF4D2" /> : null}
+        {has('rainbow')
+          ? ['#FF8A80', '#FFC86B', '#FFF08A', '#9EE6A0', '#8CC8FF', '#B9A3FF'].map((c, i) => (
+              <Path key={c} d={`M${16 + i * 3} 84 A${34 - i * 3} ${34 - i * 3} 0 0 1 ${84 - i * 3} 84`} stroke={c} strokeWidth={2.6} fill="none" opacity={0.85} />
+            ))
+          : null}
+        {Array.from({ length: clouds }, (_, i) => {
+          const x = [30, 62, 44, 76][i];
+          const y = [40, 52, 26, 30][i];
+          return (
+            <G key={i} opacity={0.92}>
+              <Ellipse cx={x} cy={y} rx={13} ry={5.5} fill={scene.cloud_color} />
+              <Ellipse cx={x - 5} cy={y - 3.5} rx={6.5} ry={5.5} fill={scene.cloud_color} />
+              <Ellipse cx={x + 4} cy={y - 4.5} rx={7.5} ry={6.5} fill={scene.cloud_color} />
+            </G>
+          );
+        })}
+        {has('rain')
+          ? Array.from({ length: 14 }, (_, i) => (
+              <Line key={i} x1={14 + i * 5.5} y1={46 + (i % 3) * 8} x2={11 + i * 5.5} y2={54 + (i % 3) * 8} stroke="#DDEBFF" strokeWidth={1} opacity={0.8} />
+            ))
+          : null}
+        {has('fog') ? <Rect x="0" y="50" width="100" height="36" fill="#FFFFFF" opacity={0.35} /> : null}
+      </G>
+      <Path d={ARCH} fill="none" stroke={colors.textDark} strokeWidth={2.4} strokeLinejoin="round" />
+      <Path d="M50 0.5 V84 M10 58 H90" stroke={colors.textDark} strokeWidth={1.6} />
+      <Path d="M4 85 H96" stroke={colors.textDark} strokeWidth={2.4} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function SkyTile({ choice, scene, selected, onPress }: { choice: Choice; scene: SkyScene; selected: boolean; onPress: () => void }) {
+  const [c0, c1, c2] = scene.colors;
+  const id = `tile${choice.label.replace(/\W/g, '')}`;
+  return (
+    <TouchableOpacity style={styles.tile} onPress={onPress} activeOpacity={0.85} accessibilityRole="button" accessibilityState={{ selected }}>
+      <View style={[styles.swatch, selected && styles.swatchOn]}>
+        <Svg width="100%" height="100%" style={StyleSheet.absoluteFill}>
+          <Defs>
+            <LinearGradient id={id} x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor={c0} />
+              <Stop offset="0.6" stopColor={c1} />
+              <Stop offset="1" stopColor={c2} />
+            </LinearGradient>
+          </Defs>
+          <Rect x="0" y="0" width="100%" height="100%" fill={`url(#${id})`} />
+        </Svg>
+        <Text style={styles.swatchEmoji}>{choice.emoji}</Text>
+      </View>
+      <Text style={[styles.tileLabel, selected && styles.tileLabelOn]} numberOfLines={1}>
+        {choice.label}
+      </Text>
+    </TouchableOpacity>
+  );
 }
 
 type Props = {
@@ -69,11 +164,20 @@ type Props = {
 export default function SkyCheckSheet({ userId, enabled, onShared, onOpenSky }: Props) {
   const insets = useSafeAreaInsets();
   const [open, setOpen] = useState(false);
-  const [sky, setSky] = useState<{ label: string; text: string } | null>(null);
-  const [needsMood, setNeedsMood] = useState(false);
+  const [choice, setChoice] = useState<Choice | null>(null);
+  const [mood, setMood] = useState<SkyMood | null>(null);
   const [existing, setExisting] = useState<{ mood: SkyMood; note: string | null; photo: string | null } | null>(null);
   const [saving, setSaving] = useState(false);
   const slot = currentSlot();
+  const phase = skyPhase();
+  const choices = skiesFor(slot);
+  const scenes = useMemo(() => {
+    const out: Record<string, SkyScene> = {};
+    for (const c of choices) out[c.label] = interpretSky(c.text, phase) ?? FALLBACK;
+    return out;
+  }, [choices, phase]);
+  const shown = choice ? scenes[choice.label] : scenes[choices[0].label];
+  const paint = useRef(new Animated.Value(1)).current;
 
   // Decide whether to ask: not yet asked this part of the day, and your
   // star's sky hasn't been described since it began.
@@ -108,16 +212,25 @@ export default function SkyCheckSheet({ userId, enabled, onShared, onOpenSky }: 
   const close = () => {
     remember();
     setOpen(false);
-    setSky(null);
-    setNeedsMood(false);
+    setChoice(null);
+    setMood(null);
   };
 
-  const save = async (choice: { label: string; text: string }, mood: SkyMood) => {
+  const pick = (c: Choice) => {
+    Haptics.selectionAsync();
+    setChoice(c);
+    paint.setValue(0.2);
+    Animated.timing(paint, { toValue: 1, duration: 450, useNativeDriver: true }).start();
+  };
+
+  const save = async () => {
+    const m = existing?.mood ?? mood;
+    if (!choice || !m) return;
     setSaving(true);
     try {
-      const scene = await describeSky(choice.text, skyPhase());
+      const scene = await describeSky(choice.text, phase);
       await setMyStar({
-        mood,
+        mood: m,
         note: existing?.note ?? '',
         photoUrl: existing?.photo ?? null,
         skyColors: null,
@@ -127,23 +240,19 @@ export default function SkyCheckSheet({ userId, enabled, onShared, onOpenSky }: 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       remember();
       setOpen(false);
-      setSky(null);
-      setNeedsMood(false);
+      setChoice(null);
+      setMood(null);
       onShared?.();
     } catch {
+      // stay open so they can try again
+    } finally {
       setSaving(false);
-      return;
     }
-    setSaving(false);
-  };
-
-  const pickSky = (choice: { label: string; text: string }) => {
-    setSky(choice);
-    if (existing) save(choice, existing.mood);
-    else setNeedsMood(true);
   };
 
   if (!enabled) return null;
+  const needsMood = !existing;
+  const ready = !!choice && (!needsMood || !!mood);
 
   return (
     <Modal visible={open} transparent animationType="slide" onRequestClose={close}>
@@ -151,31 +260,41 @@ export default function SkyCheckSheet({ userId, enabled, onShared, onOpenSky }: 
         <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={close} accessibilityLabel="Not now" />
         <View style={[styles.sheet, { paddingBottom: insets.bottom + spacing.lg }]}>
           <View style={styles.handle} />
-          <Text style={styles.eyes}>👀</Text>
-          <Text style={styles.title}>{needsMood ? 'And how are you?' : 'Look up for a second'}</Text>
-          <Text style={styles.sub}>
-            {needsMood ? `${sky?.label} — got it. One more tap and your star is up.` : "How's the sky right now?"}
-          </Text>
+          <Animated.View style={[styles.windowWrap, { opacity: paint }]}>
+            <SkyWindow scene={shown} width={150} />
+          </Animated.View>
+          <Text style={styles.title}>{choice ? choice.label : 'Look up for a second'}</Text>
+          <Text style={styles.sub}>{choice ? 'Is this your sky right now?' : "What's out your window right now?"}</Text>
+
+          <View style={styles.tiles}>
+            {choices.map((c) => (
+              <SkyTile key={c.label} choice={c} scene={scenes[c.label]} selected={choice?.label === c.label} onPress={() => pick(c)} />
+            ))}
+          </View>
+
+          {needsMood && choice ? (
+            <View style={styles.moodBlock}>
+              <Text style={styles.moodQ}>And how are you?</Text>
+              <View style={styles.moods}>
+                {SKY_MOODS.map((m) => (
+                  <TouchableOpacity
+                    key={m.key}
+                    style={[styles.mood, mood === m.key && styles.moodOn]}
+                    onPress={() => setMood(m.key)}
+                    accessibilityRole="button"
+                    accessibilityLabel={m.label}
+                  >
+                    <Text style={styles.moodEmoji}>{m.emoji}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          ) : null}
 
           {saving ? (
-            <ActivityIndicator color={colors.primary} style={{ marginVertical: spacing.xl }} />
-          ) : needsMood ? (
-            <View style={styles.grid}>
-              {SKY_MOODS.map((m) => (
-                <TouchableOpacity key={m.key} style={styles.mood} onPress={() => sky && save(sky, m.key)} activeOpacity={0.85}>
-                  <Text style={styles.moodEmoji}>{m.emoji}</Text>
-                  <Text style={styles.moodLabel}>{m.label}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.lg }} />
           ) : (
-            <View style={styles.grid}>
-              {skiesFor(slot).map((c) => (
-                <TouchableOpacity key={c.label} style={styles.chip} onPress={() => pickSky(c)} activeOpacity={0.85}>
-                  <Text style={styles.chipText}>{c.label}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            <PrimaryButton title="Put it in the sky" icon="sparkles" disabled={!ready} onPress={save} style={{ marginTop: spacing.lg }} />
           )}
 
           <View style={styles.footer}>
@@ -205,7 +324,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(20,14,8,0.35)',
   },
   sheet: {
-    backgroundColor: colors.cardBg,
+    backgroundColor: colors.background,
     borderTopLeftRadius: radius.xl,
     borderTopRightRadius: radius.xl,
     paddingHorizontal: spacing.lg,
@@ -219,16 +338,15 @@ const styles = StyleSheet.create({
     backgroundColor: colors.border,
     marginBottom: spacing.md,
   },
-  eyes: {
-    fontSize: 30,
-    textAlign: 'center',
+  windowWrap: {
+    alignSelf: 'center',
   },
   title: {
     fontFamily: fontFamily.bold,
     fontSize: fontSize.xl,
     color: colors.textDark,
     textAlign: 'center',
-    marginTop: spacing.xs,
+    marginTop: spacing.md,
   },
   sub: {
     fontFamily: fontFamily.regular,
@@ -237,47 +355,80 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 2,
   },
-  grid: {
+  tiles: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: spacing.sm,
+    justifyContent: 'space-between',
+    rowGap: spacing.md,
     marginTop: spacing.lg,
   },
-  chip: {
-    borderRadius: radius.full,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.background,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  chipText: {
-    fontFamily: fontFamily.medium,
-    fontSize: fontSize.md,
-    color: colors.textDark,
-  },
-  mood: {
-    width: 76,
+  tile: {
+    width: '31%',
     alignItems: 'center',
-    paddingVertical: spacing.sm,
-    borderRadius: radius.lg,
-    backgroundColor: colors.background,
   },
-  moodEmoji: {
-    fontSize: 28,
+  swatch: {
+    width: '100%',
+    height: 58,
+    borderRadius: 16,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'transparent',
   },
-  moodLabel: {
+  swatchOn: {
+    borderColor: colors.textDark,
+  },
+  swatchEmoji: {
+    fontSize: 22,
+  },
+  tileLabel: {
     fontFamily: fontFamily.medium,
     fontSize: fontSize.xs,
     color: colors.textMid,
-    marginTop: 2,
+    marginTop: 5,
+  },
+  tileLabelOn: {
+    fontFamily: fontFamily.bold,
+    color: colors.textDark,
+  },
+  moodBlock: {
+    marginTop: spacing.lg,
+    alignItems: 'center',
+  },
+  moodQ: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
+    color: colors.textMid,
+  },
+  moods: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  mood: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.cardBg,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  moodOn: {
+    borderColor: colors.primary,
+    borderWidth: 2,
+    backgroundColor: colors.primaryLight,
+  },
+  moodEmoji: {
+    fontSize: 22,
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: spacing.lg,
+    marginTop: spacing.md,
   },
   link: {
     fontFamily: fontFamily.semibold,

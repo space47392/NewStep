@@ -815,6 +815,51 @@ export default function FeedScreen() {
               ) : null}
             </View>
             ) : null}
+            {/* Stories ride along the top of the sky header, like Instagram. */}
+            <View style={styles.storyCard}>
+              <FlatList
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                data={storyRail}
+                keyExtractor={(s) => s.id}
+                contentContainerStyle={styles.storyRail}
+                ListHeaderComponent={
+                  !myStory ? (
+                    <TouchableOpacity style={styles.storyItem} onPress={handleAddStory} disabled={uploadingStory}>
+                      <View style={styles.addStoryAvatarWrap}>
+                        <Avatar uri={null} size={48} />
+                        <View style={styles.addStoryBadge}>
+                          {uploadingStory ? (
+                            <ActivityIndicator size="small" color={colors.onPrimary} />
+                          ) : (
+                            <Ionicons name="add" size={14} color={colors.onPrimary} />
+                          )}
+                        </View>
+                      </View>
+                      <Text style={[styles.storyName, styles.storyNameOnSky]}>Your Story</Text>
+                    </TouchableOpacity>
+                  ) : null
+                }
+                renderItem={({ item, index }) => {
+                  const mine = item.author_id === user?.id;
+                  const seen = seenStoryIds.has(item.id);
+                  // Warm gradient ring while new (always for your own), gray once seen.
+                  return (
+                    <TouchableOpacity
+                      style={styles.storyItem}
+                      onPress={() => navigation.navigate('StoryViewer', { stories: storyRail, initialIndex: index })}
+                    >
+                      <StoryRing size={54} active={mine || !seen}>
+                        <Avatar uri={item.profiles?.avatar_url} size={46} />
+                      </StoryRing>
+                      <Text style={[styles.storyName, styles.storyNameOnSky]} numberOfLines={1}>
+                        {mine ? 'Your Story' : item.profiles?.full_name ?? 'Unknown'}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                }}
+              />
+            </View>
             {mySchoolName && user ? (
               <SkyPeek
                 userId={user.id}
@@ -824,40 +869,26 @@ export default function FeedScreen() {
             </NightSkyCard>
             {isNewStudent && mySchoolName && !welcomeBannerDismissed && (
               <FadeInView style={styles.welcomeCard}>
+                <Text style={styles.welcomeEmoji}>👋</Text>
                 <TouchableOpacity
-                  style={styles.welcomeDismiss}
-                  onPress={handleDismissWelcome}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  style={{ flex: 1 }}
+                  onPress={() => navigation.navigate('School', { schoolId: mySchoolId ?? undefined, schoolName: mySchoolName })}
+                  accessibilityRole="button"
                 >
-                  <Ionicons name="close" size={18} color={colors.textLight} />
+                  <Text style={styles.welcomeSubtitle} numberOfLines={1}>
+                    New here? <Text style={styles.welcomeButtonText}>Explore your school ›</Text>
+                  </Text>
                 </TouchableOpacity>
-                {/* No separate "Welcome to {school}!" headline — the school
-                    name is already the identity row directly below. Trailing
-                    arrows dropped so both buttons fit one row on a ~384dp
-                    phone at the existing text size (Step 12A). */}
-                <Text style={styles.welcomeSubtitle}>
-                  👋 New here? Say hi and find your people.
-                </Text>
-                <View style={styles.welcomeActions}>
-                  <TouchableOpacity
-                    style={styles.welcomeButton}
-                    onPress={() => navigation.navigate('School', { schoolId: mySchoolId ?? undefined, schoolName: mySchoolName })}
-                  >
-                    <Text style={styles.welcomeButtonText}>Explore your school ›</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.welcomeButtonSecondary}
-                    onPress={() => navigation.navigate('CreatePost')}
-                  >
-                    <Text style={styles.welcomeButtonSecondaryText}>Introduce yourself ›</Text>
-                  </TouchableOpacity>
-                </View>
+                <TouchableOpacity onPress={handleDismissWelcome} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityLabel="Dismiss">
+                  <Ionicons name="close" size={16} color={colors.textLight} />
+                </TouchableOpacity>
               </FadeInView>
             )}
 
             {/* Lanterns, always one tap away: a place to let a worry out. */}
             {mySchoolName && user ? (
               <LanternInvite
+                compact
                 onWrite={() => navigation.navigate('Lanterns', { compose: true })}
                 onOpen={() => navigation.navigate('Lanterns')}
               />
@@ -879,54 +910,6 @@ export default function FeedScreen() {
               </View>
             )}
 
-            {/* Wrapped as its own card so it reads as "the School Stories
-                section" rather than a bare row of circles — pure presentation,
-                same stories, same order, same seen/pause/expiry logic as before. */}
-            <View style={styles.storyCard}>
-              <Text style={styles.storyRailLabel}>Stories</Text>
-              <FlatList
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                data={storyRail}
-                keyExtractor={(s) => s.id}
-                contentContainerStyle={styles.storyRail}
-                ListHeaderComponent={
-                  !myStory ? (
-                    <TouchableOpacity style={styles.storyItem} onPress={handleAddStory} disabled={uploadingStory}>
-                      <View style={styles.addStoryAvatarWrap}>
-                        <Avatar uri={null} size={48} />
-                        <View style={styles.addStoryBadge}>
-                          {uploadingStory ? (
-                            <ActivityIndicator size="small" color={colors.onPrimary} />
-                          ) : (
-                            <Ionicons name="add" size={14} color={colors.onPrimary} />
-                          )}
-                        </View>
-                      </View>
-                      <Text style={styles.storyName}>Your Story</Text>
-                    </TouchableOpacity>
-                  ) : null
-                }
-                renderItem={({ item, index }) => {
-                  const mine = item.author_id === user?.id;
-                  const seen = seenStoryIds.has(item.id);
-                  // Warm gradient ring while new (always for your own), gray once seen.
-                  return (
-                    <TouchableOpacity
-                      style={styles.storyItem}
-                      onPress={() => navigation.navigate('StoryViewer', { stories: storyRail, initialIndex: index })}
-                    >
-                      <StoryRing size={54} active={mine || !seen}>
-                        <Avatar uri={item.profiles?.avatar_url} size={46} />
-                      </StoryRing>
-                      <Text style={styles.storyName} numberOfLines={1}>
-                        {mine ? 'Your Story' : item.profiles?.full_name ?? 'Unknown'}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                }}
-              />
-            </View>
 
             <View style={styles.feedModeRow}>
               <TouchableOpacity
@@ -1260,13 +1243,19 @@ const styles = StyleSheet.create({
     paddingBottom: FAB_BOTTOM_OFFSET + FAB_SIZE + spacing.xxl,
   },
   welcomeCard: {
-    position: 'relative',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
     borderRadius: radius.md,
+    backgroundColor: colors.cardBg,
     borderWidth: 1,
     borderColor: colors.hairline,
     paddingVertical: spacing.sm + 2,
     paddingHorizontal: spacing.md,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  welcomeEmoji: {
+    fontSize: 16,
   },
   welcomeDismiss: {
     position: 'absolute',
@@ -1281,7 +1270,6 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.medium,
     fontSize: fontSize.sm,
     color: colors.textDark,
-    paddingRight: spacing.xl,
   },
   // flexWrap kept — larger font scales or narrower phones still wrap
   // safely to a second row instead of clipping.
@@ -1310,7 +1298,10 @@ const styles = StyleSheet.create({
     color: colors.primaryDark,
   },
   storyCard: {
-    marginBottom: spacing.lg,
+    marginTop: spacing.md,
+  },
+  storyNameOnSky: {
+    color: 'rgba(255,255,255,0.88)',
   },
   storyRailLabel: {
     fontFamily: fontFamily.bold,
@@ -1343,8 +1334,8 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: radius.full,
-    borderWidth: 2,
-    borderColor: colors.border,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.3)',
     justifyContent: 'center',
     alignItems: 'center',
   },

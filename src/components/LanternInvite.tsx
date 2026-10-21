@@ -12,9 +12,11 @@ import { colors, spacing, fontSize, fontFamily } from '../constants/theme';
 type Props = {
   onWrite: () => void;
   onOpen: () => void;
+  // One slim row (Home), instead of the full card.
+  compact?: boolean;
 };
 
-export default function LanternInvite({ onWrite, onOpen }: Props) {
+export default function LanternInvite({ onWrite, onOpen, compact }: Props) {
   // Classmates' lanterns that no one (including me) has answered yet.
   const [waiting, setWaiting] = useState(0);
 
@@ -31,6 +33,23 @@ export default function LanternInvite({ onWrite, onOpen }: Props) {
       };
     }, [])
   );
+
+  if (compact) {
+    return (
+      <TouchableOpacity style={styles.slim} onPress={onWrite} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="Write a lantern">
+        <LanternGlyph size={18} />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.slimTitle} numberOfLines={1}>
+            Something on your mind?
+          </Text>
+          <Text style={styles.slimSub} numberOfLines={1}>
+            {waiting > 0 ? `🏮 ${waiting} ${waiting === 1 ? 'classmate could' : 'classmates could'} use some warmth` : 'Send it up as a lantern. No name.'}
+          </Text>
+        </View>
+        <Ionicons name="chevron-forward" size={16} color={colors.primaryDark} />
+      </TouchableOpacity>
+    );
+  }
 
   return (
     <View style={styles.card}>
@@ -58,6 +77,28 @@ export default function LanternInvite({ onWrite, onOpen }: Props) {
 }
 
 const styles = StyleSheet.create({
+  slim: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm + 2,
+    backgroundColor: colors.primaryLight,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#F6DFB4',
+    paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.md,
+    marginBottom: spacing.md,
+  },
+  slimTitle: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
+    color: colors.textDark,
+  },
+  slimSub: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
+    color: colors.textMid,
+  },
   card: {
     backgroundColor: colors.primaryLight,
     borderRadius: 22,

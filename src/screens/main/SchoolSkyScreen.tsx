@@ -29,7 +29,7 @@ import SkyWeather from '../../components/SkyWeather';
 import { hasBlockedWords, KIND_WORDS_MESSAGE } from '../../lib/contentFilter';
 import { fetchLanterns, Lantern } from '../../lib/lanterns';
 import { useWarmSheet } from '../../components/WarmSheet';
-import { SkyWindow, SkyTile, skiesFor, currentSlot, FALLBACK_SCENE } from '../../components/SkyCheckSheet';
+import { SkyTile, skiesFor, currentSlot, FALLBACK_SCENE } from '../../components/SkyCheckSheet';
 import { interpretSky } from '../../lib/skyInterpret';
 import { useTilt, tiltTransform, Tilt } from '../../lib/useTilt';
 import { useAuth } from '../../contexts/AuthContext';
@@ -389,6 +389,8 @@ export default function SchoolSkyScreen() {
   const [skySize, setSkySize] = useState({ width: 0, height: 0 });
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // The composer stays simple; the sky bits open only if you want them.
+  const [showSkyExtras, setShowSkyExtras] = useState(false);
   // Quick sky tiles in the composer, the same as the sky check on Home.
   const composerSkies = skiesFor(currentSlot());
   const composerScenes = useMemo(() => {
@@ -577,6 +579,7 @@ export default function SchoolSkyScreen() {
   };
 
   const openComposer = () => {
+    setShowSkyExtras(false);
     setMood((myStar?.mood as SkyMood) ?? 'happy');
     setNote(myStar?.note ?? '');
     setPhotoUri(myStar?.photo_url ?? null);
@@ -1117,12 +1120,8 @@ export default function SchoolSkyScreen() {
           <View style={[styles.cSheet, { paddingBottom: insets.bottom + spacing.lg }]}>
             <View style={styles.cHandle} />
             <ScrollView style={styles.sheetScroll} contentContainerStyle={styles.cContent} keyboardShouldPersistTaps="handled">
-            {/* NewStep's window, showing the sky you've picked or described. */}
-            <View style={styles.cWindow}>
-              <SkyWindow scene={skyScene ?? composerScenes[composerSkies[0].label]} width={104} />
-            </View>
-            <Text style={styles.cTitle}>How's today going?</Text>
-            <Text style={styles.cSub}>Your star stays up for a day.</Text>
+            <Text style={styles.cTitle}>How are you, really?</Text>
+            <Text style={styles.cSub}>Tap one. That's all it takes.</Text>
 
             {/* Moods: one calm row of round bubbles. */}
             <View style={styles.cMoodRow}>
@@ -1147,76 +1146,86 @@ export default function SchoolSkyScreen() {
             </View>
             <Text style={styles.cMoodLabel}>Feeling {(SKY_MOODS.find((m) => m.key === mood)?.label ?? 'good').toLowerCase()}</Text>
 
-            {/* Look up: tap the sky you see, or describe it. */}
-            <Text style={styles.cSection}>👀 Look up — what's the sky like?</Text>
-            <View style={styles.cTiles}>
-              {composerSkies.map((c) => (
-                <SkyTile
-                  key={c.label}
-                  choice={c}
-                  scene={composerScenes[c.label]}
-                  selected={skyText === c.text}
-                  onPress={() => {
-                    Haptics.selectionAsync();
-                    setSkyText(c.text);
-                    setPaintError(null);
-                    setSkyScene(composerScenes[c.label]);
-                  }}
-                />
-              ))}
-            </View>
-            <View style={styles.cFieldRow}>
-              <TextInput
-                style={[styles.cInput, { flex: 1 }]}
-                placeholder="Or in your own words…"
-                placeholderTextColor={colors.textLight}
-                value={composerSkies.some((c) => c.text === skyText) ? '' : skyText}
-                onChangeText={(t) => {
-                  setSkyText(t);
-                  setPaintError(null);
-                }}
-                maxLength={200}
-              />
-              <TouchableOpacity
-                style={[styles.cIconButton, styles.cIconButtonFilled, !ownWords && { opacity: 0.4 }]}
-                onPress={handlePaint}
-                disabled={painting || !ownWords}
-                accessibilityRole="button"
-                accessibilityLabel={skyScene ? 'Paint it again' : 'Paint my sky'}
-              >
-                {painting ? (
-                  <ActivityIndicator size="small" color={colors.onPrimary} />
-                ) : (
-                  <Ionicons name="color-palette" size={18} color={colors.onPrimary} />
-                )}
-              </TouchableOpacity>
-            </View>
-            {paintError ? <Text style={styles.paintError}>{paintError}</Text> : null}
+            {/* One place to say what's on your heart. */}
+            <TextInput
+              style={[styles.cInput, styles.cHeart]}
+              placeholder="Anything on your heart? (optional)"
+              placeholderTextColor={colors.textLight}
+              value={note}
+              onChangeText={setNote}
+              maxLength={SKY_NOTE_MAX}
+              multiline
+            />
 
-            {/* A line for classmates, with an optional photo of the sky. */}
-            <Text style={styles.cSection}>A line for classmates</Text>
-            <View style={styles.cFieldRow}>
-              <TextInput
-                style={[styles.cInput, { flex: 1 }]}
-                placeholder="Optional"
-                placeholderTextColor={colors.textLight}
-                value={note}
-                onChangeText={setNote}
-                maxLength={SKY_NOTE_MAX}
-              />
-              {photoUri ? (
-                <TouchableOpacity onPress={handleSnapSky} onLongPress={() => setPhotoUri(null)} accessibilityLabel="Retake the sky photo. Hold to remove.">
-                  <Image source={{ uri: photoUri }} style={styles.notePhoto} />
-                  <TouchableOpacity style={styles.photoRemove} onPress={() => setPhotoUri(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityLabel="Remove photo">
-                    <Ionicons name="close" size={11} color={colors.warm.honeyInk} />
+            {/* Everything else is optional and tucked away. */}
+            {showSkyExtras ? (
+              <View style={styles.cExtras}>
+                <Text style={styles.cSection}>👀 What's the sky like?</Text>
+              <View style={styles.cTiles}>
+                {composerSkies.map((c) => (
+                  <SkyTile
+                    key={c.label}
+                    choice={c}
+                    scene={composerScenes[c.label]}
+                    selected={skyText === c.text}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      setSkyText(c.text);
+                      setPaintError(null);
+                      setSkyScene(composerScenes[c.label]);
+                    }}
+                  />
+                ))}
+              </View>
+              <View style={styles.cFieldRow}>
+                <TextInput
+                  style={[styles.cInput, { flex: 1 }]}
+                  placeholder="Or in your own words…"
+                  placeholderTextColor={colors.textLight}
+                  value={composerSkies.some((c) => c.text === skyText) ? '' : skyText}
+                  onChangeText={(t) => {
+                    setSkyText(t);
+                    setPaintError(null);
+                  }}
+                  maxLength={200}
+                />
+                <TouchableOpacity
+                  style={[styles.cIconButton, styles.cIconButtonFilled, !ownWords && { opacity: 0.4 }]}
+                  onPress={handlePaint}
+                  disabled={painting || !ownWords}
+                  accessibilityRole="button"
+                  accessibilityLabel={skyScene ? 'Paint it again' : 'Paint my sky'}
+                >
+                  {painting ? (
+                    <ActivityIndicator size="small" color={colors.onPrimary} />
+                  ) : (
+                    <Ionicons name="color-palette" size={18} color={colors.onPrimary} />
+                  )}
+                </TouchableOpacity>
+              </View>
+              {paintError ? <Text style={styles.paintError}>{paintError}</Text> : null}
+                  <View style={[styles.cFieldRow, { justifyContent: 'flex-end' }]}>
+                  <Text style={styles.cPhotoLabel}>Add a photo of the sky</Text>
+                {photoUri ? (
+                  <TouchableOpacity onPress={handleSnapSky} onLongPress={() => setPhotoUri(null)} accessibilityLabel="Retake the sky photo. Hold to remove.">
+                    <Image source={{ uri: photoUri }} style={styles.notePhoto} />
+                    <TouchableOpacity style={styles.photoRemove} onPress={() => setPhotoUri(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityLabel="Remove photo">
+                      <Ionicons name="close" size={11} color={colors.warm.honeyInk} />
+                    </TouchableOpacity>
                   </TouchableOpacity>
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity style={styles.cIconButton} onPress={handleSnapSky} accessibilityLabel="Add a photo of the sky">
-                  <Ionicons name="camera-outline" size={18} color={colors.textMid} />
-                </TouchableOpacity>
-              )}
-            </View>
+                ) : (
+                  <TouchableOpacity style={styles.cIconButton} onPress={handleSnapSky} accessibilityLabel="Add a photo of the sky">
+                    <Ionicons name="camera-outline" size={18} color={colors.textMid} />
+                  </TouchableOpacity>
+                )}
+                  </View>
+              </View>
+            ) : (
+              <TouchableOpacity style={styles.cMore} onPress={() => setShowSkyExtras(true)} accessibilityRole="button">
+                <Ionicons name="add" size={16} color={colors.textMid} />
+                <Text style={styles.cMoreText}>Add today's sky</Text>
+              </TouchableOpacity>
+            )}
             {note.length > SKY_NOTE_MAX - 20 ? (
               <Text style={styles.cCount}>
                 {note.length}/{SKY_NOTE_MAX}
@@ -1342,7 +1351,7 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xl,
     color: colors.textDark,
     textAlign: 'center',
-    marginTop: spacing.sm,
+    marginTop: spacing.md,
   },
   cSub: {
     fontFamily: fontFamily.regular,
@@ -1359,9 +1368,9 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   cMood: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: colors.cardBg,
     borderWidth: 1,
     borderColor: colors.hairline,
@@ -1376,6 +1385,36 @@ const styles = StyleSheet.create({
   },
   cMoodEmoji: {
     fontSize: 24,
+  },
+  cHeart: {
+    marginTop: spacing.lg,
+    minHeight: 92,
+    textAlignVertical: 'top',
+  },
+  cExtras: {
+    marginTop: spacing.sm,
+  },
+  cMore: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    gap: 4,
+    marginTop: spacing.md,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: radius.full,
+    backgroundColor: colors.hairline,
+  },
+  cMoreText: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
+    color: colors.textMid,
+  },
+  cPhotoLabel: {
+    flex: 1,
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    color: colors.textMid,
   },
   cMoodLabel: {
     fontFamily: fontFamily.semibold,

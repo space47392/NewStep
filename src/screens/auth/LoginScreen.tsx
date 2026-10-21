@@ -7,7 +7,8 @@ import PrimaryButton from '../../components/PrimaryButton';
 import FadeInView from '../../components/FadeInView';
 import AppLogo from '../../components/AppLogo';
 import FootstepsIntro from '../../components/FootstepsIntro';
-import { colors, spacing, fontSize, fontFamily, typography } from '../../constants/theme';
+import { StatusBar } from 'expo-status-bar';
+import { light, spacing, fontSize, fontFamily, typography } from '../../constants/theme';
 import { AuthStackParamList } from '../../types';
 
 type Props = {
@@ -86,11 +87,13 @@ export default function LoginScreen({ navigation }: Props) {
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      {/* Dark clock/battery on the bright page (the intro sets its own). */}
+      {!showIntro && <StatusBar style="dark" />}
       <View style={styles.inner}>
         {/* One column, left-aligned; honey only on the mark and the button. */}
         <FadeInView style={styles.header}>
           <View style={styles.brandRow}>
-            <AppLogo size={40} variant="mark" />
+            <AppLogo size={40} variant="mark" tone="light" />
             <Text style={styles.brand}>NewStep</Text>
           </View>
           <Text style={styles.title}>Welcome back</Text>
@@ -99,6 +102,7 @@ export default function LoginScreen({ navigation }: Props) {
 
         <FadeInView style={styles.form} delay={100}>
           <IconInput
+            tone="light"
             placeholder="Email"
             value={email}
             onChangeText={setEmail}
@@ -107,6 +111,7 @@ export default function LoginScreen({ navigation }: Props) {
             autoComplete="email"
           />
           <IconInput
+            tone="light"
             placeholder="Password"
             value={password}
             onChangeText={setPassword}
@@ -144,7 +149,7 @@ export default function LoginScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: light.background,
   },
   inner: {
     flex: 1,
@@ -163,15 +168,15 @@ const styles = StyleSheet.create({
   brand: {
     fontFamily: fontFamily.brand,
     fontSize: fontSize.lg,
-    color: colors.textDark,
+    color: light.text,
   },
   title: {
     ...typography.largeTitle,
-    color: colors.textDark,
+    color: light.text,
   },
   subtitle: {
     ...typography.body,
-    color: colors.textLight,
+    color: light.textLight,
     marginTop: spacing.xs,
   },
   form: {
@@ -182,7 +187,7 @@ const styles = StyleSheet.create({
   },
   forgotText: {
     fontFamily: fontFamily.medium,
-    color: colors.textMid,
+    color: light.textMid,
     fontSize: fontSize.sm,
   },
   button: {
@@ -195,12 +200,12 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontFamily: fontFamily.regular,
-    color: colors.textLight,
+    color: light.textLight,
     fontSize: fontSize.sm,
   },
   footerLink: {
     fontFamily: fontFamily.semibold,
-    color: colors.textDark,
+    color: light.text,
     fontSize: fontSize.sm,
   },
 });

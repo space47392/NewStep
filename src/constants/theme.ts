@@ -130,6 +130,18 @@ export const typography = {
   overline: { fontFamily: 'Poppins_600SemiBold', fontSize: 12, lineHeight: 16, letterSpacing: 0.6 },
 } as const;
 
+// The bright side: the sign-in screens. You walk up out of the dark
+// footsteps intro into a warm, bright world.
+export const light = {
+  background: '#FFFAF2',
+  surface: '#FFFFFF',
+  text: '#221B16',
+  textMid: '#5C5148',
+  textLight: '#8E8278',
+  border: '#EADFD2',
+  hairline: '#F1E8DC',
+};
+
 // The warm accent gradient (gold to coral), for the few special things:
 // the logo tile and unseen story rings.
 export const warmGradient = ['#F7C873', '#EE8E5A'] as const;

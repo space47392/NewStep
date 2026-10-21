@@ -19,9 +19,11 @@ type Props = {
   style?: StyleProp<ViewStyle>;
   // 'icon' (default): the old home-screen icon. 'mark': the brand mark.
   variant?: 'icon' | 'mark';
+  // 'light': on a bright background the window frame is dark wood, not cream.
+  tone?: 'dark' | 'light';
 };
 
-export default function AppLogo({ size = 72, style, variant = 'icon' }: Props) {
+export default function AppLogo({ size = 72, style, variant = 'icon', tone = 'dark' }: Props) {
   // SVG ids must be unique per instance (the mark appears more than once).
   const uid = useId().replace(/[^a-zA-Z0-9]/g, '');
   if (variant === 'mark') {
@@ -32,6 +34,7 @@ export default function AppLogo({ size = 72, style, variant = 'icon' }: Props) {
     const right = `right${uid}`;
     const dawn = `dawn${uid}`;
     const sun = `sun${uid}`;
+    const frame = tone === 'light' ? '#3B2F26' : FRAME;
     return (
       <View style={[{ width: size, height: size }, style]} accessible accessibilityRole="image" accessibilityLabel="NewStep">
         <Svg width={size} height={size} viewBox="0 0 24 24">
@@ -58,9 +61,9 @@ export default function AppLogo({ size = 72, style, variant = 'icon' }: Props) {
             <Path d={SPARKLE} fill={FRAME} transform={sparkle(7.4, 9.4, 0.13)} />
             <Path d={SPARKLE} fill="#FFFFFF" transform={sparkle(9.6, 14, 0.08)} />
           </G>
-          <Path d={ARCH} fill="none" stroke={FRAME} strokeWidth={1.6} strokeLinejoin="round" />
-          <Path d="M12 3 V21" stroke={FRAME} strokeWidth={1.4} />
-          <Path d="M3 21 H21" stroke={FRAME} strokeWidth={1.6} strokeLinecap="round" />
+          <Path d={ARCH} fill="none" stroke={frame} strokeWidth={1.6} strokeLinejoin="round" />
+          <Path d="M12 3 V21" stroke={frame} strokeWidth={1.4} />
+          <Path d="M3 21 H21" stroke={frame} strokeWidth={1.6} strokeLinecap="round" />
         </Svg>
       </View>
     );

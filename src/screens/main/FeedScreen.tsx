@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, FlatList, RefreshControl, TouchableOpacity, ActivityIndicator, Alert, StyleSheet } from 'react-native';
+import { View, Text, FlatList, RefreshControl, TouchableOpacity, ActivityIndicator, Alert, ScrollView, StyleSheet } from 'react-native';
 import { useFocusEffect, useIsFocused, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -44,7 +44,6 @@ import { useTodaySky } from '../../lib/useTodaySky';
 import PrimaryButton from '../../components/PrimaryButton';
 import ActionSheet, { ActionSheetAction } from '../../components/ActionSheet';
 import ReportSheet from '../../components/ReportSheet';
-import HelpProgress from '../../components/HelpProgress';
 import CategoryBadge from '../../components/CategoryBadge';
 import PostAuthorHeader from '../../components/PostAuthorHeader';
 import EventDetails, { isEventPast } from '../../components/EventDetails';
@@ -52,7 +51,7 @@ import LikeButton from '../../components/LikeButton';
 import SaveButton from '../../components/SaveButton';
 import InterestButton from '../../components/InterestButton';
 import PhotoCarousel from '../../components/PhotoCarousel';
-import { Post, Story, MainStackParamList, ReportTargetType } from '../../types';
+import { Post, Story, MainStackParamList, ReportTargetType, PostCategory } from '../../types';
 import { colors, spacing, radius, fontSize, fontFamily, shadow, typography } from '../../constants/theme';
 
 // Shared by both feeds' pagination — same page size, same .range() shape.
@@ -85,6 +84,14 @@ function dedupeAppend(prev: Post[], additions: Post[]): Post[] {
   return [...prev, ...uniqueAdditions];
 }
 
+const FILTERS: { value: 'All' | PostCategory; label: string }[] = [
+  { value: 'All', label: 'All' },
+  { value: 'Need Help', label: 'Need help' },
+  { value: 'School Question', label: 'Questions' },
+  { value: 'Looking for Friends', label: 'Friends' },
+  { value: 'Event', label: 'Events' },
+];
+
 export default function FeedScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
   const { user } = useAuth();
@@ -95,6 +102,7 @@ export default function FeedScreen() {
   const isFocused = useIsFocused();
   // Today's School Sky, as classmates described it, fills the header.
   const todaySky = useTodaySky(user?.id);
+  const [categoryFilter, setCategoryFilter] = useState<'All' | PostCategory>('All');
   const [skyHeight, setSkyHeight] = useState(0);
   const [scrolledPastSky, setScrolledPastSky] = useState(false);
   const [posts, setPosts] = useState<Post[]>([]);
@@ -706,7 +714,9 @@ export default function FeedScreen() {
     );
   }
 
-  const displayedPosts = feedMode === 'following' ? followingPosts : posts;
+  // Category chips under For you / Following: see just one kind of post.
+  const modePosts = feedMode === 'following' ? followingPosts : posts;
+  const displayedPosts = categoryFilter === 'All' ? modePosts : modePosts.filter((p) => p.category === categoryFilter);
 
   // Sits on the identity row next to the school line — or, with no school
   // yet, beside the greeting so it never ends up alone on its own row.
@@ -935,6 +945,23 @@ export default function FeedScreen() {
                 </Text>
               </TouchableOpacity>
             </View>
+
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow} style={styles.filterScroll}>
+              {FILTERS.map((f) => {
+                const on = categoryFilter === f.value;
+                return (
+                  <TouchableOpacity
+                    key={f.value}
+                    style={[styles.filterChip, on && styles.filterChipOn]}
+                    onPress={() => setCategoryFilter(f.value)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: on }}
+                  >
+                    <Text style={[styles.filterText, on && styles.filterTextOn]}>{f.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
           </View>
         }
         ListEmptyComponent={
@@ -1030,7 +1057,10 @@ export default function FeedScreen() {
                     e.stopPropagation();
                     navigation.navigate('UserProfile', { userId: item.author_id });
                   }}
+                  avatarSize={36}
                   trailing={
+                    <>
+                    <CategoryBadge category={item.category} size="sm" />
                     <TouchableOpacity
                       style={styles.menuButton}
                       onPress={(e) => {
@@ -1041,16 +1071,13 @@ export default function FeedScreen() {
                       accessibilityRole="button"
                       accessibilityLabel="Open post menu"
                     >
-                      <Ionicons name="ellipsis-horizontal" size={18} color={colors.textMid} />
+                      <Ionicons name="ellipsis-horizontal" size={18} color={colors.textLight} />
                     </TouchableOpacity>
+                    </>
                   }
                 />
 
-                <View style={styles.badgeRow}>
-                  <CategoryBadge category={item.category} />
-                </View>
-
-                <Text style={styles.content} numberOfLines={2}>{item.content}</Text>
+                <Text style={styles.content} numberOfLines={3}>{item.content}</Text>
                 <EventDetails post={item} />
 
                 {item.photo_urls.length > 0 && (
@@ -1069,9 +1096,21 @@ export default function FeedScreen() {
                     completed helper relationship should stay visible even if the
                     post's category is edited after the fact. */}
                 {(item.category === 'Need Help' || (item.status !== 'open' && item.helper)) && (
-                  <HelpProgress status={item.status} author={item.profiles} helper={item.helper} />
-                )}
-
+                  <View style={styles.helpRow}>
+                  <View style={[styles.helpStatus, item.status === 'completed' && styles.helpStatusDone]}>
+                    <Ionicons
+                      name={item.status === 'completed' ? 'checkmark-circle' : item.status === 'accepted' ? 'people' : 'hand-left-outline'}
+                      size={14}
+                      color={item.status === 'completed' ? colors.accentDark : colors.primaryDark}
+                    />
+                    <Text style={[styles.helpStatusText, item.status === 'completed' && styles.helpStatusTextDone]} numberOfLines={1}>
+                      {item.status === 'completed'
+                        ? item.helper?.full_name ? `Helped by ${item.helper.full_name.split(' ')[0]}` : 'Done'
+                        : item.status === 'accepted'
+                          ? item.helper?.full_name ? `${item.helper.full_name.split(' ')[0]} is helping` : 'Being helped'
+                          : 'Needs a helper'}
+                    </Text>
+                  </View>
                 {item.category === 'Need Help' && item.status === 'open' && item.author_id !== user?.id && (
                   <TouchableOpacity
                     style={styles.canHelpButton}
@@ -1083,14 +1122,16 @@ export default function FeedScreen() {
                     }}
                   >
                     {volunteeringPostId === item.id ? (
-                      <ActivityIndicator size="small" color={colors.primary} />
+                      <ActivityIndicator size="small" color={colors.onPrimary} />
                     ) : (
                       <>
-                        <Ionicons name="hand-left-outline" size={16} color={colors.primary} />
+                        <Ionicons name="hand-left" size={14} color={colors.onPrimary} />
                         <Text style={styles.canHelpText}>I Can Help</Text>
                       </>
                     )}
                   </TouchableOpacity>
+                )}
+                  </View>
                 )}
 
                 {/* Hidden (not just disabled) once the event has passed — a
@@ -1135,10 +1176,8 @@ export default function FeedScreen() {
                         handleOpenPost(item, true);
                       }}
                     >
-                      <Ionicons name="chatbubble-outline" size={14} color={colors.primary} />
-                      <Text style={styles.viewComments}>
-                        {commentCount > 0 ? `${commentCount} Comment${commentCount === 1 ? '' : 's'}` : 'Add a comment'}
-                      </Text>
+                      <Ionicons name="chatbubble-outline" size={19} color={colors.textMid} />
+                      {commentCount > 0 ? <Text style={styles.viewComments}>{commentCount}</Text> : null}
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -1460,7 +1499,35 @@ const styles = StyleSheet.create({
     marginBottom: -1,
   },
   feedModeTabActive: {
-    borderBottomColor: colors.sticker.lilac,
+    borderBottomColor: colors.textDark,
+  },
+  filterScroll: {
+    marginHorizontal: -(spacing.md + 4),
+  },
+  filterRow: {
+    gap: spacing.xs + 2,
+    paddingHorizontal: spacing.md + 4,
+    paddingVertical: spacing.sm + 2,
+  },
+  filterChip: {
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.cardBg,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+  },
+  filterChipOn: {
+    backgroundColor: colors.textDark,
+    borderColor: colors.textDark,
+  },
+  filterText: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
+    color: colors.textMid,
+  },
+  filterTextOn: {
+    color: colors.background,
   },
   feedModeText: {
     fontFamily: fontFamily.semibold,
@@ -1498,7 +1565,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   card: {
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.md - 2,
     borderBottomWidth: 1,
     borderBottomColor: colors.hairline,
   },
@@ -1523,6 +1590,34 @@ const styles = StyleSheet.create({
     fontSize: fontSize.md,
     color: colors.textDark,
     lineHeight: 22,
+    marginTop: 2,
+  },
+  helpRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  helpStatus: {
+    flexShrink: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: colors.primaryLight,
+    borderRadius: radius.full,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  helpStatusDone: {
+    backgroundColor: colors.accentLight,
+  },
+  helpStatusText: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.xs,
+    color: colors.primaryDark,
+  },
+  helpStatusTextDone: {
+    color: colors.accentDark,
   },
   photoWrap: {
     marginTop: spacing.sm,
@@ -1557,26 +1652,24 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   viewComments: {
-    fontFamily: fontFamily.semibold,
+    fontFamily: fontFamily.medium,
     fontSize: fontSize.sm,
-    color: colors.primary,
+    color: colors.textMid,
   },
   canHelpButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    alignSelf: 'flex-start',
-    backgroundColor: colors.primaryLight,
+    gap: 5,
+    backgroundColor: colors.primary,
     borderRadius: radius.full,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    marginTop: spacing.sm,
-    minWidth: 110,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    minWidth: 96,
   },
   canHelpText: {
     fontFamily: fontFamily.bold,
-    fontSize: fontSize.sm,
-    color: colors.primary,
+    fontSize: fontSize.xs,
+    color: colors.onPrimary,
   },
 });

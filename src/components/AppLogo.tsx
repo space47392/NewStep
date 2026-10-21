@@ -1,5 +1,6 @@
 import { View, StyleSheet, StyleProp, ViewStyle } from 'react-native';
 import Svg, { Defs, G, LinearGradient, Path, Stop, SvgXml } from 'react-native-svg';
+import { colors } from '../constants/theme';
 
 // The "Starry Step" app icon (assets/icon.png), drawn as SVG so it stays
 // sharp at any size inside the app (login/sign-up logo, brand marks).
@@ -23,23 +24,22 @@ type Props = {
 export default function AppLogo({ size = 72, style, variant = 'icon' }: Props) {
   if (variant === 'mark') {
     // The brand mark: a footprint whose toes are stars — every new step
-    // lights a star, like School Sky. The sole is a soft dusk sky (violet,
-    // pink, peach: night turning to morning). Simple and graphic rather than
+    // lights a star, like School Sky. The sole is sunny yellow fading into
+    // the app's honey, so it matches the buttons. Simple and graphic rather than
     // a realistic foot; no tile, so it sits on any background.
     return (
       <View style={[{ width: size, height: size }, style]} accessible accessibilityRole="image" accessibilityLabel="NewStep">
         <Svg width={size} height={size} viewBox="0 0 24 24">
           <Defs>
-            <LinearGradient id="nsDuskStep" x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0" stopColor="#9C8BE0" />
-              <Stop offset="0.5" stopColor="#E58FB0" />
-              <Stop offset="1" stopColor="#FBBE84" />
+            <LinearGradient id="nsSunStep" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor="#FFE48F" />
+              <Stop offset="1" stopColor={colors.primary} />
             </LinearGradient>
           </Defs>
           <G transform="rotate(-8 12 12)">
-            <Path d={SOLE_PATH} fill="url(#nsDuskStep)" />
+            <Path d={SOLE_PATH} fill="url(#nsSunStep)" />
             {TOES.map(([x, y, k]) => (
-              <Path key={x} d={SPARKLE} fill="#FFE3A6" transform={`translate(${x - 12 * k} ${y - 12 * k}) scale(${k})`} />
+              <Path key={x} d={SPARKLE} fill="#FFF1C9" transform={`translate(${x - 12 * k} ${y - 12 * k}) scale(${k})`} />
             ))}
           </G>
         </Svg>

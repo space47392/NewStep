@@ -15,7 +15,7 @@ import { StatusBar } from 'expo-status-bar';
 import Svg, { Defs, LinearGradient, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { colors, spacing, fontSize, fontFamily } from '../constants/theme';
 
-const WINDOW_SIZE = 92;
+const WINDOW_SIZE = 76;
 
 // NewStep's arched window as you'd see it at night from down the path: no
 // frame, just warm light pouring out of the opening, split by thin dark
@@ -43,8 +43,8 @@ function WindowLight({ size }: { size: number }) {
     <Svg width={size} height={size} pointerEvents="none">
       <Defs>
         <RadialGradient id="windowLight" cx="50%" cy="55%" r="50%">
-          <Stop offset="0" stopColor="#FFC56A" stopOpacity={0.4} />
-          <Stop offset="0.4" stopColor="#F5A84E" stopOpacity={0.12} />
+          <Stop offset="0" stopColor="#FFC56A" stopOpacity={0.3} />
+          <Stop offset="0.5" stopColor="#F5A84E" stopOpacity={0.06} />
           <Stop offset="1" stopColor="#F5BC5C" stopOpacity={0} />
         </RadialGradient>
       </Defs>
@@ -53,26 +53,11 @@ function WindowLight({ size }: { size: number }) {
   );
 }
 
-function WarmGlow() {
-  return (
-    <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
-      <Defs>
-        <RadialGradient id="introGlow" cx="50%" cy="100%" r="85%">
-          <Stop offset="0" stopColor="#F0A55A" stopOpacity={0.12} />
-          <Stop offset="0.55" stopColor="#E8B064" stopOpacity={0.03} />
-          <Stop offset="1" stopColor="#E8B064" stopOpacity={0} />
-        </RadialGradient>
-      </Defs>
-      <Rect x="0" y="0" width="100%" height="100%" fill="url(#introGlow)" />
-    </Svg>
-  );
-}
-
 type Props = {
   onDone: () => void;
 };
 
-const STEPS = 7;
+const STEPS = 6;
 const STEP_MS = 380;
 // How many steps stay visible behind the newest one before fading out.
 const TRAIL = 3;
@@ -176,7 +161,7 @@ export default function FootstepsIntro({ onDone }: Props) {
   const bottom = height * 0.8;
   // The window glows brighter the closer the footsteps get.
   const glow = walk.interpolate({ inputRange: [0, STEPS - 1, STEPS + TRAIL + 1], outputRange: [0.25, 1, 0.25], extrapolate: 'clamp' });
-  const glowSize = WINDOW_SIZE * 3;
+  const glowSize = WINDOW_SIZE * 2.2;
   const gap = (bottom - top) / (STEPS - 1);
   const centerX = width / 2;
 
@@ -202,7 +187,6 @@ export default function FootstepsIntro({ onDone }: Props) {
       onAccessibilityTap={() => leave(-1)}
     >
       <StatusBar style="light" />
-      <WarmGlow />
       <Animated.View
         pointerEvents="none"
         style={{ position: 'absolute', top: windowTop + WINDOW_SIZE / 2 - glowSize / 2, left: width / 2 - glowSize / 2, opacity: glow }}
@@ -214,7 +198,7 @@ export default function FootstepsIntro({ onDone }: Props) {
       </View>
       {Array.from({ length: STEPS }, (_, i) => {
         const isLeft = i % 2 === 0;
-        const sway = Math.sin(i * 0.7) * 18;
+        const sway = 0;
         // Each step lights up as the walk reaches it, then fades a few steps
         // later.
         const opacity = walk.interpolate({
@@ -233,7 +217,7 @@ export default function FootstepsIntro({ onDone }: Props) {
             style={[
               styles.foot,
               {
-                left: centerX + sway + (isLeft ? -26 : 8),
+                left: centerX + sway + (isLeft ? -22 : 4),
                 top: bottom - i * gap,
                 opacity,
                 transform: [{ scale }, { rotate: isLeft ? '-8deg' : '8deg' }, { scaleX: isLeft ? -1 : 1 }],
@@ -255,7 +239,7 @@ export default function FootstepsIntro({ onDone }: Props) {
         ]}
         pointerEvents="none"
       >
-        <Ionicons name="chevron-up" size={22} color="#fff" />
+        <Ionicons name="chevron-up" size={18} color={colors.textLight} />
         <Text style={styles.hintText}>Swipe up to take your first step</Text>
       </Animated.View>
     </Animated.View>
@@ -338,11 +322,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   hintText: {
-    marginTop: spacing.xs,
-    fontFamily: fontFamily.semibold,
+    marginTop: 2,
+    fontFamily: fontFamily.medium,
     fontSize: fontSize.sm,
-    color: colors.textDark,
-    opacity: 0.9,
+    color: colors.textLight,
   },
   staticButton: {
     marginTop: spacing.xl,

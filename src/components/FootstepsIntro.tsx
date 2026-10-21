@@ -13,7 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import Svg, { Defs, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
-import { colors, light, spacing, fontSize, fontFamily } from '../constants/theme';
+import { colors, dark, light, spacing, fontSize, fontFamily } from '../constants/theme';
 
 function WarmGlow() {
   return (
@@ -284,7 +284,7 @@ export default function FootstepsIntro({ onDone }: Props) {
         ]}
         pointerEvents="none"
       >
-        <Ionicons name="chevron-up" size={18} color={colors.textLight} />
+        <Ionicons name="chevron-up" size={18} color={dark.textLight} />
         <Text style={styles.hintText}>Swipe up to take your first step</Text>
       </Animated.View>
     </View>
@@ -310,7 +310,7 @@ function Foot() {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: colors.background,
+    backgroundColor: dark.background,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 10,
@@ -381,7 +381,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontFamily: fontFamily.medium,
     fontSize: fontSize.sm,
-    color: colors.textLight,
+    color: dark.textLight,
   },
   staticButton: {
     marginTop: spacing.xl,

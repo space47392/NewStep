@@ -70,7 +70,7 @@ import { formatRelativeTime } from '../../lib/time';
 import Avatar from '../../components/Avatar';
 import PrimaryButton from '../../components/PrimaryButton';
 import ReportSheet from '../../components/ReportSheet';
-import { colors, spacing, radius, fontSize, fontFamily } from '../../constants/theme';
+import { colors, spacing, radius, fontSize, fontFamily, dark } from '../../constants/theme';
 import { MainStackParamList, ReportTargetType } from '../../types';
 
 
@@ -998,7 +998,7 @@ export default function SchoolSkyScreen() {
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     accessibilityLabel="Open profile"
                   >
-                    <Ionicons name="person-circle-outline" size={22} color={colors.textMid} />
+                    <Ionicons name="person-circle-outline" size={22} color={dark.textMid} />
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={() => setReportTarget({ type: 'profile', id: selected.user_id })}
@@ -1006,7 +1006,7 @@ export default function SchoolSkyScreen() {
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     accessibilityLabel="Report this star"
                   >
-                    <Ionicons name="flag-outline" size={18} color={colors.textLight} />
+                    <Ionicons name="flag-outline" size={18} color={dark.textLight} />
                   </TouchableOpacity>
                 </>
               )}
@@ -1303,7 +1303,7 @@ export default function SchoolSkyScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: dark.background,
   },
   header: {
     flexDirection: 'row',
@@ -1470,7 +1470,7 @@ const styles = StyleSheet.create({
   wishSub: {
     fontFamily: fontFamily.regular,
     fontSize: fontSize.sm,
-    color: colors.textMid,
+    color: dark.textMid,
   },
   moodBubble: {
     position: 'absolute',
@@ -1546,7 +1546,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
     gap: spacing.sm,
-    backgroundColor: colors.background,
+    backgroundColor: dark.background,
     borderTopLeftRadius: radius.xl,
     borderTopRightRadius: radius.xl,
   },
@@ -1816,12 +1816,12 @@ const styles = StyleSheet.create({
   cardSkyTitle: {
     fontFamily: fontFamily.brand,
     fontSize: fontSize.md,
-    color: colors.textDark,
+    color: dark.textDark,
   },
   cardSkyDesc: {
     fontFamily: fontFamily.regular,
     fontSize: fontSize.sm,
-    color: colors.textMid,
+    color: dark.textMid,
   },
   galleryBackdrop: {
     flex: 1,
@@ -1889,7 +1889,7 @@ const styles = StyleSheet.create({
   galleryHint: {
     fontFamily: fontFamily.regular,
     fontSize: fontSize.sm,
-    color: colors.textLight,
+    color: dark.textLight,
     textAlign: 'center',
   },
   paintedText: {
@@ -1967,7 +1967,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderStyle: 'dashed',
     borderColor: colors.primary,
-    backgroundColor: colors.primaryLight,
+    backgroundColor: dark.primaryLight,
   },
   snapEmoji: {
     fontSize: 26,
@@ -1978,12 +1978,12 @@ const styles = StyleSheet.create({
   snapTitle: {
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.md,
-    color: colors.textDark,
+    color: dark.textDark,
   },
   snapSub: {
     fontFamily: fontFamily.regular,
     fontSize: fontSize.xs,
-    color: colors.textMid,
+    color: dark.textMid,
   },
   composerPhotoRow: {
     flexDirection: 'row',
@@ -2002,7 +2002,7 @@ const styles = StyleSheet.create({
   composerPhotoTitle: {
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.md,
-    color: colors.textDark,
+    color: dark.textDark,
   },
   composerLink: {
     flexDirection: 'row',
@@ -2028,11 +2028,11 @@ const styles = StyleSheet.create({
   emptySub: {
     fontFamily: fontFamily.regular,
     fontSize: fontSize.sm,
-    color: colors.textMid,
+    color: dark.textMid,
     textAlign: 'center',
   },
   bottom: {
-    backgroundColor: colors.background,
+    backgroundColor: dark.background,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
     gap: spacing.sm,

@@ -9,7 +9,7 @@ import * as Haptics from 'expo-haptics';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { useAuth } from '../../contexts/AuthContext';
 import { fetchSkyDiary, skyMood, SkyDiaryDay, SKY_MOODS, SkyMood } from '../../lib/sky';
-import { colors, spacing, radius, fontSize, fontFamily } from '../../constants/theme';
+import { colors, spacing, radius, fontSize, fontFamily, dark } from '../../constants/theme';
 import { MainStackParamList } from '../../types';
 
 // Sky Diary: every day you put up a star becomes a page — that day's mood,
@@ -255,7 +255,7 @@ const CELL_GAP = 6;
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: dark.background,
   },
   header: {
     flexDirection: 'row',
@@ -295,7 +295,7 @@ const styles = StyleSheet.create({
   },
   stat: {
     flex: 1,
-    backgroundColor: colors.cardBg,
+    backgroundColor: dark.cardBg,
     borderRadius: radius.lg,
     paddingVertical: spacing.md,
     alignItems: 'center',
@@ -309,12 +309,12 @@ const styles = StyleSheet.create({
   statLabel: {
     fontFamily: fontFamily.regular,
     fontSize: fontSize.xs,
-    color: colors.textLight,
+    color: dark.textLight,
   },
   sectionLabel: {
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.sm,
-    color: colors.textMid,
+    color: dark.textMid,
   },
   journey: {
     gap: spacing.sm,
@@ -337,12 +337,12 @@ const styles = StyleSheet.create({
     height: 2,
     marginHorizontal: 3,
     borderRadius: 1,
-    backgroundColor: colors.border,
+    backgroundColor: dark.border,
   },
   journeyCaption: {
     fontFamily: fontFamily.regular,
     fontSize: fontSize.sm,
-    color: colors.textLight,
+    color: dark.textLight,
   },
   monthRow: {
     flexDirection: 'row',
@@ -363,7 +363,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.xs,
-    color: colors.textLight,
+    color: dark.textLight,
   },
   cellBlank: {
     aspectRatio: 0.8,
@@ -371,7 +371,7 @@ const styles = StyleSheet.create({
   cell: {
     aspectRatio: 0.8,
     borderRadius: radius.sm,
-    backgroundColor: colors.cardBg,
+    backgroundColor: dark.cardBg,
     overflow: 'hidden',
     padding: 4,
     justifyContent: 'space-between',
@@ -387,7 +387,7 @@ const styles = StyleSheet.create({
   cellDay: {
     fontFamily: fontFamily.medium,
     fontSize: 10,
-    color: colors.textLight,
+    color: dark.textLight,
   },
   cellDayFilled: {
     color: '#fff',
@@ -403,12 +403,12 @@ const styles = StyleSheet.create({
     fontSize: 8,
   },
   pageCard: {
-    backgroundColor: colors.cardBg,
+    backgroundColor: dark.cardBg,
     borderRadius: radius.lg,
     padding: spacing.md,
     gap: spacing.sm,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: dark.border,
   },
   pageDate: {
     fontFamily: fontFamily.brand,
@@ -418,12 +418,12 @@ const styles = StyleSheet.create({
   pageMood: {
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.md,
-    color: colors.textDark,
+    color: dark.textDark,
   },
   pageNote: {
     fontFamily: fontFamily.regular,
     fontSize: fontSize.md,
-    color: colors.textMid,
+    color: dark.textMid,
   },
   pageSky: {
     height: 40,
@@ -433,13 +433,13 @@ const styles = StyleSheet.create({
   hint: {
     fontFamily: fontFamily.regular,
     fontSize: fontSize.sm,
-    color: colors.textLight,
+    color: dark.textLight,
     textAlign: 'center',
   },
   empty: {
     fontFamily: fontFamily.regular,
     fontSize: fontSize.sm,
-    color: colors.textMid,
+    color: dark.textMid,
     textAlign: 'center',
     marginTop: spacing.md,
   },
@@ -452,6 +452,6 @@ const styles = StyleSheet.create({
   legendItem: {
     fontFamily: fontFamily.regular,
     fontSize: fontSize.xs,
-    color: colors.textLight,
+    color: dark.textLight,
   },
 });

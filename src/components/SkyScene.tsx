@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { Animated, Easing, StyleSheet, View, useWindowDimensions } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
-import { colors } from '../constants/theme';
+import { colors, dark } from '../constants/theme';
 import { brightness, SkyPalette } from '../lib/skyColors';
 import { Tilt, tiltTransform } from '../lib/useTilt';
 import { SkyClouds, SkyThing } from '../lib/sky';
@@ -396,7 +396,7 @@ export function landColors(sky: SkyPalette): LandColors {
   // Night.
   return {
     far: '#1A1638',
-    ground: colors.background,
+    ground: dark.background,
     walls: '#14112e',
     roof: '#100d26',
     windows: colors.sticker.yellow,

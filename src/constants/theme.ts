@@ -1,5 +1,6 @@
-// Design system: clean like Instagram, warm in the accents. Surfaces are a
-// near-neutral dark (only a breath of warmth) with no glows; warmth comes
+// Design system: clean like Instagram, warm in the accents. The app is the
+// bright side — you walk out of the dark intro into it — on warm cream
+// surfaces with no glows (night-sky screens use `dark`); warmth comes
 // from a lantern-gold accent and a gold-to-coral gradient on the few things
 // that should feel special (logo, story rings), because the app is about
 // people helping each other. Titles are clean bold sans; the friendly,
@@ -12,41 +13,42 @@ export const colors = {
   primary: '#F5BC5C',
   // Text and icons ON a primary fill (honey is light, so never white).
   onPrimary: '#2A1D12',
-  primaryLight: '#3A2E1E',
+  primaryLight: '#FFF0D4',
   // Text on primaryLight (badges, links on tinted chips).
-  primaryDark: '#FFD99B',
+  primaryDark: '#8A5A12',
   secondary: '#FF6584',
-  secondaryLight: '#3A2238',
-  secondaryDark: '#FF9BB0',
+  secondaryLight: '#FFE6EC',
+  secondaryDark: '#C2335A',
   accent: '#43D9A2',
-  accentLight: '#173832',
-  accentDark: '#7EE6BE',
+  accentLight: '#DDF5EB',
+  accentDark: '#1F8A63',
   // Calm, flat surfaces: most content sits straight on the background,
   // separated by hairlines; cards only where something needs grouping.
-  background: '#121110',
-  cardBg: '#1D1B1A',
-  textDark: '#F6F3EF',
-  textMid: '#D0CBC5',
-  // Secondary text; ~5.5:1 on background.
-  textLight: '#9B958F',
-  border: '#33302D',
+  background: '#FFFAF2',
+  cardBg: '#FFFFFF',
+  textDark: '#221B16',
+  textMid: '#5C5148',
+  // Secondary text; ~4.6:1 on background.
+  textLight: '#8A7E73',
+  border: '#EADFD2',
   // Thin separators between rows and sections.
-  hairline: '#262321',
-  tabBar: '#121110',
-  tabActive: '#F5BC5C',
-  tabInactive: '#7A7279',
-  error: '#FF6B6B',
-  errorLight: '#3D1F2A',
+  hairline: '#F1E8DC',
+  tabBar: '#FFFFFF',
+  // Honey is too pale for a label on white; the active tab uses deep amber.
+  tabActive: '#B9720F',
+  tabInactive: '#A99D92',
+  error: '#E5484D',
+  errorLight: '#FFE5E5',
   success: '#43D9A2',
   // Solid fill behind white text (success buttons).
   successSolid: '#1F8A63',
   warning: '#FFB800',
-  warningLight: '#3A311C',
-  questionLight: '#2B2856',
-  eventDark: '#FFD45C',
-  eventLight: '#3A311C',
+  warningLight: '#FFF3D6',
+  questionLight: '#ECE9FF',
+  eventDark: '#9A6B00',
+  eventLight: '#FFF3D6',
   // A step above cards: toasts, floating buttons, sheets.
-  raised: '#282523',
+  raised: '#FFFFFF',
   // App icon / splash / footprint intro background.
   night: '#1C1752',
   // Sticker outline ink (NSIcon, InterestIcon, TabGlyph). Stays dark in
@@ -129,6 +131,19 @@ export const typography = {
   // Small caps-style section labels.
   overline: { fontFamily: 'Poppins_600SemiBold', fontSize: 12, lineHeight: 16, letterSpacing: 0.6 },
 } as const;
+
+// The night palette, for screens where the night sky is the point (School
+// Sky, Sky Diary, stories): they stay dark inside the bright app.
+export const dark = {
+  background: '#121110',
+  cardBg: '#1D1B1A',
+  textDark: '#F6F3EF',
+  textMid: '#D0CBC5',
+  textLight: '#9B958F',
+  border: '#33302D',
+  hairline: '#262321',
+  primaryLight: '#3A2E1E',
+};
 
 // The bright side: the sign-in screens. You walk up out of the dark
 // footsteps intro into a warm, bright world.

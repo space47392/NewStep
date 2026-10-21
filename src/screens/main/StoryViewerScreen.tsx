@@ -17,7 +17,7 @@ import Avatar from '../../components/Avatar';
 import ActionSheet, { ActionSheetAction } from '../../components/ActionSheet';
 import ReportSheet from '../../components/ReportSheet';
 import StoryViewsModal from '../../components/StoryViewsModal';
-import { colors, spacing, radius, fontSize, fontFamily } from '../../constants/theme';
+import { colors, spacing, radius, fontSize, fontFamily, dark } from '../../constants/theme';
 import { MainStackParamList, ReportTargetType } from '../../types';
 
 const STORY_DURATION_MS = 5000;
@@ -628,7 +628,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.warning,
   },
   actionPillTextWaved: {
-    color: colors.textDark,
+    color: dark.textDark,
   },
   waveBurst: {
     position: 'absolute',

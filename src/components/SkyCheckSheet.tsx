@@ -121,9 +121,9 @@ function SkyWindow({ scene, width }: { scene: SkyScene; width: number }) {
           : null}
         {has('fog') ? <Rect x="0" y="50" width="100" height="36" fill="#FFFFFF" opacity={0.35} /> : null}
       </G>
-      <Path d={ARCH} fill="none" stroke={colors.textDark} strokeWidth={2.4} strokeLinejoin="round" />
-      <Path d="M50 0.5 V84 M10 58 H90" stroke={colors.textDark} strokeWidth={1.6} />
-      <Path d="M4 85 H96" stroke={colors.textDark} strokeWidth={2.4} strokeLinecap="round" />
+      <Path d={ARCH} fill="none" stroke="#E7D8C6" strokeWidth={3.2} strokeLinejoin="round" />
+      <Path d="M50 1.5 V84 M10 58 H90" stroke="#E7D8C6" strokeWidth={1.8} />
+      <Path d="M6 85 H94" stroke="#D9C6B0" strokeWidth={2.4} strokeLinecap="round" />
     </Svg>
   );
 }
@@ -261,7 +261,7 @@ export default function SkyCheckSheet({ userId, enabled, onShared, onOpenSky }: 
         <View style={[styles.sheet, { paddingBottom: insets.bottom + spacing.lg }]}>
           <View style={styles.handle} />
           <Animated.View style={[styles.windowWrap, { opacity: paint }]}>
-            <SkyWindow scene={shown} width={150} />
+            <SkyWindow scene={shown} width={118} />
           </Animated.View>
           <Text style={styles.title}>{choice ? choice.label : 'Look up for a second'}</Text>
           <Text style={styles.sub}>{choice ? 'Is this your sky right now?' : "What's out your window right now?"}</Text>
@@ -293,9 +293,9 @@ export default function SkyCheckSheet({ userId, enabled, onShared, onOpenSky }: 
 
           {saving ? (
             <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.lg }} />
-          ) : (
+          ) : choice ? (
             <PrimaryButton title="Put it in the sky" icon="sparkles" disabled={!ready} onPress={save} style={{ marginTop: spacing.lg }} />
-          )}
+          ) : null}
 
           <View style={styles.footer}>
             <TouchableOpacity
@@ -346,7 +346,7 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xl,
     color: colors.textDark,
     textAlign: 'center',
-    marginTop: spacing.md,
+    marginTop: spacing.sm,
   },
   sub: {
     fontFamily: fontFamily.regular,
@@ -368,8 +368,8 @@ const styles = StyleSheet.create({
   },
   swatch: {
     width: '100%',
-    height: 58,
-    borderRadius: 16,
+    height: 52,
+    borderRadius: 14,
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
@@ -380,7 +380,7 @@ const styles = StyleSheet.create({
     borderColor: colors.textDark,
   },
   swatchEmoji: {
-    fontSize: 22,
+    fontSize: 18,
   },
   tileLabel: {
     fontFamily: fontFamily.medium,

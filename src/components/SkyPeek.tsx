@@ -122,8 +122,8 @@ export default function SkyPeek({ userId, onOpen }: Props) {
                   delay={i * 260}
                 />
               ))
-            : SPOTS.slice(0, 4).map(([x, y], i) => (
-                <View key={i} style={[styles.dot, { left: x * STRIP_W - 1.5, top: y * STRIP_H - 1.5 }]} />
+            : SPOTS.map(([x, y], i) => (
+                <TwinkleStar key={i} x={x} y={y} size={i % 3 === 0 ? 9 : 6} color="rgba(255,255,255,0.55)" delay={i * 300} />
               ))}
         </View>
         <View style={{ flex: 1 }}>

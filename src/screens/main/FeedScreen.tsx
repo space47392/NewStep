@@ -1519,11 +1519,9 @@ const styles = StyleSheet.create({
   },
   filterChip: {
     borderRadius: radius.full,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.cardBg,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
+    backgroundColor: colors.hairline,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
   },
   filterChipOn: {
     backgroundColor: colors.textDark,
@@ -1531,7 +1529,7 @@ const styles = StyleSheet.create({
   },
   filterText: {
     fontFamily: fontFamily.medium,
-    fontSize: fontSize.sm,
+    fontSize: fontSize.xs + 1,
     color: colors.textMid,
   },
   filterTextOn: {

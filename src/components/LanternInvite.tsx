@@ -43,14 +43,14 @@ export default function LanternInvite({ onWrite, onOpen }: Props) {
       </TouchableOpacity>
       <TouchableOpacity style={styles.fakeInput} onPress={onWrite} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="Write a lantern">
         <Text style={styles.fakeInputText}>I've been feeling…</Text>
-        <Ionicons name="flame" size={16} color={colors.warm.honey} />
+        <Ionicons name="flame" size={16} color={colors.primary} />
       </TouchableOpacity>
       {waiting > 0 ? (
         <TouchableOpacity style={styles.waiting} onPress={onOpen} activeOpacity={0.8}>
           <Text style={styles.waitingText}>
             🏮 {waiting} {waiting === 1 ? 'classmate could' : 'classmates could'} use some warmth
           </Text>
-          <Ionicons name="chevron-forward" size={14} color={colors.warm.honey} />
+          <Ionicons name="chevron-forward" size={14} color={colors.primaryDark} />
         </TouchableOpacity>
       ) : null}
     </View>
@@ -59,10 +59,10 @@ export default function LanternInvite({ onWrite, onOpen }: Props) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#2A1D2B',
+    backgroundColor: colors.primaryLight,
     borderRadius: 22,
     borderWidth: 1,
-    borderColor: 'rgba(245,194,122,0.22)',
+    borderColor: '#F6DFB4',
     padding: spacing.md,
     gap: spacing.sm + 2,
     marginBottom: spacing.lg,
@@ -75,17 +75,17 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.md,
-    color: colors.warm.cream,
+    color: colors.textDark,
   },
   sub: {
     fontFamily: fontFamily.regular,
     fontSize: fontSize.sm,
-    color: colors.warm.creamMuted,
+    color: colors.textMid,
   },
   fakeInput: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,236,214,0.08)',
+    backgroundColor: colors.cardBg,
     borderRadius: 16,
     paddingHorizontal: spacing.md,
     paddingVertical: 12,
@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: fontFamily.regular,
     fontSize: fontSize.md,
-    color: colors.warm.creamFaint,
+    color: colors.textLight,
   },
   waiting: {
     flexDirection: 'row',
@@ -105,6 +105,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: fontFamily.medium,
     fontSize: fontSize.sm,
-    color: colors.warm.honey,
+    color: colors.primaryDark,
   },
 });

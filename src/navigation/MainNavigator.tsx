@@ -35,7 +35,7 @@ export default function MainNavigator() {
       <Stack.Screen name="UserProfile" component={UserProfileScreen} />
       <Stack.Screen name="School" component={SchoolScreen} />
       <Stack.Screen name="Notifications" component={NotificationsScreen} />
-      <Stack.Screen name="SchoolSky" component={SchoolSkyScreen} options={{ contentStyle: NO_TOP_INSET }} />
+      <Stack.Screen name="SchoolSky" component={SchoolSkyScreen} options={{ contentStyle: NO_TOP_INSET, animation: 'fade' }} />
       <Stack.Screen name="SkyDiary" component={SkyDiaryScreen} options={{ contentStyle: NO_TOP_INSET }} />
       <Stack.Screen name="Lanterns" component={LanternsScreen} options={{ contentStyle: NO_TOP_INSET }} />
       <Stack.Screen name="LanternDetail" component={LanternDetailScreen} options={{ contentStyle: NO_TOP_INSET }} />

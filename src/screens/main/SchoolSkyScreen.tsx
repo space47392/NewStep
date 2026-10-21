@@ -387,7 +387,20 @@ export default function SchoolSkyScreen() {
   const [skySize, setSkySize] = useState({ width: 0, height: 0 });
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [composerOpen, setComposerOpen] = useState(!!route.params?.openComposer);
+  // Opened with "add my star": the composer rises once the sky has.
+  const [composerOpen, setComposerOpen] = useState(false);
+  useEffect(() => {
+    if (!route.params?.openComposer) return;
+    const t = setTimeout(() => setComposerOpen(true), 900);
+    return () => clearTimeout(t);
+  }, [route.params?.openComposer]);
+
+  // Entering: the screen is dark for a breath, then the sky lifts into view —
+  // like looking up.
+  const lookUp = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(lookUp, { toValue: 1, duration: 1100, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+  }, [lookUp]);
   const [mood, setMood] = useState<SkyMood>('happy');
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
@@ -725,13 +738,20 @@ export default function SchoolSkyScreen() {
   return (
     <View style={styles.screen}>
       <StatusBar style="light" />
-      <SkyScene
-        phase={phase}
-        painted={previewLook || todaysLook ? null : painted}
-        tilt={tilt}
-        things={shownThings}
-        described={previewLook ?? todaysLook}
-      />
+      <Animated.View
+        style={[
+          StyleSheet.absoluteFill,
+          { transform: [{ translateY: lookUp.interpolate({ inputRange: [0, 1], outputRange: [90, 0] }) }, { scale: lookUp.interpolate({ inputRange: [0, 1], outputRange: [1.08, 1] }) }] },
+        ]}
+      >
+        <SkyScene
+          phase={phase}
+          painted={previewLook || todaysLook ? null : painted}
+          tilt={tilt}
+          things={shownThings}
+          described={previewLook ?? todaysLook}
+        />
+      </Animated.View>
       <SkyWeather kind={weather} />
 
       <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
@@ -1295,6 +1315,10 @@ export default function SchoolSkyScreen() {
         </View>
       </Modal>
       <ReportSheet target={reportTarget} reporterId={user?.id} onClose={() => setReportTarget(null)} />
+      <Animated.View
+        pointerEvents="none"
+        style={[StyleSheet.absoluteFill, { backgroundColor: '#07060C', opacity: lookUp.interpolate({ inputRange: [0, 0.55, 1], outputRange: [1, 0.25, 0] }) }]}
+      />
       {sheet}
     </View>
   );

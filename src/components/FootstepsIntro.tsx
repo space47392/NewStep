@@ -12,10 +12,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
-import Svg, { Defs, LinearGradient, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
-import { colors, spacing, fontSize, fontFamily } from '../constants/theme';
-
-const WINDOW_SIZE = 76;
+import Svg, { Defs, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
+import { colors, light, spacing, fontSize, fontFamily } from '../constants/theme';
 
 function WarmGlow() {
   return (
@@ -32,65 +30,35 @@ function WarmGlow() {
   );
 }
 
-// An open arch of light in the dark — the window/door to the new day — with
-// its light spilling down onto the path. No frame or panes: just light, so it
-// sits in the scene instead of on top of it.
-function LitWindow({ size }: { size: number }) {
-  return (
-    <Svg width={size} height={size * 1.6} viewBox="0 0 24 38.4" pointerEvents="none">
-      <Defs>
-        <LinearGradient id="archLight" x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0" stopColor="#FFF3D6" stopOpacity={0.95} />
-          <Stop offset="0.7" stopColor="#FFC877" stopOpacity={0.9} />
-          <Stop offset="1" stopColor="#F2A050" stopOpacity={0.85} />
-        </LinearGradient>
-        <LinearGradient id="spill" x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0" stopColor="#F5B060" stopOpacity={0.35} />
-          <Stop offset="1" stopColor="#F5B060" stopOpacity={0} />
-        </LinearGradient>
-      </Defs>
-      <Path d="M6.5 22 V11 A5.5 5.5 0 0 1 17.5 11 V22 Z" fill="url(#archLight)" />
-      <Path d="M6.5 22 H17.5 L23 38.4 H1 Z" fill="url(#spill)" />
-    </Svg>
-  );
-}
-
-// The soft light around the window, brightening as the footsteps arrive.
-function WindowLight({ size }: { size: number }) {
-  return (
-    <Svg width={size} height={size} pointerEvents="none">
-      <Defs>
-        <RadialGradient id="windowLight" cx="50%" cy="55%" r="50%">
-          <Stop offset="0" stopColor="#FFC56A" stopOpacity={0.3} />
-          <Stop offset="0.5" stopColor="#F5A84E" stopOpacity={0.06} />
-          <Stop offset="1" stopColor="#F5BC5C" stopOpacity={0} />
-        </RadialGradient>
-      </Defs>
-      <Rect x="0" y="0" width={size} height={size} fill="url(#windowLight)" />
-    </Svg>
-  );
-}
+const SPARKLE = 'M12 0 C13 8 16 11 24 12 C16 13 13 16 12 24 C11 16 8 13 0 12 C8 11 11 8 12 0 Z';
 
 type Props = {
   onDone: () => void;
 };
 
-const STEPS = 6;
+const STEPS = 7;
 const STEP_MS = 380;
 // How many steps stay visible behind the newest one before fading out.
 const TRAIL = 3;
 const SWIPE_DISTANCE = 80;
+// Little stars thrown out when the light bursts.
+const SPARKS = 12;
+const ORB = 22;
 
 // Shown once per app launch in front of the login screen (see LoginScreen):
-// golden footprints walk up through the dark towards NewStep's window, whose
-// light grows as they arrive. A swipe sends the page away — the night lifts —
-// and the bright login world is underneath.
+// golden footsteps walk up through the dark. Dragging up gathers a small
+// light where they end; letting go bursts it outwards — a golden ring at its
+// edge, stars flying — until the whole screen is the warm bright colour of
+// the login page underneath, which then simply takes over.
 export default function FootstepsIntro({ onDone }: Props) {
   const { width, height } = useWindowDimensions();
   const walk = useRef(new Animated.Value(0)).current;
-  const slide = useRef(new Animated.Value(0)).current;
   const hint = useRef(new Animated.Value(0)).current;
   const bob = useRef(new Animated.Value(0)).current;
+  // 0..1 while dragging up: the light gathering.
+  const charge = useRef(new Animated.Value(0)).current;
+  // 0..1 once released: the light filling the screen.
+  const burst = useRef(new Animated.Value(0)).current;
   const loopRef = useRef<Animated.CompositeAnimation | null>(null);
   const leavingRef = useRef(false);
   const [reduceMotion, setReduceMotion] = useState(false);
@@ -124,32 +92,19 @@ export default function FootstepsIntro({ onDone }: Props) {
     return () => loopRef.current?.stop();
   }, [walk, hint, bob]);
 
-  const leave = (direction: 1 | -1) => {
+  const leave = () => {
     if (leavingRef.current) return;
     leavingRef.current = true;
     loopRef.current?.stop();
-    // Keep walking — faster — while the page slides away.
-    walk.stopAnimation((current) => {
-      // Mid-walk: carry on from where the feet are. Already past the top
-      // (trail fading): start a fresh walk so there's something to see.
-      const from = current < STEPS - 1 ? current : 0;
-      walk.setValue(from);
-      Animated.parallel([
-        Animated.timing(walk, {
-          toValue: STEPS + TRAIL,
-          duration: Math.max(300, (STEPS + TRAIL - from) * 75),
-          easing: Easing.linear,
-          useNativeDriver: true,
-        }),
-        Animated.timing(slide, {
-          toValue: direction * height,
-          duration: 650,
-          delay: 150,
-          easing: Easing.in(Easing.cubic),
-          useNativeDriver: true,
-        }),
-      ]).start(() => onDone());
-    });
+    Animated.sequence([
+      Animated.timing(charge, { toValue: 1, duration: 140, useNativeDriver: true }),
+      Animated.timing(burst, {
+        toValue: 1,
+        duration: 900,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start(() => onDone());
   };
 
   const panResponder = useRef(
@@ -157,37 +112,35 @@ export default function FootstepsIntro({ onDone }: Props) {
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 8,
       onPanResponderMove: (_, g) => {
-        if (!leavingRef.current) slide.setValue(g.dy * 0.6);
+        if (!leavingRef.current) charge.setValue(Math.min(1, Math.max(0, -g.dy) / (SWIPE_DISTANCE * 1.6)));
       },
       onPanResponderRelease: (_, g) => {
-        if (g.dy < -SWIPE_DISTANCE || g.vy < -0.5) {
-          leave(-1);
-        } else if (g.dy > SWIPE_DISTANCE || g.vy > 0.5) {
-          leave(1);
+        if (g.dy < -SWIPE_DISTANCE || g.vy < -0.5 || g.dy > SWIPE_DISTANCE || g.vy > 0.5) {
+          leave();
         } else {
-          Animated.spring(slide, { toValue: 0, useNativeDriver: true }).start();
+          Animated.spring(charge, { toValue: 0, useNativeDriver: true }).start();
         }
       },
     })
   ).current;
 
-  // Steps climb from near the bottom up to just under the window,
-  // alternating left and right foot with a gentle sway so the path feels
-  // walked, not ruled.
-  const windowTop = height * 0.14;
-  const top = windowTop + WINDOW_SIZE * 1.2;
+  // Steps climb from near the bottom to the light, alternating left and
+  // right foot.
+  const top = height * 0.26;
   const bottom = height * 0.8;
-  // The window glows brighter the closer the footsteps get.
-  const glow = walk.interpolate({ inputRange: [0, STEPS - 1, STEPS + TRAIL + 1], outputRange: [0.25, 1, 0.25], extrapolate: 'clamp' });
-  const glowSize = WINDOW_SIZE * 2.2;
   const gap = (bottom - top) / (STEPS - 1);
   const centerX = width / 2;
+  // Where the light gathers and bursts from: just above the last step.
+  const originX = centerX;
+  const originY = top - 34;
+  // Big enough to cover the screen from the origin.
+  const cover = 2 * Math.hypot(Math.max(originX, width - originX), Math.max(originY, height - originY)) + 40;
 
   if (reduceMotion) {
     return (
       <View style={[styles.container, StyleSheet.absoluteFill]}>
         <StatusBar style="light" />
-        <LitWindow size={WINDOW_SIZE} />
+        <Ionicons name="footsteps" size={48} color={colors.primary} />
         <TouchableOpacity style={styles.staticButton} onPress={onDone} accessibilityRole="button">
           <Text style={styles.staticButtonText}>Take your first step</Text>
         </TouchableOpacity>
@@ -195,29 +148,29 @@ export default function FootstepsIntro({ onDone }: Props) {
     );
   }
 
+  const fill = burst.interpolate({ inputRange: [0, 1], outputRange: [0.01, 1] });
+  const at = (size: number) => ({
+    position: 'absolute' as const,
+    left: originX - size / 2,
+    top: originY - size / 2,
+    width: size,
+    height: size,
+    borderRadius: size / 2,
+  });
+
   return (
-    <Animated.View
-      style={[styles.container, StyleSheet.absoluteFill, { transform: [{ translateY: slide }] }]}
+    <View
+      style={[styles.container, StyleSheet.absoluteFill]}
       {...panResponder.panHandlers}
       accessible
       accessibilityRole="button"
       accessibilityLabel="Welcome to NewStep. Double tap to continue."
-      onAccessibilityTap={() => leave(-1)}
+      onAccessibilityTap={leave}
     >
       <StatusBar style="light" />
       <WarmGlow />
-      <Animated.View
-        pointerEvents="none"
-        style={{ position: 'absolute', top: windowTop + WINDOW_SIZE * 0.45 - glowSize / 2, left: width / 2 - glowSize / 2, opacity: glow }}
-      >
-        <WindowLight size={glowSize} />
-      </Animated.View>
-      <View pointerEvents="none" style={{ position: 'absolute', top: windowTop, left: width / 2 - WINDOW_SIZE / 2 }}>
-        <LitWindow size={WINDOW_SIZE} />
-      </View>
       {Array.from({ length: STEPS }, (_, i) => {
         const isLeft = i % 2 === 0;
-        const sway = 0;
         // Each step lights up as the walk reaches it, then fades a few steps
         // later.
         const opacity = walk.interpolate({
@@ -236,7 +189,7 @@ export default function FootstepsIntro({ onDone }: Props) {
             style={[
               styles.foot,
               {
-                left: centerX + sway + (isLeft ? -22 : 4),
+                left: centerX + (isLeft ? -22 : 4),
                 top: bottom - i * gap,
                 opacity,
                 transform: [{ scale }, { rotate: isLeft ? '-8deg' : '8deg' }, { scaleX: isLeft ? -1 : 1 }],
@@ -248,11 +201,84 @@ export default function FootstepsIntro({ onDone }: Props) {
         );
       })}
 
+      {/* The light gathering while you drag. */}
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          at(ORB * 8),
+          {
+            opacity: charge,
+            transform: [{ scale: charge.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) }],
+          },
+        ]}
+      >
+        <Svg width={ORB * 8} height={ORB * 8}>
+          <Defs>
+            <RadialGradient id="gather" cx="50%" cy="50%" r="50%">
+              <Stop offset="0" stopColor="#FFD27A" stopOpacity={0.55} />
+              <Stop offset="0.45" stopColor="#F5A84E" stopOpacity={0.18} />
+              <Stop offset="1" stopColor="#F5A84E" stopOpacity={0} />
+            </RadialGradient>
+          </Defs>
+          <Rect x="0" y="0" width={ORB * 8} height={ORB * 8} fill="url(#gather)" />
+        </Svg>
+      </Animated.View>
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          at(ORB),
+          styles.orb,
+          { opacity: charge, transform: [{ scale: charge.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1.4] }) }] },
+        ]}
+      />
+
+      {/* The burst: a golden ring running just ahead of the light. */}
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          at(cover),
+          styles.ring,
+          {
+            opacity: burst.interpolate({ inputRange: [0, 0.15, 0.85, 1], outputRange: [0, 1, 0.6, 0] }),
+            transform: [{ scale: burst.interpolate({ inputRange: [0, 1], outputRange: [0.02, 1.06] }) }],
+          },
+        ]}
+      />
+      <Animated.View pointerEvents="none" style={[at(cover), styles.flood, { transform: [{ scale: fill }] }]} />
+
+      {/* Stars thrown outwards. */}
+      {Array.from({ length: SPARKS }, (_, i) => {
+        const angle = (i / SPARKS) * Math.PI * 2 + (i % 2) * 0.2;
+        const dist = (i % 3 === 0 ? 0.42 : 0.3) * Math.min(width, height);
+        const size = i % 3 === 0 ? 16 : 10;
+        return (
+          <Animated.View
+            key={`s${i}`}
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              left: originX - size / 2,
+              top: originY - size / 2,
+              opacity: burst.interpolate({ inputRange: [0, 0.1, 0.6, 0.9], outputRange: [0, 1, 0.9, 0] }),
+              transform: [
+                { translateX: burst.interpolate({ inputRange: [0, 1], outputRange: [0, Math.cos(angle) * dist] }) },
+                { translateY: burst.interpolate({ inputRange: [0, 1], outputRange: [0, Math.sin(angle) * dist] }) },
+                { rotate: burst.interpolate({ inputRange: [0, 1], outputRange: ['0deg', `${i % 2 ? 90 : -90}deg`] }) },
+              ],
+            }}
+          >
+            <Svg width={size} height={size} viewBox="0 0 24 24">
+              <Path d={SPARKLE} fill={i % 3 === 0 ? '#FFD27A' : '#F5A84E'} />
+            </Svg>
+          </Animated.View>
+        );
+      })}
+
       <Animated.View
         style={[
           styles.hint,
           {
-            opacity: hint,
+            opacity: Animated.multiply(hint, charge.interpolate({ inputRange: [0, 0.6], outputRange: [1, 0], extrapolate: 'clamp' })),
             transform: [{ translateY: bob.interpolate({ inputRange: [0, 1], outputRange: [0, -8] }) }],
           },
         ]}
@@ -261,7 +287,7 @@ export default function FootstepsIntro({ onDone }: Props) {
         <Ionicons name="chevron-up" size={18} color={colors.textLight} />
         <Text style={styles.hintText}>Swipe up to take your first step</Text>
       </Animated.View>
-    </Animated.View>
+    </View>
   );
 }
 
@@ -289,6 +315,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     zIndex: 10,
     elevation: 10,
+    overflow: 'hidden',
   },
   foot: {
     position: 'absolute',
@@ -334,6 +361,16 @@ const styles = StyleSheet.create({
     marginTop: 2,
     borderRadius: 6,
     backgroundColor: colors.primary,
+  },
+  orb: {
+    backgroundColor: '#FFF1C9',
+  },
+  ring: {
+    backgroundColor: '#FFC56A',
+  },
+  // The same colour as the login page, so the hand-over is seamless.
+  flood: {
+    backgroundColor: light.background,
   },
   hint: {
     position: 'absolute',

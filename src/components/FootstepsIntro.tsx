@@ -12,20 +12,39 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
-import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
+import Svg, { Defs, LinearGradient, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { colors, spacing, fontSize, fontFamily } from '../constants/theme';
-import AppLogo from './AppLogo';
 
 const WINDOW_SIZE = 92;
 
-// The soft light behind the window, brightening as the footsteps arrive.
+// NewStep's arched window as you'd see it at night from down the path: no
+// frame, just warm light pouring out of the opening, split by thin dark
+// mullions. (The flat logo looked pasted onto this moody scene.)
+function LitWindow({ size }: { size: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" pointerEvents="none">
+      <Defs>
+        <LinearGradient id="litWindow" x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor="#FFF0C8" />
+          <Stop offset="0.6" stopColor="#FFCB7A" />
+          <Stop offset="1" stopColor="#F29C4A" />
+        </LinearGradient>
+      </Defs>
+      <Path d="M5 22 V10.6 A7 7 0 0 1 19 10.6 V22 Z" fill="url(#litWindow)" />
+      <Path d="M12 3.4 V22 M5 13.4 H19" stroke={colors.background} strokeWidth={0.9} />
+      <Path d="M3.6 22.2 H20.4" stroke="#F29C4A" strokeWidth={0.8} strokeLinecap="round" opacity={0.6} />
+    </Svg>
+  );
+}
+
+// The soft light around the window, brightening as the footsteps arrive.
 function WindowLight({ size }: { size: number }) {
   return (
     <Svg width={size} height={size} pointerEvents="none">
       <Defs>
         <RadialGradient id="windowLight" cx="50%" cy="55%" r="50%">
-          <Stop offset="0" stopColor="#FFC56A" stopOpacity={0.55} />
-          <Stop offset="0.45" stopColor="#F5BC5C" stopOpacity={0.18} />
+          <Stop offset="0" stopColor="#FFC56A" stopOpacity={0.4} />
+          <Stop offset="0.4" stopColor="#F5A84E" stopOpacity={0.12} />
           <Stop offset="1" stopColor="#F5BC5C" stopOpacity={0} />
         </RadialGradient>
       </Defs>
@@ -165,7 +184,7 @@ export default function FootstepsIntro({ onDone }: Props) {
     return (
       <View style={[styles.container, StyleSheet.absoluteFill]}>
         <StatusBar style="light" />
-        <AppLogo variant="mark" size={WINDOW_SIZE} />
+        <LitWindow size={WINDOW_SIZE} />
         <TouchableOpacity style={styles.staticButton} onPress={onDone} accessibilityRole="button">
           <Text style={styles.staticButtonText}>Take your first step</Text>
         </TouchableOpacity>
@@ -191,7 +210,7 @@ export default function FootstepsIntro({ onDone }: Props) {
         <WindowLight size={glowSize} />
       </Animated.View>
       <View pointerEvents="none" style={{ position: 'absolute', top: windowTop, left: width / 2 - WINDOW_SIZE / 2 }}>
-        <AppLogo variant="mark" size={WINDOW_SIZE} />
+        <LitWindow size={WINDOW_SIZE} />
       </View>
       {Array.from({ length: STEPS }, (_, i) => {
         const isLeft = i % 2 === 0;

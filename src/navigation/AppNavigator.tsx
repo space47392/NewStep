@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Alert, Linking } from 'react-native';
 import { NavigationContainer, DarkTheme } from '@react-navigation/native';
-import { colors } from '../constants/theme';
+import { colors, light } from '../constants/theme';
 
 // Native backgrounds (screen transitions, overscroll) match the soft-night
 // palette so nothing flashes white between screens.
@@ -55,7 +55,8 @@ function linkParams(url: string): Record<string, string> {
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 
 function AuthNavigator() {
-  const contentStyle = useScreenContentStyle();
+  // The sign-in screens are the bright side (theme.light).
+  const contentStyle = { ...useScreenContentStyle(), backgroundColor: light.background };
   return (
     <AuthStack.Navigator screenOptions={{ headerShown: false, contentStyle }}>
       {/* Vertically centered, and its intro paints behind the status bar. */}

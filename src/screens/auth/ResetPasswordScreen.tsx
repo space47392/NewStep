@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Alert } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -7,7 +8,7 @@ import IconInput from '../../components/IconInput';
 import PrimaryButton from '../../components/PrimaryButton';
 import FadeInView from '../../components/FadeInView';
 import NSIcon from '../../components/NSIcon';
-import { colors, spacing, radius, fontSize, fontFamily } from '../../constants/theme';
+import { colors, spacing, radius, fontSize, fontFamily, light } from '../../constants/theme';
 
 const MIN_PASSWORD_LENGTH = 6;
 
@@ -58,6 +59,7 @@ export default function ResetPasswordScreen({ onDone }: Props) {
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <StatusBar style="dark" />
       <View style={styles.inner}>
         <FadeInView style={styles.header}>
           <View style={styles.logoBadge}>
@@ -75,7 +77,7 @@ export default function ResetPasswordScreen({ onDone }: Props) {
 
         <FadeInView style={styles.form} delay={80}>
           <Text style={styles.label}>New password</Text>
-          <IconInput
+          <IconInput tone="light"
             icon="lock-closed-outline"
             placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
             value={password}
@@ -84,7 +86,7 @@ export default function ResetPasswordScreen({ onDone }: Props) {
             autoComplete="new-password"
           />
           <Text style={styles.label}>Type it again</Text>
-          <IconInput
+          <IconInput tone="light"
             icon="lock-closed-outline"
             placeholder="Same password"
             value={confirm}
@@ -111,7 +113,7 @@ export default function ResetPasswordScreen({ onDone }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: light.background,
   },
   inner: {
     flex: 1,
@@ -126,7 +128,7 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: radius.full,
-    backgroundColor: colors.warningLight,
+    backgroundColor: light.tint,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: spacing.md,
@@ -134,19 +136,19 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: fontFamily.extrabold,
     fontSize: fontSize.xxl,
-    color: colors.textDark,
+    color: light.text,
     textAlign: 'center',
   },
   tagline: {
     fontFamily: fontFamily.regular,
     fontSize: fontSize.sm,
-    color: colors.textMid,
+    color: light.textMid,
     textAlign: 'center',
     marginTop: spacing.xs,
   },
   email: {
     fontFamily: fontFamily.semibold,
-    color: colors.textDark,
+    color: light.text,
   },
   form: {
     gap: spacing.sm,
@@ -154,7 +156,7 @@ const styles = StyleSheet.create({
   label: {
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.sm,
-    color: colors.textDark,
+    color: light.text,
     marginTop: spacing.sm,
   },
   button: {
@@ -167,6 +169,6 @@ const styles = StyleSheet.create({
   cancelText: {
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.sm,
-    color: colors.textMid,
+    color: light.textMid,
   },
 });

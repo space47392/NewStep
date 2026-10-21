@@ -140,6 +140,10 @@ export const light = {
   textLight: '#8E8278',
   border: '#EADFD2',
   hairline: '#F1E8DC',
+  // Honey is too pale for text on cream; links use a deeper amber.
+  link: '#A8620F',
+  // Soft honey tint behind icons and notes.
+  tint: '#FFF0D4',
 };
 
 // The warm accent gradient (gold to coral), for the few special things:

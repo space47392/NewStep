@@ -1,6 +1,6 @@
 import { View, Text, StyleSheet, StyleProp, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, radius, fontFamily } from '../constants/theme';
+import { colors, light, spacing, radius, fontFamily } from '../constants/theme';
 
 // The real first-run order (see AppNavigator): sign up → username → school
 // → interests → "are you new?" + welcome. Footprints, not the help tracker's
@@ -11,12 +11,15 @@ type Props = {
   // Index into STEPS of the screen showing this.
   current: number;
   style?: StyleProp<ViewStyle>;
+  // 'light' on the bright sign-up screen.
+  tone?: 'dark' | 'light';
 };
 
-export default function OnboardingSteps({ current, style }: Props) {
+export default function OnboardingSteps({ current, style, tone = 'dark' }: Props) {
+  const isLight = tone === 'light';
   return (
     <View
-      style={[styles.row, style]}
+      style={[styles.row, isLight && styles.rowLight, style]}
       accessible
       accessibilityLabel={`Step ${current + 1} of ${STEPS.length}: ${STEPS[current]}`}
     >
@@ -28,10 +31,19 @@ export default function OnboardingSteps({ current, style }: Props) {
             <Ionicons
               name="footsteps"
               size={now ? 20 : 16}
-              color={now || done ? colors.primary : colors.tabInactive}
+              color={now || done ? colors.primary : isLight ? light.border : colors.tabInactive}
               style={{ opacity: done ? 0.45 : 1, transform: [{ rotate: i % 2 === 0 ? '-12deg' : '12deg' }] }}
             />
-            <Text style={[styles.label, now && styles.labelNow, done && styles.labelDone]} numberOfLines={1}>
+            <Text
+              style={[
+                styles.label,
+                isLight && styles.labelLight,
+                now && styles.labelNow,
+                now && isLight && styles.labelNowLight,
+                done && (isLight ? styles.labelDoneLight : styles.labelDone),
+              ]}
+              numberOfLines={1}
+            >
               {step}
             </Text>
           </View>
@@ -49,6 +61,11 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     paddingVertical: spacing.sm + 2,
     paddingHorizontal: spacing.xs,
+  },
+  rowLight: {
+    backgroundColor: light.surface,
+    borderWidth: 1,
+    borderColor: light.hairline,
   },
   step: {
     flex: 1,
@@ -68,5 +85,14 @@ const styles = StyleSheet.create({
   },
   labelDone: {
     color: colors.textMid,
+  },
+  labelLight: {
+    color: light.textLight,
+  },
+  labelNowLight: {
+    color: light.link,
+  },
+  labelDoneLight: {
+    color: light.textMid,
   },
 });

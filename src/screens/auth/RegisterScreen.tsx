@@ -9,6 +9,7 @@ import {
   Alert,
   ScrollView,
 } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
@@ -17,7 +18,7 @@ import PrimaryButton from '../../components/PrimaryButton';
 import OnboardingSteps from '../../components/OnboardingSteps';
 import FadeInView from '../../components/FadeInView';
 import AppLogo from '../../components/AppLogo';
-import { colors, spacing, radius, fontSize, fontFamily } from '../../constants/theme';
+import { colors, spacing, radius, fontSize, fontFamily, light } from '../../constants/theme';
 import { AuthStackParamList } from '../../types';
 
 type Props = {
@@ -85,9 +86,10 @@ export default function RegisterScreen({ navigation }: Props) {
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <StatusBar style="dark" />
       <ScrollView contentContainerStyle={styles.inner} keyboardShouldPersistTaps="handled">
         <FadeInView style={styles.header}>
-          <AppLogo size={76} variant="mark" style={styles.logoBadge} />
+          <AppLogo size={76} variant="mark" tone="light" style={styles.logoBadge} />
           <Text style={styles.logo}>NewStep</Text>
           <Text style={styles.tagline}>
             Connect with your school. Discover people, what's happening, and ways to help.
@@ -95,12 +97,12 @@ export default function RegisterScreen({ navigation }: Props) {
           {/* A peek at the next few minutes, drawn as footprints — you're on
               the first one. Footprints, not the help tracker's dots, which
               stay reserved for help requests. */}
-          <OnboardingSteps current={0} style={styles.journey} />
+          <OnboardingSteps current={0} tone="light" style={styles.journey} />
         </FadeInView>
 
         <FadeInView style={styles.form} delay={100}>
           <Text style={styles.label}>Full Name</Text>
-          <IconInput
+          <IconInput tone="light"
             icon="person-outline"
             placeholder="Alex Johnson"
             value={fullName}
@@ -110,7 +112,7 @@ export default function RegisterScreen({ navigation }: Props) {
           />
 
           <Text style={styles.label}>Email</Text>
-          <IconInput
+          <IconInput tone="light"
             icon="mail-outline"
             placeholder="you@school.edu"
             value={email}
@@ -121,7 +123,7 @@ export default function RegisterScreen({ navigation }: Props) {
           />
 
           <Text style={styles.label}>Password</Text>
-          <IconInput
+          <IconInput tone="light"
             icon="lock-closed-outline"
             placeholder="At least 6 characters"
             value={password}
@@ -131,7 +133,7 @@ export default function RegisterScreen({ navigation }: Props) {
           />
 
           <Text style={styles.label}>Confirm Password</Text>
-          <IconInput
+          <IconInput tone="light"
             icon="lock-closed-outline"
             placeholder="Type it again"
             value={confirmPassword}
@@ -162,7 +164,7 @@ export default function RegisterScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: light.background,
   },
   inner: {
     flexGrow: 1,
@@ -182,12 +184,12 @@ const styles = StyleSheet.create({
   logo: {
     fontFamily: fontFamily.brand,
     fontSize: fontSize.xxxl,
-    color: colors.primary,
+    color: light.text,
   },
   tagline: {
     fontFamily: fontFamily.regular,
     fontSize: fontSize.md,
-    color: colors.textMid,
+    color: light.textMid,
     textAlign: 'center',
     marginTop: spacing.xs,
   },
@@ -200,7 +202,7 @@ const styles = StyleSheet.create({
   label: {
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.sm,
-    color: colors.textDark,
+    color: light.text,
     marginTop: spacing.sm,
   },
   matchHint: {
@@ -209,7 +211,7 @@ const styles = StyleSheet.create({
     marginTop: -2,
   },
   matchOk: {
-    color: colors.accentDark,
+    color: colors.successSolid,
   },
   matchBad: {
     color: colors.error,
@@ -224,12 +226,12 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontFamily: fontFamily.regular,
-    color: colors.textMid,
+    color: light.textMid,
     fontSize: fontSize.sm,
   },
   footerLink: {
     fontFamily: fontFamily.bold,
-    color: colors.primary,
+    color: light.link,
     fontSize: fontSize.sm,
   },
 });

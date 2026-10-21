@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Alert } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
@@ -7,7 +8,7 @@ import IconInput from '../../components/IconInput';
 import PrimaryButton from '../../components/PrimaryButton';
 import FadeInView from '../../components/FadeInView';
 import NSIcon from '../../components/NSIcon';
-import { colors, spacing, radius, fontSize, fontFamily } from '../../constants/theme';
+import { colors, spacing, radius, fontSize, fontFamily, light } from '../../constants/theme';
 import { AuthStackParamList } from '../../types';
 
 type Props = {
@@ -52,6 +53,7 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <StatusBar style="dark" />
       <View style={styles.inner}>
         <FadeInView style={styles.header}>
           <View style={styles.logoBadge}>
@@ -68,7 +70,7 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
         {!sent && (
           <FadeInView style={styles.form} delay={100}>
             <Text style={styles.label}>Email</Text>
-            <IconInput
+            <IconInput tone="light"
               icon="mail-outline"
               placeholder="you@school.edu"
               value={email}
@@ -95,7 +97,7 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: light.background,
   },
   inner: {
     flex: 1,
@@ -110,7 +112,7 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: radius.full,
-    backgroundColor: colors.primaryLight,
+    backgroundColor: light.tint,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: spacing.md,
@@ -118,13 +120,13 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: fontFamily.bold,
     fontSize: fontSize.xl,
-    color: colors.textDark,
+    color: light.text,
     textAlign: 'center',
   },
   tagline: {
     fontFamily: fontFamily.regular,
     fontSize: fontSize.sm,
-    color: colors.textMid,
+    color: light.textMid,
     textAlign: 'center',
     marginTop: spacing.sm,
     lineHeight: 20,
@@ -135,7 +137,7 @@ const styles = StyleSheet.create({
   label: {
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.sm,
-    color: colors.textDark,
+    color: light.text,
     marginTop: spacing.sm,
   },
   button: {
@@ -148,7 +150,7 @@ const styles = StyleSheet.create({
   },
   footerLink: {
     fontFamily: fontFamily.bold,
-    color: colors.primary,
+    color: light.link,
     fontSize: fontSize.sm,
   },
 });

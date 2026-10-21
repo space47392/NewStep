@@ -14,6 +14,25 @@ import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { colors, spacing, fontSize, fontFamily } from '../constants/theme';
+import AppLogo from './AppLogo';
+
+const WINDOW_SIZE = 92;
+
+// The soft light behind the window, brightening as the footsteps arrive.
+function WindowLight({ size }: { size: number }) {
+  return (
+    <Svg width={size} height={size} pointerEvents="none">
+      <Defs>
+        <RadialGradient id="windowLight" cx="50%" cy="55%" r="50%">
+          <Stop offset="0" stopColor="#FFC56A" stopOpacity={0.55} />
+          <Stop offset="0.45" stopColor="#F5BC5C" stopOpacity={0.18} />
+          <Stop offset="1" stopColor="#F5BC5C" stopOpacity={0} />
+        </RadialGradient>
+      </Defs>
+      <Rect x="0" y="0" width={size} height={size} fill="url(#windowLight)" />
+    </Svg>
+  );
+}
 
 function WarmGlow() {
   return (
@@ -34,16 +53,16 @@ type Props = {
   onDone: () => void;
 };
 
-const STEPS = 9;
+const STEPS = 7;
 const STEP_MS = 380;
 // How many steps stay visible behind the newest one before fading out.
 const TRAIL = 3;
 const SWIPE_DISTANCE = 80;
 
 // Shown once per app launch in front of the login screen (see LoginScreen):
-// only footprints walking up the screen, until a swipe up or down sends the
-// whole page off in that direction — footprints still walking — revealing
-// the login underneath.
+// golden footprints walk up through the dark towards NewStep's window, whose
+// light grows as they arrive. A swipe sends the page away — the night lifts —
+// and the bright login world is underneath.
 export default function FootstepsIntro({ onDone }: Props) {
   const { width, height } = useWindowDimensions();
   const walk = useRef(new Animated.Value(0)).current;
@@ -130,10 +149,15 @@ export default function FootstepsIntro({ onDone }: Props) {
     })
   ).current;
 
-  // Steps climb from near the bottom to near the top, alternating left and
-  // right foot with a gentle sway so the path feels walked, not ruled.
-  const top = height * 0.12;
-  const bottom = height * 0.78;
+  // Steps climb from near the bottom up to just under the window,
+  // alternating left and right foot with a gentle sway so the path feels
+  // walked, not ruled.
+  const windowTop = height * 0.14;
+  const top = windowTop + WINDOW_SIZE + 36;
+  const bottom = height * 0.8;
+  // The window glows brighter the closer the footsteps get.
+  const glow = walk.interpolate({ inputRange: [0, STEPS - 1, STEPS + TRAIL + 1], outputRange: [0.25, 1, 0.25], extrapolate: 'clamp' });
+  const glowSize = WINDOW_SIZE * 3;
   const gap = (bottom - top) / (STEPS - 1);
   const centerX = width / 2;
 
@@ -141,7 +165,7 @@ export default function FootstepsIntro({ onDone }: Props) {
     return (
       <View style={[styles.container, StyleSheet.absoluteFill]}>
         <StatusBar style="light" />
-        <Ionicons name="footsteps" size={48} color={colors.primary} />
+        <AppLogo variant="mark" size={WINDOW_SIZE} />
         <TouchableOpacity style={styles.staticButton} onPress={onDone} accessibilityRole="button">
           <Text style={styles.staticButtonText}>Take your first step</Text>
         </TouchableOpacity>
@@ -160,6 +184,15 @@ export default function FootstepsIntro({ onDone }: Props) {
     >
       <StatusBar style="light" />
       <WarmGlow />
+      <Animated.View
+        pointerEvents="none"
+        style={{ position: 'absolute', top: windowTop + WINDOW_SIZE / 2 - glowSize / 2, left: width / 2 - glowSize / 2, opacity: glow }}
+      >
+        <WindowLight size={glowSize} />
+      </Animated.View>
+      <View pointerEvents="none" style={{ position: 'absolute', top: windowTop, left: width / 2 - WINDOW_SIZE / 2 }}>
+        <AppLogo variant="mark" size={WINDOW_SIZE} />
+      </View>
       {Array.from({ length: STEPS }, (_, i) => {
         const isLeft = i % 2 === 0;
         const sway = Math.sin(i * 0.7) * 18;

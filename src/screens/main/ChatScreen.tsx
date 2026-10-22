@@ -518,7 +518,7 @@ const styles = StyleSheet.create({
     color: colors.textLight,
   },
   unreadBadge: {
-    backgroundColor: colors.sticker.lilac,
+    backgroundColor: colors.primary,
     borderRadius: radius.full,
     minWidth: 18,
     height: 18,

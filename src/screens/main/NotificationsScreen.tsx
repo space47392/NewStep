@@ -522,7 +522,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: radius.full,
-    backgroundColor: colors.sticker.lilac,
+    backgroundColor: colors.primary,
   },
   iconAvatar: {
     width: 44,

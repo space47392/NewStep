@@ -22,7 +22,8 @@ import NSIcon from '../../components/NSIcon';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { fetchComments, addComment, subscribeToComments } from '../../lib/comments';
-import { volunteerToHelp, markPostCompleted, fetchPostById, deletePost } from '../../lib/posts';
+import { markPostCompleted, fetchPostById, deletePost } from '../../lib/posts';
+import HelpOffersPanel from '../../components/HelpOffersPanel';
 import { getOrCreateConversation, linkConversationToPost } from '../../lib/chat';
 import { fetchLikedPostIds } from '../../lib/likes';
 import { fetchSavedPostIds, savePost, unsavePost } from '../../lib/postSaves';
@@ -72,7 +73,6 @@ export default function PostDetailScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [commentText, setCommentText] = useState('');
   const [sending, setSending] = useState(false);
-  const [volunteering, setVolunteering] = useState(false);
   const [completing, setCompleting] = useState(false);
   // Bumped to fire the confetti when this screen marks a request done.
   const [confettiKey, setConfettiKey] = useState(0);
@@ -97,7 +97,6 @@ export default function PostDetailScreen() {
   // window doesn't corrupt anything (the RPC re-validates status server-side
   // and rejects the second call), but it does surface a confusing "couldn't
   // volunteer" toast immediately after the tap that just succeeded.
-  const volunteeringRef = useRef(false);
   const completingRef = useRef(false);
   // handleMessage awaits getOrCreateConversation() before navigating — if the
   // user backs out of this screen during that round trip, navigation isn't
@@ -241,7 +240,6 @@ export default function PostDetailScreen() {
     };
   }, [post.status, post.helper?.id, fetchContribution]);
 
-  const canVolunteer = post.category === 'Need Help' && post.status === 'open' && post.author_id !== user?.id;
   const canComplete = post.status === 'accepted' && post.author_id === user?.id;
   // Deliberately NOT gated on category === 'Need Help': status/helper_id already
   // capture that this post has an active or completed help relationship, and an
@@ -256,24 +254,6 @@ export default function PostDetailScreen() {
   const alreadyThanked = comments.some(
     (c) => c.profiles?.id === user?.id && c.content.startsWith('Thank you for your help,')
   );
-
-  const handleVolunteer = async () => {
-    if (!user || volunteeringRef.current) return;
-    volunteeringRef.current = true;
-    setVolunteering(true);
-    try {
-      const updated = await volunteerToHelp(post.id);
-      setPost(updated);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (err) {
-      // Transient/retryable, not destructive — a toast is enough (Step 30).
-      const message = err instanceof Error ? err.message : 'Could not volunteer to help.';
-      showToast(message);
-    } finally {
-      volunteeringRef.current = false;
-      setVolunteering(false);
-    }
-  };
 
   const handleComplete = async () => {
     if (completingRef.current) return;
@@ -540,9 +520,7 @@ export default function PostDetailScreen() {
                 author={post.profiles}
                 helper={post.helper}
                 waitingText={
-                  post.author_id === user?.id
-                    ? "You asked — we'll let you know when someone offers to help."
-                    : 'Asked — waiting for a helper'
+                  post.author_id === user?.id ? 'Asked — choose a helper from the offers below' : 'Asked — looking for a helper'
                 }
                 onPressHelper={
                   post.helper ? () => navigation.navigate('UserProfile', { userId: post.helper!.id }) : undefined
@@ -569,9 +547,22 @@ export default function PostDetailScreen() {
                     <Text style={styles.contributionText}>💙 {contribution.thanksReceived} Thanks Received</Text>
                   </View>
                 )}
-                {canVolunteer && (
-                  <PrimaryButton title="I Can Help" icon="hand-left-outline" onPress={handleVolunteer} loading={volunteering} />
-                )}
+                {post.category === 'Need Help' && post.status === 'open' && user ? (
+                  <HelpOffersPanel
+                    postId={post.id}
+                    isAuthor={post.author_id === user.id}
+                    authorFirstName={post.profiles?.full_name?.split(' ')[0] ?? 'They'}
+                    onChosen={async () => {
+                      try {
+                        setPost(await fetchPostById(post.id));
+                        setConfettiKey(Date.now());
+                      } catch {
+                        // the next refresh will pick it up
+                      }
+                    }}
+                    onOpenProfile={(id) => navigation.navigate('UserProfile', { userId: id })}
+                  />
+                ) : null}
                 {showHelper && post.helper && (user?.id === post.author_id || user?.id === post.helper.id) && (
                   <View style={styles.helperActions}>
                     <PrimaryButton

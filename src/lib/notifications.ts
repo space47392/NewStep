@@ -208,7 +208,7 @@ export async function markNotificationsRead(notificationIds: string[]): Promise<
 // Post-related types all resolve to the same destination — fetching the full
 // Post is unavoidable since PostDetailScreen's route needs the whole object,
 // not just an id, matching how every other screen already navigates there.
-const POST_TYPES = new Set(['like', 'comment', 'volunteer', 'help_completed', 'thanks_received']);
+const POST_TYPES = new Set(['like', 'comment', 'volunteer', 'helper_chosen', 'help_completed', 'thanks_received']);
 
 export type NotificationTarget =
   | { screen: 'PostDetail'; postId: string }
@@ -364,6 +364,7 @@ const CATEGORY_BY_TYPE: Record<NotificationType, NotificationCategory> = {
   lantern_note: 'social',
   lantern_thanks: 'social',
   volunteer: 'help',
+  helper_chosen: 'help',
   help_completed: 'help',
   thanks_received: 'help',
   points_earned: 'achievement',
@@ -403,7 +404,9 @@ export function formatNotificationMessage(
     case 'comment':
       return `${actorName} commented on your post`;
     case 'volunteer':
-      return `${actorName} volunteered to help you`;
+      return `${actorName} offered to help you — choose a helper`;
+    case 'helper_chosen':
+      return `${actorName} picked you to help 🤝`;
     case 'help_completed':
       return 'Your help was marked as completed';
     case 'points_earned':
@@ -469,6 +472,7 @@ export function getNotificationNSIcon(type: NotificationType): NSIconName | null
     case 'message':
       return 'chat';
     case 'volunteer':
+    case 'helper_chosen':
       return 'help';
     case 'help_completed':
       return 'party';
@@ -495,6 +499,7 @@ export function getNotificationIcon(type: NotificationType): string {
     case 'comment':
       return '💬';
     case 'volunteer':
+    case 'helper_chosen':
       return '🤝';
     case 'help_completed':
       return '✅';

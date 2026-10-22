@@ -12,7 +12,6 @@ import { useToast } from '../../contexts/ToastContext';
 import {
   fetchPosts,
   deletePost,
-  volunteerToHelp,
   fetchFollowingFeed,
   fetchOpenHelpCountBySchool,
   fetchOpenHelpCountBySchoolId,
@@ -39,6 +38,7 @@ import AppLogo from '../../components/AppLogo';
 import NightSkyCard from '../../components/NightSkyCard';
 import StoryRing from '../../components/StoryRing';
 import SkyCheckSheet from '../../components/SkyCheckSheet';
+import { offerHelp, fetchMyOfferPostIds } from '../../lib/helpOffers';
 import LanternInvite from '../../components/LanternInvite';
 import SkyPeek from '../../components/SkyPeek';
 import { useTodaySky } from '../../lib/useTodaySky';
@@ -153,6 +153,13 @@ export default function FeedScreen() {
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [reportTarget, setReportTarget] = useState<{ type: ReportTargetType; id: string } | null>(null);
   const [volunteeringPostId, setVolunteeringPostId] = useState<string | null>(null);
+  const [offeredPostIds, setOfferedPostIds] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    if (!isFocused) return;
+    fetchMyOfferPostIds()
+      .then(setOfferedPostIds)
+      .catch(() => {});
+  }, [isFocused]);
   const [feedMode, setFeedMode] = useState<'forYou' | 'following'>('forYou');
   const [forYouHasMore, setForYouHasMore] = useState(true);
   const [loadingMoreForYou, setLoadingMoreForYou] = useState(false);
@@ -228,17 +235,20 @@ export default function FeedScreen() {
     [updatePostInLists]
   );
 
-  // Lets a post go straight from "open" to "accepted" right from the feed card
-  // — same secure volunteer_to_help() RPC PostDetailScreen already uses (Step 1),
-  // just reachable without navigating in first.
+  // Offer to help right from the feed card; the person who asked then chooses
+  // among everyone who offered (help_offers.sql).
   const handleQuickVolunteer = async (post: Post) => {
     if (!user) return;
+    if (offeredPostIds.has(post.id)) {
+      handleOpenPost(post);
+      return;
+    }
     setVolunteeringPostId(post.id);
     try {
-      const updated = await volunteerToHelp(post.id);
-      updatePostInLists(post.id, () => updated);
+      await offerHelp(post.id);
+      setOfferedPostIds((prev) => new Set(prev).add(post.id));
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      showToast('You volunteered to help!');
+      showToast(`Offer sent 🤝 ${post.profiles?.full_name?.split(' ')[0] ?? 'They'} will choose a helper.`);
     } catch (err) {
       // Transient/retryable, not destructive — a toast is enough, no need to
       // interrupt with a blocking dialog (Step 30).
@@ -1123,8 +1133,8 @@ export default function FeedScreen() {
                       <ActivityIndicator size="small" color={colors.onPrimary} />
                     ) : (
                       <>
-                        <Ionicons name="hand-left" size={14} color={colors.onPrimary} />
-                        <Text style={styles.canHelpText}>I Can Help</Text>
+                        <Ionicons name={offeredPostIds.has(item.id) ? 'checkmark' : 'hand-left'} size={14} color={colors.onPrimary} />
+                        <Text style={styles.canHelpText}>{offeredPostIds.has(item.id) ? 'Offered' : 'I Can Help'}</Text>
                       </>
                     )}
                   </TouchableOpacity>

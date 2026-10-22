@@ -317,6 +317,7 @@ export type NotificationType =
   | 'follow'
   | 'story_wave'
   | 'thanks_received'
+  | 'helper_chosen'
   // School Sky (school_sky_social.sql)
   | 'sky_twinkle'
   | 'wish_cheer'

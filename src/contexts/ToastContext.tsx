@@ -95,9 +95,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: spacing.lg,
     right: spacing.lg,
-    backgroundColor: colors.raised,
-    borderWidth: 1,
-    borderColor: colors.border,
+    // A dark pill that reads on the bright app (and over the night screens).
+    backgroundColor: colors.textDark,
     borderRadius: radius.md,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
@@ -105,7 +104,8 @@ const styles = StyleSheet.create({
     ...shadow.floating,
   },
   text: {
-    color: '#fff',
+    color: colors.background,
+    textAlign: 'center',
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.sm,
   },

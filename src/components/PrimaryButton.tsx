@@ -31,7 +31,7 @@ const VARIANT_STYLES: Record<Variant, { bg: string; text: string; border?: strin
   destructive: { bg: colors.error, text: '#fff' },
   // accentDark, not success: white on the bright mint was ~1.8:1.
   success: { bg: colors.successSolid, text: '#fff' },
-  outline: { bg: colors.cardBg, text: colors.primary, border: colors.primary },
+  outline: { bg: colors.cardBg, text: colors.primaryDark, border: colors.primary },
   // School Sky's honey-lit buttons.
   warm: { bg: colors.warm.honey, text: colors.warm.honeyInk },
   warmGhost: { bg: colors.warm.glassSoft, text: colors.warm.cream, border: colors.warm.line },

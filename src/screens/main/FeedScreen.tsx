@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, FlatList, RefreshControl, TouchableOpacity, ActivityIndicator, Alert, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, FlatList, RefreshControl, TouchableOpacity, ActivityIndicator, Alert, ScrollView, StyleSheet, Animated } from 'react-native';
 import { useFocusEffect, useIsFocused, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -101,6 +101,9 @@ export default function FeedScreen() {
   // has no top padding for this screen — see TabNavigator).
   const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
+  const lastScrollY = useRef(0);
+  const fabShownRef = useRef(true);
+  const fabAnim = useRef(new Animated.Value(1)).current;
   // Today's School Sky, as classmates described it, fills the header.
   const todaySky = useTodaySky(user?.id);
   const [categoryFilter, setCategoryFilter] = useState<'All' | PostCategory>('All');
@@ -743,11 +746,22 @@ export default function FeedScreen() {
       {/* Light status-bar icons over the night sky; once it scrolls away,
           a plain bar slides in behind dark icons so posts never run under
           the clock. */}
-      {isFocused ? <StatusBar style="light" /> : null}
+      {isFocused ? <StatusBar style={scrolledPastSky ? 'dark' : 'light'} /> : null}
       <FlatList
         onScroll={(e) => {
-          const past = skyHeight > 0 && e.nativeEvent.contentOffset.y > skyHeight - insets.top;
+          const y = e.nativeEvent.contentOffset.y;
+          const past = skyHeight > 0 && y > skyHeight - insets.top;
           if (past !== scrolledPastSky) setScrolledPastSky(past);
+          // Tuck the + button away while reading down; bring it back on the
+          // way up (or near the top), so it never sits on a post's buttons.
+          const dy = y - lastScrollY.current;
+          lastScrollY.current = y;
+          const show = y < 40 || dy < -6;
+          const hide = dy > 6;
+          if ((show && !fabShownRef.current) || (hide && fabShownRef.current)) {
+            fabShownRef.current = show;
+            Animated.timing(fabAnim, { toValue: show ? 1 : 0, duration: 180, useNativeDriver: true }).start();
+          }
         }}
         scrollEventThrottle={32}
         data={displayedPosts}
@@ -1191,9 +1205,25 @@ export default function FeedScreen() {
       />
       {scrolledPastSky ? <View pointerEvents="none" style={[styles.statusBarBacking, { height: insets.top }]} /> : null}
 
-      <TouchableOpacity style={styles.fab} activeOpacity={0.85} onPress={() => navigation.navigate('CreatePost')}>
-        <Ionicons name="add" size={28} color={colors.onPrimary} />
-      </TouchableOpacity>
+      <Animated.View
+        style={[
+          styles.fab,
+          {
+            opacity: fabAnim,
+            transform: [{ translateY: fabAnim.interpolate({ inputRange: [0, 1], outputRange: [FAB_SIZE + FAB_BOTTOM_OFFSET + 20, 0] }) }],
+          },
+        ]}
+      >
+        <TouchableOpacity
+          style={styles.fabTouch}
+          activeOpacity={0.85}
+          onPress={() => navigation.navigate('CreatePost')}
+          accessibilityRole="button"
+          accessibilityLabel="Create a post"
+        >
+          <Ionicons name="add" size={28} color={colors.onPrimary} />
+        </TouchableOpacity>
+      </Animated.View>
 
       <ActionSheet visible={menuPost !== null} onClose={() => setMenuPost(null)} actions={menuActions} />
       <ReportSheet target={reportTarget} reporterId={user?.id} onClose={() => setReportTarget(null)} />
@@ -1542,6 +1572,12 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.sm,
     color: colors.primary,
+  },
+  fabTouch: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   fab: {
     position: 'absolute',

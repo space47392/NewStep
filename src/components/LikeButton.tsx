@@ -102,11 +102,15 @@ export default function LikeButton({ postId, initialLikeCount, initialLikedByMe 
           />
         </Animated.View>
       </TouchableOpacity>
-      <TouchableOpacity onPress={handleOpenList} hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}>
-        <Text style={styles.count}>
-          {count} {count === 1 ? 'like' : 'likes'}
-        </Text>
-      </TouchableOpacity>
+      {count > 0 ? (
+        <TouchableOpacity
+          onPress={handleOpenList}
+          hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}
+          accessibilityLabel={`${count} ${count === 1 ? 'like' : 'likes'}. See who liked it`}
+        >
+          <Text style={styles.count}>{count}</Text>
+        </TouchableOpacity>
+      ) : null}
 
       <LikesListModal
         postId={postId}

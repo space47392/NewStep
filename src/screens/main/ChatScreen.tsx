@@ -17,6 +17,7 @@ import { ConversationRowSkeleton } from '../../components/Skeleton';
 import FadeInView from '../../components/FadeInView';
 import NSIcon from '../../components/NSIcon';
 import { Conversation, MainStackParamList } from '../../types';
+import PressableScale from '../../components/PressableScale';
 import { colors, spacing, radius, fontSize, fontFamily, shadow, typography } from '../../constants/theme';
 
 export default function ChatScreen() {
@@ -257,9 +258,10 @@ export default function ChatScreen() {
         };
         return (
           <FadeInView delay={Math.min(index, 6) * 40}>
-            <TouchableOpacity
+            <PressableScale
+              pressedScale={0.98}
+              haptic={false}
               style={[styles.row, item.unreadCount > 0 && styles.rowUnread]}
-              activeOpacity={0.85}
               onPress={() => navigation.navigate('Conversation', { conversationId: item.id, otherUser: item.otherUser })}
             >
               <TouchableOpacity onPress={goToOtherProfile} disabled={isDeletedOther}>
@@ -292,7 +294,7 @@ export default function ChatScreen() {
                   </View>
                 ) : null}
               </View>
-            </TouchableOpacity>
+            </PressableScale>
           </FadeInView>
         );
       }}

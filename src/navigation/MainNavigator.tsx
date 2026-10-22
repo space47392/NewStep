@@ -25,11 +25,20 @@ const Stack = createNativeStackNavigator<MainStackParamList>();
 export default function MainNavigator() {
   const contentStyle = useScreenContentStyle();
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false, contentStyle }}>
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: false,
+        contentStyle,
+        // Pages slide in from the side; sheets rise from the bottom; full-
+        // screen viewers fade. Same motion on every screen.
+        animation: 'slide_from_right',
+        animationDuration: 280,
+      }}
+    >
       {/* Each tab scene adds its own top inset (TabNavigator), so Home can
           paint behind the status bar. */}
       <Stack.Screen name="Tabs" component={TabNavigator} options={{ contentStyle: { ...NO_TOP_INSET, backgroundColor: colors.background } }} />
-      <Stack.Screen name="CreatePost" component={CreatePostScreen} options={{ presentation: 'modal', contentStyle: MODAL_TOP_INSET ?? contentStyle }} />
+      <Stack.Screen name="CreatePost" component={CreatePostScreen} options={{ presentation: 'modal', animation: 'slide_from_bottom', contentStyle: MODAL_TOP_INSET ?? contentStyle }} />
       <Stack.Screen name="PostDetail" component={PostDetailScreen} />
       <Stack.Screen name="Conversation" component={ConversationScreen} />
       <Stack.Screen name="UserProfile" component={UserProfileScreen} />
@@ -44,14 +53,14 @@ export default function MainNavigator() {
       <Stack.Screen
         name="ChooseSchool"
         component={ChooseSchoolScreen}
-        options={{ presentation: 'modal', contentStyle: MODAL_TOP_INSET ?? contentStyle }}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom', contentStyle: MODAL_TOP_INSET ?? contentStyle }}
       />
       <Stack.Screen name="EditProfile" component={EditProfileScreen} />
-      <Stack.Screen name="StoryViewer" component={StoryViewerScreen} options={{ presentation: 'fullScreenModal', contentStyle: NO_TOP_INSET }} />
+      <Stack.Screen name="StoryViewer" component={StoryViewerScreen} options={{ presentation: 'fullScreenModal', animation: 'fade', contentStyle: NO_TOP_INSET }} />
       <Stack.Screen
         name="PhotoViewer"
         component={PhotoViewerScreen}
-        options={{ presentation: 'fullScreenModal', contentStyle: NO_TOP_INSET }}
+        options={{ presentation: 'fullScreenModal', animation: 'fade', contentStyle: NO_TOP_INSET }}
       />
     </Stack.Navigator>
   );

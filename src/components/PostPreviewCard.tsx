@@ -6,6 +6,7 @@ import CategoryBadge from './CategoryBadge';
 import { formatRelativeTime } from '../lib/time';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../constants/theme';
 import EventDetails from './EventDetails';
+import PressableScale from './PressableScale';
 import { Post } from '../types';
 
 type Props = {
@@ -23,7 +24,7 @@ type Props = {
 export default function PostPreviewCard({ post, onPress, showCategory = true }: Props) {
   const { user } = useAuth();
   return (
-    <TouchableOpacity style={styles.card} activeOpacity={0.85} onPress={onPress}>
+    <PressableScale style={styles.card} pressedScale={0.98} haptic={false} onPress={onPress}>
       <View style={styles.header}>
         <Avatar uri={post.profiles?.avatar_url} size={32} />
         <View style={styles.headerText}>
@@ -47,7 +48,7 @@ export default function PostPreviewCard({ post, onPress, showCategory = true }: 
           <HelpStatusPill status={post.status} helper={post.helper} offersToChoose={post.author_id === user?.id ? post.help_offer_count ?? 0 : 0} />
         </View>
       )}
-    </TouchableOpacity>
+    </PressableScale>
   );
 }
 

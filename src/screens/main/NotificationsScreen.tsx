@@ -25,6 +25,7 @@ import ErrorState from '../../components/ErrorState';
 import LoadingScreen from '../../components/LoadingScreen';
 import FadeInView from '../../components/FadeInView';
 import { colors, spacing, radius, fontSize, fontFamily, shadow, typography } from '../../constants/theme';
+import PressableScale from '../../components/PressableScale';
 import { AppNotification, MainStackParamList } from '../../types';
 
 const PAGE_SIZE = 20;
@@ -347,12 +348,13 @@ export default function NotificationsScreen() {
           return (
             <FadeInView delay={Math.min(index, 6) * 30}>
               {showBucket && <Text style={styles.bucketLabel}>{bucket}</Text>}
-              <TouchableOpacity
+              <PressableScale
+                pressedScale={0.98}
+                haptic={false}
                 style={[
                   styles.row,
                   unread && styles.rowUnread,
                 ]}
-                activeOpacity={0.85}
                 disabled={openingId === item.id}
                 onPress={() => handlePress(item)}
               >
@@ -386,7 +388,7 @@ export default function NotificationsScreen() {
                   <Text style={styles.timestamp}>{formatRelativeTime(item.created_at)}</Text>
                 </View>
                 {openingId === item.id && <ActivityIndicator size="small" color={colors.primary} />}
-              </TouchableOpacity>
+              </PressableScale>
             </FadeInView>
           );
         }}

@@ -1050,9 +1050,10 @@ export default function FeedScreen() {
           const commentCount = item.comments?.[0]?.count ?? 0;
           return (
             <FadeInView key={`${feedMode}-${categoryFilter}-${item.id}`} delay={Math.min(index, 6) * 40}>
-              <TouchableOpacity
+              <PressableScale
                 style={styles.card}
-                activeOpacity={0.85}
+                pressedScale={0.985}
+                haptic={false}
                 disabled={isDeleting}
                 onPress={() => handleOpenPost(item)}
               >
@@ -1183,7 +1184,7 @@ export default function FeedScreen() {
                     </TouchableOpacity>
                   </View>
                 </View>
-              </TouchableOpacity>
+              </PressableScale>
             </FadeInView>
           );
         }}

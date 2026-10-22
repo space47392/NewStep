@@ -58,7 +58,7 @@ function AuthNavigator() {
   // The sign-in screens are the bright side (theme.light).
   const contentStyle = { ...useScreenContentStyle(), backgroundColor: light.background };
   return (
-    <AuthStack.Navigator screenOptions={{ headerShown: false, contentStyle }}>
+    <AuthStack.Navigator screenOptions={{ headerShown: false, contentStyle, animation: 'slide_from_right', animationDuration: 280 }}>
       {/* Vertically centered, and its intro paints behind the status bar. */}
       <AuthStack.Screen name="Login" component={LoginScreen} options={{ contentStyle: NO_TOP_INSET }} />
       <AuthStack.Screen name="Register" component={RegisterScreen} />

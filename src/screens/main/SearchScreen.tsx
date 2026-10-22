@@ -421,16 +421,24 @@ export default function SearchScreen() {
   const goToCommunity = () => navigation.navigate('Tabs', { screen: 'Volunteer' });
   const goToHelp = () => navigation.navigate('Tabs', { screen: 'Help' });
 
-  // At-a-glance tiles at the top of Discover; each jumps to its section.
-  const discoverRef = useRef<ScrollView>(null);
-  const sectionY = useRef<Record<string, number>>({});
-  const markSection = (key: string) => (e: { nativeEvent: { layout: { y: number } } }) => {
-    sectionY.current[key] = e.nativeEvent.layout.y;
+  // Discover is split like the Help tab: tap a tile, see just that list.
+  // Until one is picked, the first tile with something in it is shown.
+  type Pane = 'help' | 'questions' | 'events' | 'people';
+  const [pickedPane, setPickedPane] = useState<Pane | null>(null);
+  const paneCounts: Record<Pane, number> = {
+    help: needHelpPosts.length,
+    questions: recentQuestions.length,
+    events: upcomingEvents.length,
+    people: suggestedPeople.length + contributors.length,
   };
-  const jumpTo = (key: string) => {
-    const y = sectionY.current[key];
-    if (y != null) discoverRef.current?.scrollTo({ y: Math.max(0, y - 8), animated: true });
-  };
+  const pane: Pane = pickedPane ?? (['help', 'questions', 'people', 'events'] as Pane[]).find((p) => paneCounts[p] > 0) ?? 'help';
+  // One plain sentence about today at school, from the same numbers.
+  const todayLine = [
+    needHelpPosts.length ? `${needHelpPosts.length} ${needHelpPosts.length === 1 ? 'classmate needs' : 'classmates need'} a hand` : null,
+    recentQuestions.length ? `${recentQuestions.length} ${recentQuestions.length === 1 ? 'question' : 'questions'}` : null,
+    upcomingEvents.length ? `${upcomingEvents.length} ${upcomingEvents.length === 1 ? 'event' : 'events'} coming up` : null,
+    suggestedPeople.length ? `${suggestedPeople.length} ${suggestedPeople.length === 1 ? 'person' : 'people'} to meet` : null,
+  ].filter(Boolean).join(' · ');
 
   const showRecent = query.trim().length === 0;
   const hasAnyResults = people.length > 0 || posts.length > 0 || schools.length > 0;
@@ -495,12 +503,17 @@ export default function SearchScreen() {
           </View>
         ) : (
         <ScrollView
-          ref={discoverRef}
           contentContainerStyle={styles.list}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />}
         >
+          {mySchoolName ? (
+            <View style={styles.today}>
+              <Text style={styles.todayKicker}>TODAY AT {mySchoolName.toUpperCase()}</Text>
+              <Text style={styles.todayLine}>{todayLine || 'Quiet so far — be the first to post something.'}</Text>
+            </View>
+          ) : null}
           <View style={styles.tiles}>
             {[
               { key: 'help', icon: 'help' as const, label: 'Need help', count: needHelpPosts.length, tint: colors.secondaryLight },
@@ -510,10 +523,11 @@ export default function SearchScreen() {
             ].map((t) => (
               <TouchableOpacity
                 key={t.key}
-                style={[styles.tile, { backgroundColor: t.tint }, t.count === 0 && styles.tileEmpty]}
-                onPress={() => jumpTo(t.key)}
+                style={[styles.tile, { backgroundColor: t.tint }, t.count === 0 && pane !== t.key && styles.tileEmpty, pane === t.key && styles.tileOn]}
+                onPress={() => setPickedPane(t.key as Pane)}
                 activeOpacity={0.85}
-                accessibilityRole="button"
+                accessibilityRole="tab"
+                accessibilityState={{ selected: pane === t.key }}
                 accessibilityLabel={`${t.label}: ${t.count}`}
               >
                 <NSIcon name={t.icon} size={26} />
@@ -572,8 +586,8 @@ export default function SearchScreen() {
             </View>
           )}
 
-          {suggestedPeople.length > 0 && (
-            <View style={styles.section} onLayout={markSection('people')}>
+          {pane === 'people' && suggestedPeople.length > 0 && (
+            <View style={styles.section}>
               <SectionHeader title="People You May Know" icon="wave" />
               {/* Side-scrolling cards: everyone at a glance in one row. */}
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.peopleRow}>
@@ -602,7 +616,7 @@ export default function SearchScreen() {
             </View>
           )}
 
-          {contributors.length > 0 && (
+          {pane === 'people' && contributors.length > 0 && (
             <View style={styles.section}>
               <SectionHeader title="Community Helpers" icon="star" onSeeAll={goToCommunity} />
               <FlatList
@@ -628,8 +642,8 @@ export default function SearchScreen() {
             </View>
           )}
 
-          {recentQuestions.length > 0 && (
-            <View style={styles.section} onLayout={markSection('questions')}>
+          {pane === 'questions' && recentQuestions.length > 0 && (
+            <View style={styles.section}>
               <SectionHeader title="Recent Questions" icon="ask" />
               {recentQuestions.map((post) => (
                 <PostPreviewCard key={post.id} post={post} onPress={() => handleOpenPost(post)} />
@@ -637,8 +651,8 @@ export default function SearchScreen() {
             </View>
           )}
 
-          {needHelpPosts.length > 0 && (
-            <View style={styles.section} onLayout={markSection('help')}>
+          {pane === 'help' && needHelpPosts.length > 0 && (
+            <View style={styles.section}>
               <SectionHeader title="Need Help" icon="help" onSeeAll={goToHelp} />
               {needHelpPosts.map((post) => (
                 <PostPreviewCard key={post.id} post={post} onPress={() => handleOpenPost(post)} />
@@ -646,14 +660,42 @@ export default function SearchScreen() {
             </View>
           )}
 
-          {upcomingEvents.length > 0 && (
-            <View style={styles.section} onLayout={markSection('events')}>
+          {pane === 'events' && upcomingEvents.length > 0 && (
+            <View style={styles.section}>
               <SectionHeader title="Upcoming Events" icon="party" />
               {upcomingEvents.map((post) => (
                 <PostPreviewCard key={post.id} post={post} onPress={() => handleOpenPost(post)} />
               ))}
             </View>
           )}
+
+          {!discoveryLoadFailed && paneCounts[pane] === 0 ? (
+            <View style={styles.paneEmpty}>
+              <Text style={styles.paneEmptyText}>
+                {pane === 'help'
+                  ? 'No one needs a hand right now 🙌'
+                  : pane === 'questions'
+                    ? 'No questions yet — got one?'
+                    : pane === 'events'
+                      ? 'No events coming up yet.'
+                      : 'No one new to meet yet.'}
+              </Text>
+              {pane === 'help' || pane === 'questions' || pane === 'events' ? (
+                <TouchableOpacity
+                  onPress={() =>
+                    navigation.navigate('CreatePost', {
+                      prefillCategory: pane === 'help' ? 'Need Help' : pane === 'questions' ? 'School Question' : 'Event',
+                    })
+                  }
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={styles.paneEmptyLink}>
+                    {pane === 'help' ? 'Ask for help ›' : pane === 'questions' ? 'Ask a question ›' : 'Post an event ›'}
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          ) : null}
 
           {discoveryLoadFailed ? (
             <ErrorState onRetry={handleRetryDiscovery} retrying={retryingDiscovery} />
@@ -859,7 +901,44 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     borderRadius: radius.lg,
+    borderWidth: 2,
+    borderColor: 'transparent',
     paddingVertical: spacing.sm + 2,
+  },
+  tileOn: {
+    borderWidth: 2,
+    borderColor: colors.textDark,
+  },
+  today: {
+    marginBottom: spacing.md,
+  },
+  todayKicker: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.xs,
+    letterSpacing: 0.8,
+    color: colors.primaryDark,
+  },
+  todayLine: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.md,
+    lineHeight: 22,
+    color: colors.textDark,
+    marginTop: 2,
+  },
+  paneEmpty: {
+    alignItems: 'center',
+    paddingVertical: spacing.xl,
+    gap: spacing.sm,
+  },
+  paneEmptyText: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.md,
+    color: colors.textMid,
+  },
+  paneEmptyLink: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
+    color: colors.primaryDark,
   },
   tileEmpty: {
     opacity: 0.45,

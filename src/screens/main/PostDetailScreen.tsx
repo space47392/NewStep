@@ -520,7 +520,7 @@ export default function PostDetailScreen() {
                 author={post.profiles}
                 helper={post.helper}
                 waitingText={
-                  post.author_id === user?.id ? 'Asked — choose a helper from the offers below' : 'Asked — looking for a helper'
+                  post.author_id === user?.id ? 'Asked — waiting for offers' : 'Asked — looking for a helper'
                 }
                 onPressHelper={
                   post.helper ? () => navigation.navigate('UserProfile', { userId: post.helper!.id }) : undefined

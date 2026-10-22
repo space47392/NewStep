@@ -24,7 +24,10 @@ type Ask = {
   cancelLabel?: string;
 };
 
-export function useWarmSheet() {
+// 'dark' for the night screens (Lanterns, School Sky); 'light' for the
+// bright rest of the app.
+export function useWarmSheet(tone: 'dark' | 'light' = 'dark') {
+  const L = tone === 'light';
   const [current, setCurrent] = useState<Ask | null>(null);
   const insets = useSafeAreaInsets();
   const close = useCallback(() => setCurrent(null), []);
@@ -35,16 +38,16 @@ export function useWarmSheet() {
       <View style={styles.backdrop}>
         <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={close} accessibilityLabel="Close" />
         {current ? (
-          <View style={[styles.sheet, { paddingBottom: insets.bottom + spacing.lg }]}>
-            <View style={styles.handle} />
+          <View style={[styles.sheet, L && styles.sheetLight, { paddingBottom: insets.bottom + spacing.lg }]}>
+            <View style={[styles.handle, L && styles.handleLight]} />
             {current.emoji ? <Text style={styles.emoji}>{current.emoji}</Text> : null}
-            <Text style={styles.title}>{current.title}</Text>
-            {current.message ? <Text style={styles.message}>{current.message}</Text> : null}
+            <Text style={[styles.title, L && styles.titleLight]}>{current.title}</Text>
+            {current.message ? <Text style={[styles.message, L && styles.messageLight]}>{current.message}</Text> : null}
             <View style={styles.actions}>
               {current.actions.map((a) => (
                 <TouchableOpacity
                   key={a.label}
-                  style={[styles.action, a.danger ? styles.actionDanger : styles.actionWarm]}
+                  style={[styles.action, a.danger ? (L ? styles.actionDangerLight : styles.actionDanger) : styles.actionWarm]}
                   activeOpacity={0.85}
                   onPress={() => {
                     close();
@@ -52,11 +55,11 @@ export function useWarmSheet() {
                   }}
                   accessibilityRole="button"
                 >
-                  <Text style={[styles.actionText, a.danger ? styles.actionTextDanger : styles.actionTextWarm]}>{a.label}</Text>
+                  <Text style={[styles.actionText, a.danger ? (L ? styles.actionTextDangerLight : styles.actionTextDanger) : styles.actionTextWarm]}>{a.label}</Text>
                 </TouchableOpacity>
               ))}
               <TouchableOpacity style={styles.cancel} onPress={close} accessibilityRole="button">
-                <Text style={styles.cancelText}>{current.cancelLabel ?? 'Never mind'}</Text>
+                <Text style={[styles.cancelText, L && styles.cancelTextLight]}>{current.cancelLabel ?? 'Never mind'}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -69,6 +72,30 @@ export function useWarmSheet() {
 }
 
 const styles = StyleSheet.create({
+  sheetLight: {
+    backgroundColor: colors.background,
+    borderColor: colors.hairline,
+  },
+  handleLight: {
+    backgroundColor: colors.border,
+  },
+  titleLight: {
+    fontFamily: fontFamily.bold,
+    color: colors.textDark,
+  },
+  messageLight: {
+    color: colors.textMid,
+  },
+  actionDangerLight: {
+    backgroundColor: colors.errorLight,
+    borderWidth: 0,
+  },
+  actionTextDangerLight: {
+    color: colors.error,
+  },
+  cancelTextLight: {
+    color: colors.textLight,
+  },
   backdrop: {
     flex: 1,
     justifyContent: 'flex-end',

@@ -22,7 +22,7 @@ type Props = {
 
 export default function HelpOffersPanel({ postId, isAuthor, authorFirstName, onChosen, onOpenProfile }: Props) {
   const { showToast } = useToast();
-  const { ask, sheet } = useWarmSheet();
+  const { ask, sheet } = useWarmSheet('light');
   const [offers, setOffers] = useState<HelpOffer[] | null>(null);
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);

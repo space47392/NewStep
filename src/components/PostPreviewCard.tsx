@@ -1,6 +1,7 @@
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import Avatar from './Avatar';
 import HelpStatusPill from './HelpStatusPill';
+import { useAuth } from '../contexts/AuthContext';
 import CategoryBadge from './CategoryBadge';
 import { formatRelativeTime } from '../lib/time';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../constants/theme';
@@ -20,6 +21,7 @@ type Props = {
 // post results). No like/comment/volunteer controls of its own; tapping
 // always goes to the real PostDetailScreen for full interaction.
 export default function PostPreviewCard({ post, onPress, showCategory = true }: Props) {
+  const { user } = useAuth();
   return (
     <TouchableOpacity style={styles.card} activeOpacity={0.85} onPress={onPress}>
       <View style={styles.header}>
@@ -42,7 +44,7 @@ export default function PostPreviewCard({ post, onPress, showCategory = true }: 
           information worth showing. */}
       {post.category === 'Need Help' && (
         <View style={styles.status}>
-          <HelpStatusPill status={post.status} helper={post.helper} />
+          <HelpStatusPill status={post.status} helper={post.helper} offersToChoose={post.author_id === user?.id ? post.help_offer_count ?? 0 : 0} />
         </View>
       )}
     </TouchableOpacity>

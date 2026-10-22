@@ -212,6 +212,8 @@ export type Post = {
   content: string;
   category: PostCategory;
   status: PostStatus;
+  // How many classmates have offered to help (help_offers.sql).
+  help_offer_count?: number;
   like_count: number;
   photo_urls: string[];
   created_at: string;

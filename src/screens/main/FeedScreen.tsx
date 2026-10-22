@@ -38,6 +38,7 @@ import AppLogo from '../../components/AppLogo';
 import NightSkyCard from '../../components/NightSkyCard';
 import StoryRing from '../../components/StoryRing';
 import SkyCheckSheet from '../../components/SkyCheckSheet';
+import HelpStatusPill from '../../components/HelpStatusPill';
 import { offerHelp, fetchMyOfferPostIds } from '../../lib/helpOffers';
 import LanternInvite from '../../components/LanternInvite';
 import SkyPeek from '../../components/SkyPeek';
@@ -1105,20 +1106,11 @@ export default function FeedScreen() {
                     post's category is edited after the fact. */}
                 {(item.category === 'Need Help' || (item.status !== 'open' && item.helper)) && (
                   <View style={styles.helpRow}>
-                  <View style={[styles.helpStatus, item.status === 'completed' && styles.helpStatusDone]}>
-                    <Ionicons
-                      name={item.status === 'completed' ? 'checkmark-circle' : item.status === 'accepted' ? 'people' : 'hand-left-outline'}
-                      size={14}
-                      color={item.status === 'completed' ? colors.accentDark : colors.primaryDark}
-                    />
-                    <Text style={[styles.helpStatusText, item.status === 'completed' && styles.helpStatusTextDone]} numberOfLines={1}>
-                      {item.status === 'completed'
-                        ? item.helper?.full_name ? `Helped by ${item.helper.full_name.split(' ')[0]}` : 'Done'
-                        : item.status === 'accepted'
-                          ? item.helper?.full_name ? `${item.helper.full_name.split(' ')[0]} is helping` : 'Being helped'
-                          : 'Needs a helper'}
-                    </Text>
-                  </View>
+                  <HelpStatusPill
+                    status={item.status}
+                    helper={item.helper}
+                    offersToChoose={item.author_id === user?.id ? item.help_offer_count ?? 0 : 0}
+                  />
                 {item.category === 'Need Help' && item.status === 'open' && item.author_id !== user?.id && (
                   <TouchableOpacity
                     style={styles.canHelpButton}

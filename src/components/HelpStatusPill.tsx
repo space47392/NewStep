@@ -9,16 +9,20 @@ import { PostStatus } from '../types';
 type Props = {
   status: PostStatus;
   helper: { full_name: string | null } | null | undefined;
+  // For the person who asked: how many offers are waiting for them.
+  offersToChoose?: number;
 };
 
-export default function HelpStatusPill({ status, helper }: Props) {
+export default function HelpStatusPill({ status, helper, offersToChoose = 0 }: Props) {
   const first = helper?.full_name?.split(' ')[0];
   const done = status === 'completed';
   const label = done
     ? first ? `Helped by ${first}` : 'Done'
     : status === 'accepted'
       ? first ? `${first} is helping` : 'Being helped'
-      : 'Needs a helper';
+      : offersToChoose > 0
+        ? `${offersToChoose} ${offersToChoose === 1 ? 'offer' : 'offers'} — choose a helper`
+        : 'Needs a helper';
   return (
     <View style={[styles.pill, done && styles.pillDone]}>
       <Ionicons

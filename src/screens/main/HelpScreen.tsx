@@ -15,6 +15,7 @@ import { PostCardSkeleton } from '../../components/Skeleton';
 import FadeInView from '../../components/FadeInView';
 import NSIcon from '../../components/NSIcon';
 import { colors, spacing, radius, fontSize, fontFamily, typography } from '../../constants/theme';
+import PressableScale from '../../components/PressableScale';
 import { MainStackParamList, Post } from '../../types';
 
 const HELP_LIMIT = 20;
@@ -168,7 +169,7 @@ export default function HelpScreen() {
                   ] as const).map(([key, label, count]) => {
                     const on = view === key;
                     return (
-                      <TouchableOpacity
+                      <PressableScale
                         key={key}
                         style={[styles.segmentItem, on && styles.segmentItemOn]}
                         onPress={() => setView(key)}
@@ -179,20 +180,20 @@ export default function HelpScreen() {
                         <View style={[styles.segmentCount, on && styles.segmentCountOn]}>
                           <Text style={[styles.segmentCountText, on && styles.segmentCountTextOn]}>{count}</Text>
                         </View>
-                      </TouchableOpacity>
+                      </PressableScale>
                     );
                   })}
                 </View>
-                <TouchableOpacity
+                <PressableScale
+                  pressedScale={0.97}
                   style={styles.askRow}
                   onPress={() => navigation.navigate('CreatePost', { prefillCategory: 'Need Help' })}
-                  activeOpacity={0.85}
                   accessibilityRole="button"
                 >
                   <NSIcon name="ask" size={22} />
                   <Text style={styles.askText}>Stuck on something? Ask for help</Text>
                   <Text style={styles.askArrow}>›</Text>
-                </TouchableOpacity>
+                </PressableScale>
               </>
             ) : null}
           </View>
@@ -231,7 +232,7 @@ export default function HelpScreen() {
           )
         }
         renderItem={({ item, index }) => (
-          <FadeInView delay={Math.min(index, 6) * 30}>
+          <FadeInView key={`${view}-${item.id}`} delay={Math.min(index, 6) * 40}>
             <PostPreviewCard post={item} showCategory={false} onPress={() => handleOpenPost(item)} />
           </FadeInView>
         )}

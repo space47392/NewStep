@@ -177,12 +177,12 @@ export default function VolunteerScreen() {
                 { icon: 'star' as const, n: contributors.length, label: contributors.length === 1 ? 'helper' : 'helpers', tint: colors.primaryLight },
                 { icon: 'help' as const, n: contributors.reduce((a, c) => a + c.studentsHelped, 0), label: 'students helped', tint: colors.secondaryLight },
                 { icon: 'thanks' as const, n: contributors.reduce((a, c) => a + c.thanks_received_count, 0), label: contributors.reduce((a, c) => a + c.thanks_received_count, 0) === 1 ? 'thank-you' : 'thank-yous', tint: colors.accentLight },
-              ].map((t) => (
-                <View key={t.label} style={[styles.total, { backgroundColor: t.tint }]}>
+              ].map((t, i) => (
+                <FadeInView key={t.label} delay={i * 90} style={[styles.total, { backgroundColor: t.tint }]}>
                   <NSIcon name={t.icon} size={24} />
                   <Text style={styles.totalN}>{t.n}</Text>
                   <Text style={styles.totalLabel}>{t.label}</Text>
-                </View>
+                </FadeInView>
               ))}
             </View>
           ) : null}

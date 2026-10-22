@@ -54,6 +54,7 @@ import SaveButton from '../../components/SaveButton';
 import InterestButton from '../../components/InterestButton';
 import PhotoCarousel from '../../components/PhotoCarousel';
 import { Post, Story, MainStackParamList, ReportTargetType, PostCategory } from '../../types';
+import PressableScale from '../../components/PressableScale';
 import { colors, spacing, radius, fontSize, fontFamily, shadow, typography } from '../../constants/theme';
 
 // Shared by both feeds' pagination — same page size, same .range() shape.
@@ -959,15 +960,16 @@ export default function FeedScreen() {
               {FILTERS.map((f) => {
                 const on = categoryFilter === f.value;
                 return (
-                  <TouchableOpacity
+                  <PressableScale
                     key={f.value}
+                    pressedScale={0.92}
                     style={[styles.filterChip, on && styles.filterChipOn]}
                     onPress={() => setCategoryFilter(f.value)}
                     accessibilityRole="button"
                     accessibilityState={{ selected: on }}
                   >
                     <Text style={[styles.filterText, on && styles.filterTextOn]}>{f.label}</Text>
-                  </TouchableOpacity>
+                  </PressableScale>
                 );
               })}
             </ScrollView>
@@ -1047,7 +1049,7 @@ export default function FeedScreen() {
           const isDeleting = item.id === deletingPostId;
           const commentCount = item.comments?.[0]?.count ?? 0;
           return (
-            <FadeInView delay={Math.min(index, 6) * 40}>
+            <FadeInView key={`${feedMode}-${categoryFilter}-${item.id}`} delay={Math.min(index, 6) * 40}>
               <TouchableOpacity
                 style={styles.card}
                 activeOpacity={0.85}

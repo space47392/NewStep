@@ -36,6 +36,7 @@ import NSIcon from '../../components/NSIcon';
 import { PostCardSkeleton } from '../../components/Skeleton';
 import { colors, spacing, radius, fontSize, fontFamily, shadow, typography } from '../../constants/theme';
 import InterestIcon from '../../components/InterestIcon';
+import PressableScale from '../../components/PressableScale';
 import {
   MainStackParamList,
   PersonSearchResult,
@@ -521,11 +522,10 @@ export default function SearchScreen() {
               { key: 'events', icon: 'party' as const, label: 'Events', count: upcomingEvents.length, tint: colors.eventLight },
               { key: 'people', icon: 'wave' as const, label: 'People', count: suggestedPeople.length, tint: colors.accentLight },
             ].map((t) => (
-              <TouchableOpacity
+              <PressableScale
                 key={t.key}
                 style={[styles.tile, { backgroundColor: t.tint }, t.count === 0 && pane !== t.key && styles.tileEmpty, pane === t.key && styles.tileOn]}
                 onPress={() => setPickedPane(t.key as Pane)}
-                activeOpacity={0.85}
                 accessibilityRole="tab"
                 accessibilityState={{ selected: pane === t.key }}
                 accessibilityLabel={`${t.label}: ${t.count}`}
@@ -533,7 +533,7 @@ export default function SearchScreen() {
                 <NSIcon name={t.icon} size={26} />
                 <Text style={styles.tileCount}>{t.count}</Text>
                 <Text style={styles.tileLabel}>{t.label}</Text>
-              </TouchableOpacity>
+              </PressableScale>
             ))}
           </View>
 
@@ -586,6 +586,7 @@ export default function SearchScreen() {
             </View>
           )}
 
+          <FadeInView key={pane}>
           {pane === 'people' && suggestedPeople.length > 0 && (
             <View style={styles.section}>
               <SectionHeader title="People You May Know" icon="wave" />
@@ -696,6 +697,8 @@ export default function SearchScreen() {
               ) : null}
             </View>
           ) : null}
+
+          </FadeInView>
 
           {discoveryLoadFailed ? (
             <ErrorState onRetry={handleRetryDiscovery} retrying={retryingDiscovery} />

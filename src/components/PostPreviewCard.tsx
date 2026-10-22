@@ -1,6 +1,6 @@
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import Avatar from './Avatar';
-import HelpProgress from './HelpProgress';
+import HelpStatusPill from './HelpStatusPill';
 import CategoryBadge from './CategoryBadge';
 import { formatRelativeTime } from '../lib/time';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../constants/theme';
@@ -41,7 +41,9 @@ export default function PostPreviewCard({ post, onPress, showCategory = true }: 
           hidden (already-known-category sections), the status is still new
           information worth showing. */}
       {post.category === 'Need Help' && (
-        <HelpProgress status={post.status} author={post.profiles} helper={post.helper} />
+        <View style={styles.status}>
+          <HelpStatusPill status={post.status} helper={post.helper} />
+        </View>
       )}
     </TouchableOpacity>
   );
@@ -71,6 +73,9 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     fontSize: fontSize.xs,
     color: colors.textLight,
+  },
+  status: {
+    marginTop: spacing.sm,
   },
   content: {
     fontFamily: fontFamily.regular,

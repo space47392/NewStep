@@ -421,6 +421,17 @@ export default function SearchScreen() {
   const goToCommunity = () => navigation.navigate('Tabs', { screen: 'Volunteer' });
   const goToHelp = () => navigation.navigate('Tabs', { screen: 'Help' });
 
+  // At-a-glance tiles at the top of Discover; each jumps to its section.
+  const discoverRef = useRef<ScrollView>(null);
+  const sectionY = useRef<Record<string, number>>({});
+  const markSection = (key: string) => (e: { nativeEvent: { layout: { y: number } } }) => {
+    sectionY.current[key] = e.nativeEvent.layout.y;
+  };
+  const jumpTo = (key: string) => {
+    const y = sectionY.current[key];
+    if (y != null) discoverRef.current?.scrollTo({ y: Math.max(0, y - 8), animated: true });
+  };
+
   const showRecent = query.trim().length === 0;
   const hasAnyResults = people.length > 0 || posts.length > 0 || schools.length > 0;
 
@@ -484,11 +495,34 @@ export default function SearchScreen() {
           </View>
         ) : (
         <ScrollView
+          ref={discoverRef}
           contentContainerStyle={styles.list}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />}
         >
+          <View style={styles.tiles}>
+            {[
+              { key: 'help', icon: 'help' as const, label: 'Need help', count: needHelpPosts.length, tint: colors.secondaryLight },
+              { key: 'questions', icon: 'ask' as const, label: 'Questions', count: recentQuestions.length, tint: colors.questionLight },
+              { key: 'events', icon: 'party' as const, label: 'Events', count: upcomingEvents.length, tint: colors.eventLight },
+              { key: 'people', icon: 'wave' as const, label: 'People', count: suggestedPeople.length, tint: colors.accentLight },
+            ].map((t) => (
+              <TouchableOpacity
+                key={t.key}
+                style={[styles.tile, { backgroundColor: t.tint }]}
+                onPress={() => jumpTo(t.key)}
+                activeOpacity={0.85}
+                accessibilityRole="button"
+                accessibilityLabel={`${t.label}: ${t.count}`}
+              >
+                <NSIcon name={t.icon} size={26} />
+                <Text style={styles.tileCount}>{t.count}</Text>
+                <Text style={styles.tileLabel}>{t.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
           {recentSearches.length > 0 && (
             <View style={styles.section}>
               <View style={styles.recentHeader}>
@@ -539,7 +573,7 @@ export default function SearchScreen() {
           )}
 
           {suggestedPeople.length > 0 && (
-            <View style={styles.section}>
+            <View style={styles.section} onLayout={markSection('people')}>
               <SectionHeader title="People You May Know" icon="wave" />
               {suggestedPeople.map((person) => {
                 const shared = sharedInterests(myInterests, person.interests);
@@ -623,7 +657,7 @@ export default function SearchScreen() {
           )}
 
           {recentQuestions.length > 0 && (
-            <View style={styles.section}>
+            <View style={styles.section} onLayout={markSection('questions')}>
               <SectionHeader title="Recent Questions" icon="ask" />
               {recentQuestions.map((post) => (
                 <PostPreviewCard key={post.id} post={post} onPress={() => handleOpenPost(post)} />
@@ -632,7 +666,7 @@ export default function SearchScreen() {
           )}
 
           {needHelpPosts.length > 0 && (
-            <View style={styles.section}>
+            <View style={styles.section} onLayout={markSection('help')}>
               <SectionHeader title="Need Help" icon="help" onSeeAll={goToHelp} />
               {needHelpPosts.map((post) => (
                 <PostPreviewCard key={post.id} post={post} onPress={() => handleOpenPost(post)} />
@@ -641,7 +675,7 @@ export default function SearchScreen() {
           )}
 
           {upcomingEvents.length > 0 && (
-            <View style={styles.section}>
+            <View style={styles.section} onLayout={markSection('events')}>
               <SectionHeader title="Upcoming Events" icon="party" />
               {upcomingEvents.map((post) => (
                 <PostPreviewCard key={post.id} post={post} onPress={() => handleOpenPost(post)} />
@@ -813,6 +847,28 @@ const styles = StyleSheet.create({
   // gap read as empty dead space rather than clear separation (Step 31).
   section: {
     marginBottom: spacing.md,
+  },
+  tiles: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
+  },
+  tile: {
+    flex: 1,
+    alignItems: 'center',
+    borderRadius: radius.lg,
+    paddingVertical: spacing.sm + 2,
+  },
+  tileCount: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.lg,
+    color: colors.textDark,
+    marginTop: 2,
+  },
+  tileLabel: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.xs,
+    color: colors.textMid,
   },
   recentHeader: {
     flexDirection: 'row',

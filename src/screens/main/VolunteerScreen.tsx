@@ -171,6 +171,22 @@ export default function VolunteerScreen() {
               ? `Students who've genuinely helped others at ${schoolName}`
               : "Students who've genuinely helped others in their school community"}
           </Text>
+          {contributors.length > 0 ? (
+            <View style={styles.totals}>
+              {[
+                { icon: 'star' as const, n: contributors.length, label: contributors.length === 1 ? 'helper' : 'helpers', tint: colors.primaryLight },
+                { icon: 'help' as const, n: contributors.reduce((a, c) => a + c.studentsHelped, 0), label: 'students helped', tint: colors.secondaryLight },
+                { icon: 'thanks' as const, n: contributors.reduce((a, c) => a + c.thanks_received_count, 0), label: contributors.reduce((a, c) => a + c.thanks_received_count, 0) === 1 ? 'thank-you' : 'thank-yous', tint: colors.accentLight },
+              ].map((t) => (
+                <View key={t.label} style={[styles.total, { backgroundColor: t.tint }]}>
+                  <NSIcon name={t.icon} size={24} />
+                  <Text style={styles.totalN}>{t.n}</Text>
+                  <Text style={styles.totalLabel}>{t.label}</Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
+          {contributors.length > 0 ? <Text style={styles.listLabel}>Thank-you wall</Text> : null}
         </View>
       }
       ListEmptyComponent={
@@ -293,6 +309,34 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.textMid,
     marginTop: spacing.xs,
+  },
+  totals: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.lg,
+  },
+  total: {
+    flex: 1,
+    alignItems: 'center',
+    borderRadius: radius.lg,
+    paddingVertical: spacing.sm + 2,
+  },
+  totalN: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.lg,
+    color: colors.textDark,
+    marginTop: 2,
+  },
+  totalLabel: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.xs,
+    color: colors.textMid,
+  },
+  listLabel: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.sm,
+    color: colors.textDark,
+    marginTop: spacing.lg,
   },
   emptyActionButton: {
     marginTop: spacing.lg,

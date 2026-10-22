@@ -510,7 +510,7 @@ export default function SearchScreen() {
             ].map((t) => (
               <TouchableOpacity
                 key={t.key}
-                style={[styles.tile, { backgroundColor: t.tint }]}
+                style={[styles.tile, { backgroundColor: t.tint }, t.count === 0 && styles.tileEmpty]}
                 onPress={() => jumpTo(t.key)}
                 activeOpacity={0.85}
                 accessibilityRole="button"
@@ -575,58 +575,30 @@ export default function SearchScreen() {
           {suggestedPeople.length > 0 && (
             <View style={styles.section} onLayout={markSection('people')}>
               <SectionHeader title="People You May Know" icon="wave" />
-              {suggestedPeople.map((person) => {
-                const shared = sharedInterests(myInterests, person.interests);
-                const pending = pendingFollowIds.has(person.id);
-                return (
-                  <View key={person.id} style={styles.personCard}>
-                    <AuthorRow
-                      style={styles.personCardMain}
-                      user={person}
+              {/* Side-scrolling cards: everyone at a glance in one row. */}
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.peopleRow}>
+                {suggestedPeople.map((person) => {
+                  const shared = sharedInterests(myInterests, person.interests);
+                  const pending = pendingFollowIds.has(person.id);
+                  return (
+                    <TouchableOpacity
+                      key={person.id}
+                      style={styles.personTile}
+                      activeOpacity={0.85}
                       onPress={() => navigation.navigate('UserProfile', { userId: person.id })}
-                      meta={
-                        <>
-                          {person.grade ? (
-                            <View style={styles.statInline}>
-                              <NSIcon name="cap" size={16} />
-                              <Text style={styles.resultMeta}>{person.grade} Grade</Text>
-                            </View>
-                          ) : null}
-                          {/* Plain-language reason, backed only by data this query actually
-                              guarantees: every suggestion here is already same-school, and
-                              the shared count comes straight from sharedInterests() above —
-                              never an inferred or invented signal (Step 30). */}
-                          {shared.length > 0 ? (
-                            <>
-                              <Text style={styles.personReason}>You both like</Text>
-                              <View style={styles.sharedRow}>
-                                {shared.slice(0, 3).map((i, idx) => (
-                                  <View key={i} style={[styles.sharedChip, { backgroundColor: SHARED_TINTS[idx % SHARED_TINTS.length] }]}>
-                                    <InterestIcon interest={i} size={15} />
-                                    <Text style={styles.sharedChipText} numberOfLines={1}>
-                                      {i}
-                                    </Text>
-                                  </View>
-                                ))}
-                              </View>
-                            </>
-                          ) : (
-                            <Text style={styles.personReason}>Same school</Text>
-                          )}
-                        </>
-                      }
-                    />
-                    <PrimaryButton
-                      title="Follow"
-                      icon="person-add-outline"
-                      onPress={() => handleFollow(person)}
-                      loading={pending}
-                      size="sm"
-                      style={styles.followButton}
-                    />
-                  </View>
-                );
-              })}
+                    >
+                      <Avatar uri={person.avatar_url} size={56} />
+                      <Text style={styles.personTileName} numberOfLines={1}>
+                        {person.full_name ?? 'A classmate'}
+                      </Text>
+                      <Text style={styles.personTileMeta} numberOfLines={1}>
+                        {shared.length > 0 ? `Both like ${shared[0]}` : person.grade ? `${person.grade} grade` : 'Same school'}
+                      </Text>
+                      <PrimaryButton title="Follow" onPress={() => handleFollow(person)} loading={pending} size="sm" style={styles.personTileFollow} />
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
             </View>
           )}
 
@@ -848,6 +820,36 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: spacing.md,
   },
+  peopleRow: {
+    gap: spacing.sm,
+    paddingRight: spacing.lg,
+  },
+  personTile: {
+    width: 132,
+    alignItems: 'center',
+    backgroundColor: colors.cardBg,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    borderRadius: radius.lg,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
+  },
+  personTileName: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
+    color: colors.textDark,
+    marginTop: spacing.sm,
+  },
+  personTileMeta: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
+    color: colors.textLight,
+    marginTop: 1,
+  },
+  personTileFollow: {
+    marginTop: spacing.sm,
+    alignSelf: 'stretch',
+  },
   tiles: {
     flexDirection: 'row',
     gap: spacing.sm,
@@ -858,6 +860,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: radius.lg,
     paddingVertical: spacing.sm + 2,
+  },
+  tileEmpty: {
+    opacity: 0.45,
   },
   tileCount: {
     fontFamily: fontFamily.bold,

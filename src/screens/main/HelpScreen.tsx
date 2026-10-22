@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import { View, Text, FlatList, RefreshControl, StyleSheet } from 'react-native';
+import { View, Text, FlatList, RefreshControl, TouchableOpacity, StyleSheet } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../contexts/AuthContext';
@@ -37,6 +37,9 @@ export default function HelpScreen() {
   // ones so the screen tells the whole story, not just what's still waiting.
   const [inProgress, setInProgress] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
+  // Which list is showing: requests still looking for a helper, or ones
+  // someone is already helping with.
+  const [view, setView] = useState<'open' | 'progress'>('open');
   const [refreshing, setRefreshing] = useState(false);
   const [hasSchool, setHasSchool] = useState(true);
   // True only after a load attempt that never previously succeeded fails —
@@ -142,7 +145,7 @@ export default function HelpScreen() {
   return (
     <View style={styles.container}>
       <FlatList
-        data={posts}
+        data={view === 'open' ? posts : inProgress}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />}
@@ -154,33 +157,45 @@ export default function HelpScreen() {
               {/* A live count gives this screen an immediate, at-a-glance
                   sense of current opportunity instead of only a static
                   subtitle — "action/opportunity-first" (Visual Polish pass). */}
-              {posts.length > 0 && (
-                <View style={styles.countBadge}>
-                  <Text style={styles.countBadgeText}>{posts.length} open</Text>
+            </View>
+            <Text style={styles.subtitle}>Classmates who could use a hand — or ask for one yourself.</Text>
+            {hasSchool ? (
+              <>
+                <View style={styles.segment}>
+                  {([
+                    ['open', 'Needs a helper', posts.length],
+                    ['progress', 'Being helped', inProgress.length],
+                  ] as const).map(([key, label, count]) => {
+                    const on = view === key;
+                    return (
+                      <TouchableOpacity
+                        key={key}
+                        style={[styles.segmentItem, on && styles.segmentItemOn]}
+                        onPress={() => setView(key)}
+                        accessibilityRole="tab"
+                        accessibilityState={{ selected: on }}
+                      >
+                        <Text style={[styles.segmentText, on && styles.segmentTextOn]}>{label}</Text>
+                        <View style={[styles.segmentCount, on && styles.segmentCountOn]}>
+                          <Text style={[styles.segmentCountText, on && styles.segmentCountTextOn]}>{count}</Text>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
-              )}
-            </View>
-            <Text style={styles.subtitle}>Open requests from your school community</Text>
-            {posts.length > 0 && (
-              <View style={styles.sectionRow}>
-                <NSIcon name="ask" size={20} />
-                <Text style={[styles.sectionLabel, styles.sectionLabelInline]}>Waiting for a helper</Text>
-              </View>
-            )}
+                <TouchableOpacity
+                  style={styles.askRow}
+                  onPress={() => navigation.navigate('CreatePost', { prefillCategory: 'Need Help' })}
+                  activeOpacity={0.85}
+                  accessibilityRole="button"
+                >
+                  <NSIcon name="ask" size={22} />
+                  <Text style={styles.askText}>Stuck on something? Ask for help</Text>
+                  <Text style={styles.askArrow}>›</Text>
+                </TouchableOpacity>
+              </>
+            ) : null}
           </View>
-        }
-        ListFooterComponent={
-          inProgress.length > 0 ? (
-            <View style={styles.inProgressSection}>
-              <View style={styles.sectionRow}>
-                <NSIcon name="help" size={20} />
-                <Text style={[styles.sectionLabel, styles.sectionLabelInline]}>In progress</Text>
-              </View>
-              {inProgress.map((item) => (
-                <PostPreviewCard key={item.id} post={item} showCategory={false} onPress={() => handleOpenPost(item)} />
-              ))}
-            </View>
-          ) : null
         }
         ListEmptyComponent={
           loadFailed ? (
@@ -191,22 +206,20 @@ export default function HelpScreen() {
                 icon="hand-left-outline"
                 nsIcon={hasSchool ? 'help' : 'school'}
                 tint={colors.secondaryLight}
-                title={hasSchool ? 'No one needs a hand right now' : 'Add your school to see help requests'}
+                title={
+                  !hasSchool
+                    ? 'Add your school to see help requests'
+                    : view === 'open'
+                      ? 'No one needs a hand right now'
+                      : 'No one is being helped right now'
+                }
                 subtitle={
                   hasSchool
                     ? 'Stuck on something yourself? Take the first step and ask.'
                     : 'Pick your school to see who needs a hand nearby.'
                 }
               />
-              {hasSchool ? (
-                <PrimaryButton
-                  title="Ask for help"
-                  icon="hand-left-outline"
-                  variant="outline"
-                  onPress={() => navigation.navigate('CreatePost', { prefillCategory: 'Need Help' })}
-                  style={styles.emptyActionButton}
-                />
-              ) : (
+              {hasSchool ? null : (
                 <PrimaryButton
                   title="Choose School"
                   icon="school-outline"
@@ -234,7 +247,73 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingTop: spacing.xl,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.xs,
+  },
+  segment: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.lg,
+  },
+  segmentItem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: radius.full,
+    backgroundColor: colors.hairline,
+  },
+  segmentItemOn: {
+    backgroundColor: colors.textDark,
+  },
+  segmentText: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
+    color: colors.textMid,
+  },
+  segmentTextOn: {
+    color: colors.background,
+  },
+  segmentCount: {
+    minWidth: 22,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: radius.full,
+    backgroundColor: colors.cardBg,
+    alignItems: 'center',
+  },
+  segmentCountOn: {
+    backgroundColor: colors.primary,
+  },
+  segmentCountText: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.xs,
+    color: colors.textMid,
+  },
+  segmentCountTextOn: {
+    color: colors.onPrimary,
+  },
+  askRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+    paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.primaryLight,
+  },
+  askText: {
+    flex: 1,
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
+    color: colors.primaryDark,
+  },
+  askArrow: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.lg,
+    color: colors.primaryDark,
   },
   titleRow: {
     flexDirection: 'row',

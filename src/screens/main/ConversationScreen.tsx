@@ -1219,7 +1219,7 @@ const styles = StyleSheet.create({
   loadOlderText: {
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.sm,
-    color: colors.primary,
+    color: colors.primaryDark,
   },
   // A small inset card inside the bubble — who said it, then what.
   replyQuote: {
@@ -1245,7 +1245,7 @@ const styles = StyleSheet.create({
     color: colors.onPrimary,
   },
   replyQuoteNameTheirs: {
-    color: colors.primary,
+    color: colors.primaryDark,
   },
   gapMarker: {
     alignSelf: 'center',
@@ -1375,6 +1375,8 @@ const styles = StyleSheet.create({
   },
   bubbleTheirs: {
     backgroundColor: colors.cardBg,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   bubbleDeleted: {
     backgroundColor: colors.background,
@@ -1425,7 +1427,7 @@ const styles = StyleSheet.create({
   readReceipt: {
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.xs,
-    color: colors.primary,
+    color: colors.primaryDark,
     marginTop: 1,
   },
   editingBanner: {
@@ -1453,7 +1455,7 @@ const styles = StyleSheet.create({
   replyBannerTitle: {
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.xs,
-    color: colors.primary,
+    color: colors.primaryDark,
   },
   replyBannerPreview: {
     fontFamily: fontFamily.regular,

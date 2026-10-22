@@ -480,7 +480,7 @@ const styles = StyleSheet.create({
   },
   timestampUnread: {
     fontFamily: fontFamily.semibold,
-    color: colors.primary,
+    color: colors.primaryDark,
   },
   rowText: {
     flex: 1,

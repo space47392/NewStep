@@ -81,7 +81,7 @@ const styles = StyleSheet.create({
   labelNow: {
     fontFamily: fontFamily.bold,
     fontSize: 11,
-    color: colors.primary,
+    color: colors.primaryDark,
   },
   labelDone: {
     color: colors.textMid,

@@ -286,7 +286,7 @@ const styles = StyleSheet.create({
   countBadgeText: {
     fontFamily: fontFamily.bold,
     fontSize: fontSize.xs,
-    color: colors.primary,
+    color: colors.primaryDark,
   },
   subtitle: {
     fontFamily: fontFamily.regular,

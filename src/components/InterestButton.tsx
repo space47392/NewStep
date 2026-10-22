@@ -93,7 +93,7 @@ const styles = StyleSheet.create({
   text: {
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.sm,
-    color: colors.primary,
+    color: colors.primaryDark,
   },
   textActive: {
     color: colors.onPrimary,

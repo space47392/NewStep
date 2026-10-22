@@ -119,7 +119,7 @@ const styles = StyleSheet.create({
   school: {
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.sm,
-    color: colors.primary,
+    color: colors.primaryDark,
     marginTop: 2,
   },
   meta: {

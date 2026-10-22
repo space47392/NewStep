@@ -580,7 +580,7 @@ const styles = StyleSheet.create({
   addSchoolText: {
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.sm,
-    color: colors.primary,
+    color: colors.primaryDark,
   },
   metaTextPlain: {
     fontFamily: fontFamily.regular,
@@ -606,7 +606,7 @@ const styles = StyleSheet.create({
   editButtonText: {
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.sm,
-    color: colors.primary,
+    color: colors.primaryDark,
   },
   communityCard: {
     width: '100%',
@@ -719,7 +719,7 @@ const styles = StyleSheet.create({
   activityAmountText: {
     fontFamily: fontFamily.bold,
     fontSize: fontSize.xs,
-    color: colors.primary,
+    color: colors.primaryDark,
   },
   activityReason: {
     flex: 1,

@@ -384,7 +384,7 @@ const styles = StyleSheet.create({
   skipText: {
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.sm,
-    color: colors.primary,
+    color: colors.primaryDark,
     textDecorationLine: 'underline',
   },
   breadcrumbRow: {
@@ -396,7 +396,7 @@ const styles = StyleSheet.create({
   breadcrumb: {
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.xs,
-    color: colors.primary,
+    color: colors.primaryDark,
   },
   list: {
     paddingHorizontal: spacing.lg,

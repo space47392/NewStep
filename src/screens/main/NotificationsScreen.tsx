@@ -464,7 +464,7 @@ const styles = StyleSheet.create({
   markAllText: {
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.xs,
-    color: colors.primary,
+    color: colors.primaryDark,
   },
   avatarWrap: {
     width: 48,
@@ -560,6 +560,6 @@ const styles = StyleSheet.create({
   loadMoreText: {
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.sm,
-    color: colors.primary,
+    color: colors.primaryDark,
   },
 });

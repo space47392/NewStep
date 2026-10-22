@@ -687,7 +687,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.sm,
-    color: colors.primary,
+    color: colors.primaryDark,
   },
   label: {
     fontFamily: fontFamily.semibold,
@@ -775,7 +775,7 @@ const styles = StyleSheet.create({
   addPhotoText: {
     fontFamily: fontFamily.medium,
     fontSize: fontSize.xs,
-    color: colors.primary,
+    color: colors.primaryDark,
     marginTop: 2,
   },
   submitButton: {
@@ -882,7 +882,7 @@ const styles = StyleSheet.create({
   quickDateChipText: {
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.xs,
-    color: colors.primary,
+    color: colors.primaryDark,
   },
   pickerField: {
     backgroundColor: colors.cardBg,
@@ -922,7 +922,7 @@ const styles = StyleSheet.create({
   pickerDoneText: {
     fontFamily: fontFamily.bold,
     fontSize: fontSize.sm,
-    color: colors.primary,
+    color: colors.primaryDark,
   },
   endTimeHeaderRow: {
     flexDirection: 'row',
@@ -945,6 +945,6 @@ const styles = StyleSheet.create({
   addEndTimeText: {
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.sm,
-    color: colors.primary,
+    color: colors.primaryDark,
   },
 });

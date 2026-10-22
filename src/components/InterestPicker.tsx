@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
   counterText: {
     fontFamily: fontFamily.bold,
     fontSize: fontSize.xs,
-    color: colors.primary,
+    color: colors.primaryDark,
   },
   counterTextFull: {
     color: colors.accentDark,
@@ -201,7 +201,7 @@ const styles = StyleSheet.create({
     color: colors.textDark,
   },
   optionChipTextSelected: {
-    color: colors.primary,
+    color: colors.primaryDark,
     fontFamily: fontFamily.semibold,
   },
   selectedChip: {

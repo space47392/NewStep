@@ -312,6 +312,6 @@ const styles = StyleSheet.create({
   loadMoreText: {
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.sm,
-    color: colors.primary,
+    color: colors.primaryDark,
   },
 });

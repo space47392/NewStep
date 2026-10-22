@@ -54,6 +54,6 @@ const styles = StyleSheet.create({
   seeAll: {
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.sm,
-    color: colors.primary,
+    color: colors.primaryDark,
   },
 });

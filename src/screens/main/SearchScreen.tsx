@@ -832,7 +832,7 @@ const styles = StyleSheet.create({
   clearText: {
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.sm,
-    color: colors.primary,
+    color: colors.primaryDark,
   },
   storyRow: {
     gap: spacing.md,

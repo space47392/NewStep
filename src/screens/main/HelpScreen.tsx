@@ -13,6 +13,7 @@ import ErrorState from '../../components/ErrorState';
 import PrimaryButton from '../../components/PrimaryButton';
 import { PostCardSkeleton } from '../../components/Skeleton';
 import FadeInView from '../../components/FadeInView';
+import { Ionicons } from '@expo/vector-icons';
 import NSIcon from '../../components/NSIcon';
 import { colors, spacing, radius, fontSize, fontFamily, typography } from '../../constants/theme';
 import PressableScale from '../../components/PressableScale';
@@ -192,7 +193,7 @@ export default function HelpScreen() {
                 >
                   <NSIcon name="ask" size={22} />
                   <Text style={styles.askText}>Stuck on something? Ask for help</Text>
-                  <Text style={styles.askArrow}>›</Text>
+                  <Ionicons name="chevron-forward" size={18} color={colors.primaryDark} />
                 </PressableScale>
               </>
             ) : null}
@@ -309,11 +310,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.sm,
-    color: colors.primaryDark,
-  },
-  askArrow: {
-    fontFamily: fontFamily.bold,
-    fontSize: fontSize.lg,
     color: colors.primaryDark,
   },
   titleRow: {

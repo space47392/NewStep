@@ -26,7 +26,7 @@ const CATEGORIES: PostCategory[] = ['Need Help', 'School Question', 'Looking for
 // shown up front so asking for help never feels like posting into the void.
 const HELP_GUIDE_STEPS = [
   { title: 'Asked', body: 'Classmates at your school see your request.' },
-  { title: 'Helping', body: "Someone offers to help — you'll get a notification." },
+  { title: 'Helping', body: "Classmates offer to help — you choose who." },
   { title: 'Done', body: 'Mark it done and say thanks 💙' },
 ];
 
@@ -382,13 +382,16 @@ export default function CreatePostScreen() {
                 key={c}
                 style={[
                   styles.chip,
-                  { borderColor: selected ? style.text : colors.border, backgroundColor: selected ? style.text : colors.cardBg },
+                  // Selected: the category's soft tint with a clear edge; readable text.
+                  { borderColor: selected ? style.text : colors.border, backgroundColor: selected ? style.bg : colors.cardBg },
+                  selected && styles.chipOn,
                 ]}
                 onPress={() => setCategory(c)}
                 hitSlop={{ top: 8, bottom: 8 }}
               >
                 <NSIcon name={style.nsIcon} size={20} />
-                <Text style={[styles.chipText, { color: selected ? colors.ink : style.text }]}>{c}</Text>
+                <Text style={[styles.chipText, { color: style.text }]}>{c}</Text>
+                {selected ? <Ionicons name="checkmark" size={15} color={style.text} /> : null}
               </TouchableOpacity>
             );
           })}
@@ -698,6 +701,9 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     borderRadius: radius.full,
     borderWidth: 1.5,
+  },
+  chipOn: {
+    borderWidth: 2,
   },
   chipText: {
     fontFamily: fontFamily.semibold,

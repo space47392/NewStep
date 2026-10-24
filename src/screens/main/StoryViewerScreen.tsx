@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, Image, TouchableOpacity, Animated, ActivityIndicator, Alert, BackHandler, StyleSheet } from 'react-native';
+import { View, Text, Image, TouchableOpacity, Animated, ActivityIndicator, BackHandler, StyleSheet } from 'react-native';
+import { warmAlert } from '../../components/WarmAlert';
 import { useNavigation, useRoute, useFocusEffect, RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -204,7 +205,7 @@ export default function StoryViewerScreen() {
   };
 
   const handleDelete = () => {
-    Alert.alert('Delete story?', 'This cannot be undone.', [
+    warmAlert('Delete story?', 'This cannot be undone.', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete',
@@ -216,7 +217,7 @@ export default function StoryViewerScreen() {
             navigation.goBack();
           } catch (err) {
             const message = err instanceof Error ? err.message : 'Could not delete story.';
-            Alert.alert('Error', message);
+            warmAlert('Error', message);
             setDeleting(false);
           }
         },
@@ -248,7 +249,7 @@ export default function StoryViewerScreen() {
     } catch (err) {
       if (!isMountedRef.current) return;
       const message = err instanceof Error ? err.message : 'Could not start a conversation.';
-      Alert.alert('Error', message);
+      warmAlert('Error', message);
     } finally {
       if (isMountedRef.current) setMessaging(false);
     }

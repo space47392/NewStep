@@ -1,20 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  View,
-  Text,
-  FlatList,
-  TextInput,
-  TouchableOpacity,
-  KeyboardAvoidingView,
-  Keyboard,
-  Platform,
-  ActivityIndicator,
-  Alert,
-  AppState,
-  StyleSheet,
-  NativeScrollEvent,
-  NativeSyntheticEvent,
-} from 'react-native';
+import { View, Text, FlatList, TextInput, TouchableOpacity, KeyboardAvoidingView, Keyboard, Platform, ActivityIndicator, AppState, StyleSheet, NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
+import { warmAlert } from '../../components/WarmAlert';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -625,7 +611,7 @@ export default function ConversationScreen() {
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Could not send message.';
-      Alert.alert('Error', message);
+      warmAlert('Error', message);
     } finally {
       setSending(false);
     }
@@ -640,7 +626,7 @@ export default function ConversationScreen() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Could not send.';
-      Alert.alert('Error', message);
+      warmAlert('Error', message);
     } finally {
       setSending(false);
     }
@@ -681,7 +667,7 @@ export default function ConversationScreen() {
   const handleCancelReply = () => setReplyTarget(null);
 
   const handleDeleteMessage = (message: Message) => {
-    Alert.alert('Delete message?', 'This cannot be undone.', [
+    warmAlert('Delete message?', 'This cannot be undone.', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete',
@@ -692,7 +678,7 @@ export default function ConversationScreen() {
             if (editingMessage?.id === message.id) handleCancelEdit();
           } catch (err) {
             const errMessage = err instanceof Error ? err.message : 'Could not delete message.';
-            Alert.alert('Error', errMessage);
+            warmAlert('Error', errMessage);
           }
         },
       },

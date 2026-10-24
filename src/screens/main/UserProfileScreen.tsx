@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, Alert, StyleSheet } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
+import { warmAlert } from '../../components/WarmAlert';
 import { useFocusEffect, useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -112,7 +113,7 @@ export default function UserProfileScreen() {
   const handleToggleBlock = () => {
     if (!user) return;
     if (isBlocked) {
-      Alert.alert('Unblock this user?', 'They will be able to message you and appear in your feed again.', [
+      warmAlert('Unblock this user?', 'They will be able to message you and appear in your feed again.', [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Unblock',
@@ -123,13 +124,13 @@ export default function UserProfileScreen() {
               showToast('User unblocked');
             } catch (err) {
               const message = err instanceof Error ? err.message : 'Could not unblock this user.';
-              Alert.alert('Error', message);
+              warmAlert('Error', message);
             }
           },
         },
       ]);
     } else {
-      Alert.alert(
+      warmAlert(
         'Block this user?',
         "They won't be able to message you, and you won't see their posts. This won't delete anything that already exists.",
         [
@@ -144,7 +145,7 @@ export default function UserProfileScreen() {
                 showToast('User blocked');
               } catch (err) {
                 const message = err instanceof Error ? err.message : 'Could not block this user.';
-                Alert.alert('Error', message);
+                warmAlert('Error', message);
               }
             },
           },
@@ -160,7 +161,7 @@ export default function UserProfileScreen() {
     if (!user) return;
 
     if (isFollowingUser) {
-      Alert.alert(
+      warmAlert(
         `Unfollow ${profile?.full_name ?? 'this user'}?`,
         "You won't see their posts in your Following feed.",
         [
@@ -176,7 +177,7 @@ export default function UserProfileScreen() {
                 setFollowCounts((prev) => ({ ...prev, followers: Math.max(0, prev.followers - 1) }));
               } catch (err) {
                 const message = err instanceof Error ? err.message : 'Could not unfollow.';
-                Alert.alert('Error', message);
+                warmAlert('Error', message);
               } finally {
                 setFollowLoading(false);
               }
@@ -198,7 +199,7 @@ export default function UserProfileScreen() {
         // Also the path a "they blocked you" attempt takes — the RPC-level
         // guard's message is deliberately generic, so this doesn't reveal why.
         const message = err instanceof Error ? err.message : 'Could not follow this user.';
-        Alert.alert('Error', message);
+        warmAlert('Error', message);
       } finally {
         setFollowLoading(false);
       }
@@ -227,7 +228,7 @@ export default function UserProfileScreen() {
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Could not start the conversation.';
-      Alert.alert('Error', message);
+      warmAlert('Error', message);
     } finally {
       setMessaging(false);
     }

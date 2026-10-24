@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, FlatList, RefreshControl, TouchableOpacity, ActivityIndicator, Alert, ScrollView, StyleSheet, Animated } from 'react-native';
+import { View, Text, FlatList, RefreshControl, TouchableOpacity, ActivityIndicator, ScrollView, StyleSheet, Animated } from 'react-native';
+import { warmAlert } from '../../components/WarmAlert';
 import { useFocusEffect, useIsFocused, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -613,7 +614,7 @@ export default function FeedScreen() {
     if (!user) return;
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert('Permission needed', 'Please allow photo library access to post a story.');
+      warmAlert('Permission needed', 'Please allow photo library access to post a story.');
       return;
     }
 
@@ -633,7 +634,7 @@ export default function FeedScreen() {
       showToast('Story posted');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Could not post story.';
-      Alert.alert('Error', message);
+      warmAlert('Error', message);
     } finally {
       setUploadingStory(false);
     }
@@ -648,7 +649,7 @@ export default function FeedScreen() {
   };
 
   const handleDeletePost = (post: Post) => {
-    Alert.alert('Delete post?', 'This cannot be undone.', [
+    warmAlert('Delete post?', 'This cannot be undone.', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete',
@@ -661,7 +662,7 @@ export default function FeedScreen() {
             showToast('Post deleted');
           } catch (err) {
             const message = err instanceof Error ? err.message : 'Could not delete post.';
-            Alert.alert('Error', message);
+            warmAlert('Error', message);
           } finally {
             setDeletingPostId(null);
           }

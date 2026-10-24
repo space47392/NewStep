@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { View, Text, TextInput, ActivityIndicator, Alert, StyleSheet } from 'react-native';
+import { View, Text, TextInput, ActivityIndicator, StyleSheet } from 'react-native';
+import { warmAlert } from '../../components/WarmAlert';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { checkUsernameAvailable, setMyUsername } from '../../lib/username';
@@ -73,7 +74,7 @@ export default function ChooseUsernameScreen({ onComplete }: Props) {
       onComplete?.();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Could not save username.';
-      Alert.alert('Error', message);
+      warmAlert('Error', message);
     } finally {
       setSaving(false);
     }

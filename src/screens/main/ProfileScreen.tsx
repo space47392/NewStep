@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import { warmAlert } from '../../components/WarmAlert';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -154,7 +155,7 @@ export default function ProfileScreen() {
   };
 
   const handleLogout = () => {
-    Alert.alert('Log out', 'Are you sure you want to log out?', [
+    warmAlert('Log out', 'Are you sure you want to log out?', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Log out',
@@ -183,7 +184,7 @@ export default function ProfileScreen() {
   // this device's — useful if you think another device is still signed in
   // somewhere you don't want it to be.
   const handleLogoutAllDevices = () => {
-    Alert.alert(
+    warmAlert(
       'Log out of all devices?',
       "This will sign you out everywhere, including this device. You'll need to sign in again.",
       [
@@ -210,7 +211,7 @@ export default function ProfileScreen() {
   // this whole screen, so it gets more friction than a normal destructive
   // Alert, not less.
   const handleDeleteAccount = () => {
-    Alert.alert(
+    warmAlert(
       'Delete your account?',
       'This permanently deletes your profile, posts, comments, stories, and messages. This cannot be undone.',
       [
@@ -219,7 +220,7 @@ export default function ProfileScreen() {
           text: 'Continue',
           style: 'destructive',
           onPress: () => {
-            Alert.alert(
+            warmAlert(
               'Are you absolutely sure?',
               'Your account and all of its data will be permanently deleted right now. There is no way to undo this.',
               [
@@ -239,7 +240,7 @@ export default function ProfileScreen() {
                       await supabase.auth.signOut().catch(() => {});
                     } catch (err) {
                       const message = err instanceof Error ? err.message : 'Could not delete your account.';
-                      Alert.alert('Error', message);
+                      warmAlert('Error', message);
                       setDeletingAccount(false);
                     }
                   },
@@ -445,44 +446,32 @@ export default function ProfileScreen() {
             path for another viewer's session to reach it. Same icon+text row
             pattern as the school metaRow above, restyled from bare text
             (Step 65 — read as leftover debug text without a label). */}
-        <View style={styles.emailRow}>
-          <Ionicons name="mail-outline" size={14} color={colors.textMid} />
-          <Text style={styles.email}>{user?.email}</Text>
+        <Text style={styles.accountLabel}>Account</Text>
+        <View style={styles.accountCard}>
+          <View style={styles.accountRow}>
+            <Ionicons name="mail-outline" size={18} color={colors.textMid} />
+            <Text style={styles.accountRowText} numberOfLines={1}>
+              {user?.email}
+            </Text>
+          </View>
+          <View style={styles.accountDivider} />
+          <TouchableOpacity onPress={handleLogout} style={styles.accountRow} disabled={loggingOut} activeOpacity={0.7}>
+            <Ionicons name="log-out-outline" size={18} color={colors.textDark} />
+            <Text style={styles.accountRowText}>Log out</Text>
+            {loggingOut ? <ActivityIndicator size="small" color={colors.textMid} /> : <Ionicons name="chevron-forward" size={16} color={colors.textLight} />}
+          </TouchableOpacity>
+          <View style={styles.accountDivider} />
+          <TouchableOpacity onPress={handleLogoutAllDevices} style={styles.accountRow} disabled={loggingOut} activeOpacity={0.7}>
+            <Ionicons name="phone-portrait-outline" size={18} color={colors.textDark} />
+            <Text style={styles.accountRowText}>Log out of all devices</Text>
+            <Ionicons name="chevron-forward" size={16} color={colors.textLight} />
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity
-          onPress={handleLogout}
-          style={styles.logoutButton}
-          disabled={loggingOut}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          {loggingOut ? (
-            <ActivityIndicator size="small" color={colors.error} />
-          ) : (
-            <>
-              <Ionicons name="log-out-outline" size={16} color={colors.error} />
-              <Text style={styles.logoutText}>Log Out</Text>
-            </>
-          )}
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={handleLogoutAllDevices}
-          style={styles.logoutEverywhereButton}
-          disabled={loggingOut}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Text style={styles.logoutEverywhereText}>Log out of all devices</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={handleDeleteAccount}
-          style={styles.deleteAccountButton}
-          disabled={deletingAccount}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
+        <TouchableOpacity onPress={handleDeleteAccount} style={styles.deleteAccountButton} disabled={deletingAccount} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           {deletingAccount ? (
             <ActivityIndicator size="small" color={colors.error} />
           ) : (
-            <Text style={styles.deleteAccountText}>Delete Account</Text>
+            <Text style={styles.deleteAccountText}>Delete account</Text>
           )}
         </TouchableOpacity>
       </FadeInView>
@@ -745,7 +734,38 @@ const styles = StyleSheet.create({
   accountSection: {
     paddingHorizontal: spacing.lg,
     marginTop: spacing.xl,
+  },
+  accountLabel: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.sm,
+    color: colors.textMid,
+    marginBottom: spacing.sm,
+    marginLeft: 4,
+  },
+  accountCard: {
+    backgroundColor: colors.cardBg,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    overflow: 'hidden',
+  },
+  accountRow: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.sm + 2,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 15,
+  },
+  accountRowText: {
+    flex: 1,
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.md,
+    color: colors.textDark,
+  },
+  accountDivider: {
+    height: 1,
+    backgroundColor: colors.hairline,
+    marginLeft: spacing.md + 28,
   },
   emailRow: {
     flexDirection: 'row',
@@ -778,12 +798,12 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
   },
   deleteAccountButton: {
+    alignSelf: 'center',
     marginTop: spacing.lg,
   },
   deleteAccountText: {
     fontFamily: fontFamily.medium,
-    fontSize: fontSize.xs,
+    fontSize: fontSize.sm,
     color: colors.error,
-    textDecorationLine: 'underline',
   },
 });

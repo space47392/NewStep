@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
-import { View, Text, FlatList, RefreshControl, TouchableOpacity, ActivityIndicator, Alert, StyleSheet } from 'react-native';
+import { View, Text, FlatList, RefreshControl, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
+import { warmAlert } from '../../components/WarmAlert';
 import { useFocusEffect, useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -199,7 +200,7 @@ export default function FollowListScreen() {
     const currentlyFollowing = followingIds.has(person.id);
 
     if (currentlyFollowing) {
-      Alert.alert(`Unfollow ${person.full_name ?? 'this user'}?`, "You won't see their posts in your Following feed.", [
+      warmAlert(`Unfollow ${person.full_name ?? 'this user'}?`, "You won't see their posts in your Following feed.", [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Unfollow',
@@ -215,7 +216,7 @@ export default function FollowListScreen() {
               });
             } catch (err) {
               const message = err instanceof Error ? err.message : 'Could not unfollow.';
-              Alert.alert('Error', message);
+              warmAlert('Error', message);
             } finally {
               setPendingFollowIds((prev) => {
                 const next = new Set(prev);
@@ -236,7 +237,7 @@ export default function FollowListScreen() {
         setFollowingIds((prev) => new Set(prev).add(person.id));
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Could not follow this user.';
-        Alert.alert('Error', message);
+        warmAlert('Error', message);
       } finally {
         setPendingFollowIds((prev) => {
           const next = new Set(prev);

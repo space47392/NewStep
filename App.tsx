@@ -14,6 +14,7 @@ import { Fredoka_700Bold } from '@expo-google-fonts/fredoka';
 import { AuthProvider } from './src/contexts/AuthContext';
 import { ToastProvider } from './src/contexts/ToastContext';
 import AppNavigator from './src/navigation/AppNavigator';
+import { WarmAlertHost } from './src/components/WarmAlert';
 import { navigateToMainStack } from './src/navigation/navigationRef';
 import {
   addNotificationResponseListener,
@@ -147,6 +148,7 @@ export default function App() {
         <ToastProvider>
           <StatusBar style="dark" />
           <AppNavigator />
+          <WarmAlertHost />
         </ToastProvider>
       </AuthProvider>
     </SafeAreaProvider>

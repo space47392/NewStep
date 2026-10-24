@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
+import { warmAlert } from '../../components/WarmAlert';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
@@ -31,11 +32,11 @@ export default function ResetPasswordScreen({ onDone }: Props) {
   const handleSave = async () => {
     if (savingRef.current) return;
     if (password.length < MIN_PASSWORD_LENGTH) {
-      Alert.alert('Too short', `Use at least ${MIN_PASSWORD_LENGTH} characters.`);
+      warmAlert('Too short', `Use at least ${MIN_PASSWORD_LENGTH} characters.`);
       return;
     }
     if (password !== confirm) {
-      Alert.alert("Passwords don't match", 'Type the same new password in both boxes.');
+      warmAlert("Passwords don't match", 'Type the same new password in both boxes.');
       return;
     }
     savingRef.current = true;
@@ -44,10 +45,10 @@ export default function ResetPasswordScreen({ onDone }: Props) {
     savingRef.current = false;
     setSaving(false);
     if (error) {
-      Alert.alert("Couldn't update your password", error.message);
+      warmAlert("Couldn't update your password", error.message);
       return;
     }
-    Alert.alert('Password updated 🔑', "You're all set — you're signed in with your new password.");
+    warmAlert('Password updated 🔑', "You're all set — you're signed in with your new password.");
     onDone();
   };
 

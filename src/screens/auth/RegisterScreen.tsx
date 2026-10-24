@@ -1,14 +1,6 @@
 import { useRef, useState } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
-  Alert,
-  ScrollView,
-} from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { warmAlert } from '../../components/WarmAlert';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -43,15 +35,15 @@ export default function RegisterScreen({ navigation }: Props) {
   const handleRegister = async () => {
     if (registeringRef.current) return;
     if (!fullName.trim() || !email.trim() || !password || !confirmPassword) {
-      Alert.alert('Missing fields', 'Please fill in all fields.');
+      warmAlert('Missing fields', 'Please fill in all fields.');
       return;
     }
     if (password.length < 6) {
-      Alert.alert('Weak password', 'Password must be at least 6 characters.');
+      warmAlert('Weak password', 'Password must be at least 6 characters.');
       return;
     }
     if (password !== confirmPassword) {
-      Alert.alert("Passwords don't match", 'Type the same password in both boxes.');
+      warmAlert("Passwords don't match", 'Type the same password in both boxes.');
       return;
     }
 
@@ -73,11 +65,11 @@ export default function RegisterScreen({ navigation }: Props) {
     setLoading(false);
 
     if (error) {
-      Alert.alert('Sign up failed', error.message);
+      warmAlert('Sign up failed', error.message);
       return;
     }
 
-    Alert.alert(
+    warmAlert(
       'Check your email',
       'We sent you a confirmation link. Please verify your email before signing in.',
       [{ text: 'OK', onPress: () => navigation.navigate('Login') }]

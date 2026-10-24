@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Alert, Linking } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Linking } from 'react-native';
+import { warmAlert } from '../../components/WarmAlert';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
 import IconInput from '../../components/IconInput';
@@ -49,9 +50,9 @@ export default function LoginScreen({ navigation }: Props) {
       const errorPair = fragment.split('&').find((pair) => pair.startsWith('error_description='));
       const error = errorPair ? decodeURIComponent(errorPair.slice('error_description='.length).replace(/\+/g, ' ')) : null;
       if (error) {
-        Alert.alert("Couldn't confirm your email", error);
+        warmAlert("Couldn't confirm your email", error);
       } else {
-        Alert.alert('Email confirmed ✅', 'You can sign in with your email and password now.');
+        warmAlert('Email confirmed ✅', 'You can sign in with your email and password now.');
       }
     };
     Linking.getInitialURL().then(handle).catch(() => {});
@@ -68,7 +69,7 @@ export default function LoginScreen({ navigation }: Props) {
   const handleLogin = async () => {
     if (loggingInRef.current) return;
     if (!email || !password) {
-      Alert.alert('Missing fields', 'Please enter your email and password.');
+      warmAlert('Missing fields', 'Please enter your email and password.');
       return;
     }
 
@@ -79,7 +80,7 @@ export default function LoginScreen({ navigation }: Props) {
     setLoading(false);
 
     if (error) {
-      Alert.alert('Login failed', error.message);
+      warmAlert('Login failed', error.message);
     }
     // On success, AuthContext detects the new session and AppNavigator
     // automatically redirects to the main app — no manual navigation needed.

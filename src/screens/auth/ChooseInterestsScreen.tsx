@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, Alert } from 'react-native';
+import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import { warmAlert } from '../../components/WarmAlert';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { fetchProfileById, setMyInterests } from '../../lib/profile';
@@ -54,7 +55,7 @@ export default function ChooseInterestsScreen({ onDone }: Props) {
       onDone();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Could not save your interests.';
-      Alert.alert('Error', message);
+      warmAlert('Error', message);
     } finally {
       setSaving(false);
     }

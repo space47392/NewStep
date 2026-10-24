@@ -1,15 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  ScrollView,
-  StyleSheet,
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
+import { warmAlert } from '../../components/WarmAlert';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -94,7 +85,7 @@ export default function EditProfileScreen() {
         .maybeSingle<PublicProfile>();
 
       if (error) {
-        Alert.alert('Could not load profile', error.message);
+        warmAlert('Could not load profile', error.message);
       } else if (data) {
         setFullName(data.full_name ?? '');
         setGrade(data.grade ?? '');
@@ -145,7 +136,7 @@ export default function EditProfileScreen() {
       }
       if (!isDirtyRef.current) return;
       e.preventDefault();
-      Alert.alert('Discard changes?', 'Your changes will be lost.', [
+      warmAlert('Discard changes?', 'Your changes will be lost.', [
         { text: 'Keep Editing', style: 'cancel' },
         { text: 'Discard', style: 'destructive', onPress: () => navigation.dispatch(e.data.action) },
       ]);
@@ -180,7 +171,7 @@ export default function EditProfileScreen() {
   const handlePickAvatar = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert('Permission needed', 'Please allow photo library access to set a profile picture.');
+      warmAlert('Permission needed', 'Please allow photo library access to set a profile picture.');
       return;
     }
 
@@ -236,7 +227,7 @@ export default function EditProfileScreen() {
         setSaving(false);
         savingRef.current = false;
         const message = err instanceof Error ? err.message : 'Something went wrong.';
-        Alert.alert('Upload failed', message);
+        warmAlert('Upload failed', message);
         return;
       }
       setUploadingAvatar(false);
@@ -255,7 +246,7 @@ export default function EditProfileScreen() {
     savingRef.current = false;
 
     if (error) {
-      Alert.alert('Save failed', error.message);
+      warmAlert('Save failed', error.message);
     } else {
       setAvatarUrl(nextAvatarUrl);
       setPendingAvatar(null);

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Linking } from 'react-native';
+import { Linking } from 'react-native';
+import { warmAlert } from '../components/WarmAlert';
 import { NavigationContainer, DarkTheme } from '@react-navigation/native';
 import { colors, light } from '../constants/theme';
 
@@ -101,7 +102,7 @@ export default function AppNavigator() {
       if (handledLinksRef.current.has(url)) return;
       handledLinksRef.current.add(url);
       if (params.error_description) {
-        Alert.alert("This reset link didn't work", params.error_description + ' Request a new one from "Forgot password?".');
+        warmAlert("This reset link didn't work", params.error_description + ' Request a new one from "Forgot password?".');
         return;
       }
       if (!params.access_token || !params.refresh_token) return;
@@ -112,7 +113,7 @@ export default function AppNavigator() {
       });
       if (error) {
         setRecoveringPassword(false);
-        Alert.alert("This reset link didn't work", error.message);
+        warmAlert("This reset link didn't work", error.message);
       }
     };
     Linking.getInitialURL().then(handle).catch(() => {});

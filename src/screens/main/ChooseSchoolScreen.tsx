@@ -1,15 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  View,
-  Text,
-  FlatList,
-  TextInput,
-  TouchableOpacity,
-  ActivityIndicator,
-  Alert,
-  BackHandler,
-  StyleSheet,
-} from 'react-native';
+import { View, Text, FlatList, TextInput, TouchableOpacity, ActivityIndicator, BackHandler, StyleSheet } from 'react-native';
+import { warmAlert } from '../../components/WarmAlert';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -146,7 +137,7 @@ export default function ChooseSchoolScreen({ onDone, showSkip, title, subtitle }
       setJoinedSchool(school);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Could not save your school.';
-      Alert.alert('Error', message);
+      warmAlert('Error', message);
     } finally {
       setSavingId(null);
     }

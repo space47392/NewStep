@@ -1,17 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  Image,
-  ScrollView,
-  ActivityIndicator,
-  StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
-  Alert,
-} from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Image, ScrollView, ActivityIndicator, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
+import { warmAlert } from '../../components/WarmAlert';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -164,12 +153,12 @@ export default function CreatePostScreen() {
       // (Step 42).
       if (postingRef.current) {
         e.preventDefault();
-        Alert.alert('Please wait', 'Your post is still uploading.');
+        warmAlert('Please wait', 'Your post is still uploading.');
         return;
       }
       if (!isDirtyRef.current) return;
       e.preventDefault();
-      Alert.alert('Discard changes?', 'Your changes will be lost.', [
+      warmAlert('Discard changes?', 'Your changes will be lost.', [
         { text: 'Keep Editing', style: 'cancel' },
         { text: 'Discard', style: 'destructive', onPress: () => navigation.dispatch(e.data.action) },
       ]);
@@ -182,7 +171,7 @@ export default function CreatePostScreen() {
 
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert('Permission needed', 'Please allow photo library access to add photos.');
+      warmAlert('Permission needed', 'Please allow photo library access to add photos.');
       return;
     }
 
@@ -238,7 +227,7 @@ export default function CreatePostScreen() {
     // second, duplicate post.
     if (postingRef.current) return;
     if (!content.trim()) {
-      Alert.alert('Empty post', 'Write something before posting.');
+      warmAlert('Empty post', 'Write something before posting.');
       return;
     }
     if (!user) return;
@@ -247,7 +236,7 @@ export default function CreatePostScreen() {
     let eventEndTimeIso: string | undefined;
     if (category === 'Event') {
       if (!eventDate || !eventStartTime) {
-        Alert.alert('Missing event details', 'Choose a date and a start time for this event.');
+        warmAlert('Missing event details', 'Choose a date and a start time for this event.');
         return;
       }
       const startDateTime = combineDateAndTime(eventDate, eventStartTime);
@@ -343,7 +332,7 @@ export default function CreatePostScreen() {
         await removePostPhotos(uploadedUrls).catch(() => {});
       }
       const message = err instanceof Error ? err.message : 'Something went wrong.';
-      Alert.alert(editingPost ? 'Could not save changes' : 'Could not post', message);
+      warmAlert(editingPost ? 'Could not save changes' : 'Could not post', message);
     } finally {
       postingRef.current = false;
       setPosting(false);

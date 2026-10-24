@@ -1,17 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  View,
-  Text,
-  FlatList,
-  TextInput,
-  TouchableOpacity,
-  KeyboardAvoidingView,
-  Platform,
-  ActivityIndicator,
-  RefreshControl,
-  Alert,
-  StyleSheet,
-} from 'react-native';
+import { View, Text, FlatList, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ActivityIndicator, RefreshControl, StyleSheet } from 'react-native';
+import { warmAlert } from '../../components/WarmAlert';
 import { useFocusEffect, useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -161,7 +150,7 @@ export default function PostDetailScreen() {
         if (isMounted) setComments(data);
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Could not load comments.';
-        Alert.alert('Error', message);
+        warmAlert('Error', message);
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -354,7 +343,7 @@ export default function PostDetailScreen() {
     } catch (err) {
       if (!isMountedRef.current) return;
       const message = err instanceof Error ? err.message : 'Could not start the conversation.';
-      Alert.alert('Error', message);
+      warmAlert('Error', message);
     } finally {
       if (isMountedRef.current) setMessaging(false);
     }
@@ -367,7 +356,7 @@ export default function PostDetailScreen() {
   };
 
   const handleDeletePost = () => {
-    Alert.alert('Delete post?', 'This cannot be undone.', [
+    warmAlert('Delete post?', 'This cannot be undone.', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete',
@@ -380,7 +369,7 @@ export default function PostDetailScreen() {
             navigation.goBack();
           } catch (err) {
             const message = err instanceof Error ? err.message : 'Could not delete post.';
-            Alert.alert('Error', message);
+            warmAlert('Error', message);
             setDeletingPost(false);
           }
         },
@@ -433,7 +422,7 @@ export default function PostDetailScreen() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Could not post comment.';
-      Alert.alert('Error', message);
+      warmAlert('Error', message);
     } finally {
       setSending(false);
     }

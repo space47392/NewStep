@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
+import { warmAlert } from '../../components/WarmAlert';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -26,7 +27,7 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
   const handleSendReset = async () => {
     if (sendingRef.current) return;
     if (!email.trim()) {
-      Alert.alert('Missing email', 'Please enter your account email.');
+      warmAlert('Missing email', 'Please enter your account email.');
       return;
     }
 
@@ -45,7 +46,7 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
     // "check your email" pattern RegisterScreen already uses — so this screen
     // can't be used to probe which emails have an account.
     if (error) {
-      Alert.alert('Something went wrong', error.message);
+      warmAlert('Something went wrong', error.message);
       return;
     }
     setSent(true);

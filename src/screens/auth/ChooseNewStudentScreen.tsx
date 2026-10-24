@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
+import { warmAlert } from '../../components/WarmAlert';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { setIsNewStudent } from '../../lib/profile';
@@ -58,7 +59,7 @@ export default function ChooseNewStudentScreen({ onDone }: Props) {
       onDone();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Could not save your answer.';
-      Alert.alert('Error', message);
+      warmAlert('Error', message);
       setPendingChoice(null);
     }
   };

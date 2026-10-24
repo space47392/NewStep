@@ -47,6 +47,9 @@ import ActionSheet, { ActionSheetAction } from '../../components/ActionSheet';
 import ReportSheet from '../../components/ReportSheet';
 import LinkifiedText from '../../components/LinkifiedText';
 import SwipeToReply from '../../components/SwipeToReply';
+import MessageEntrance from '../../components/MessageEntrance';
+import FadeInView from '../../components/FadeInView';
+import PressableScale from '../../components/PressableScale';
 import { getChatDraft, saveChatDraft } from '../../lib/chatDrafts';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
 import { MainStackParamList, Message, Post, ReportTargetType } from '../../types';
@@ -327,7 +330,15 @@ export default function ConversationScreen() {
         if (user && message.sender_id === user.id) {
           isNearBottomRef.current = true;
         }
-        setMessages((prev) => [...prev, message]);
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === message.id)) return prev;
+          // My message landing: swap out the placeholder shown while it sent.
+          if (user && message.sender_id === user.id) {
+            const i = prev.findIndex((m) => m.id.startsWith('pending-') && m.content === message.content);
+            if (i >= 0) return [...prev.slice(0, i), message, ...prev.slice(i + 1)];
+          }
+          return [...prev, message];
+        });
         // onContentSizeChange's own auto-scroll is suppressed while Load
         // Earlier is in flight — flag that one got missed so it can be
         // caught up once that suppression window ends (Step 45).
@@ -542,17 +553,40 @@ export default function ConversationScreen() {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         return;
       } else {
-        await sendMessage({
-          conversationId,
-          senderId: user.id,
+        // Optimistic: the bubble appears instantly (slightly faded until the
+        // server confirms), and the field is free for the next message.
+        const tempId = `pending-${Date.now()}`;
+        const replyId = replyTarget?.id ?? null;
+        const placeholder = {
+          id: tempId,
+          conversation_id: conversationId,
+          sender_id: user.id,
           content: trimmed,
-          replyToMessageId: replyTarget?.id,
-        });
+          created_at: new Date().toISOString(),
+          read_at: null,
+          edited_at: null,
+          deleted_at: null,
+          reply_to_message_id: replyId,
+        } as Message;
+        isNearBottomRef.current = true;
+        setMessages((prev) => [...prev, placeholder]);
+        // Follow it down, once it has laid out.
+        setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 60);
+        setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 350);
+        setText('');
         setReplyTarget(null);
         saveChatDraft(user.id, conversationId, '');
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        setSending(false);
+        try {
+          await sendMessage({ conversationId, senderId: user.id, content: trimmed, replyToMessageId: replyId ?? undefined });
+        } catch (err) {
+          setMessages((prev) => prev.filter((m) => m.id !== tempId));
+          setText((t) => t || trimmed);
+          showToast(err instanceof Error ? err.message : "Couldn't send — try again");
+        }
+        return;
       }
-      setText(''); // the sent/edited message arrives back via the real-time subscription above
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Could not send message.';
       Alert.alert('Error', message);
@@ -900,6 +934,7 @@ export default function ConversationScreen() {
                   <Text style={styles.gapMarker}>· {formatGap(prevItem.created_at, item.created_at)} ·</Text>
                 ) : null}
                 <SwipeToReply enabled={!!otherUser && !isDeleted} onReply={() => handleReplyMessage(item)}>
+                <MessageEntrance mine={isMine} createdAt={item.created_at}>
                 <View
                   style={[
                     styles.bubbleRow,
@@ -926,7 +961,7 @@ export default function ConversationScreen() {
                   <View style={[styles.bubbleCol, isMine ? styles.bubbleColMine : styles.bubbleColTheirs]}>
                     <TouchableOpacity
                       activeOpacity={0.85}
-                      disabled={isDeleted}
+                      disabled={isDeleted || item.id.startsWith('pending-')}
                       onLongPress={() => handleLongPressMessage(item)}
                       style={[
                         styles.bubble,
@@ -940,6 +975,7 @@ export default function ConversationScreen() {
                         !isLastInGroup && (isMine ? styles.bubbleJoinBottomMine : styles.bubbleJoinBottomTheirs),
                         isDeleted && styles.bubbleDeleted,
                         bigEmoji && styles.bubbleEmojiOnly,
+                        item.id.startsWith('pending-') && styles.bubblePending,
                       ]}
                     >
                       {isDeleted ? (
@@ -1008,6 +1044,7 @@ export default function ConversationScreen() {
                     ) : null}
                   </View>
                 </View>
+                </MessageEntrance>
                 </SwipeToReply>
               </View>
             );
@@ -1088,7 +1125,9 @@ export default function ConversationScreen() {
             {/* Nothing typed: the button becomes a one-tap 👋 wave instead
                 of a disabled send arrow. */}
             {!text.trim() && !editingMessage ? (
-              <TouchableOpacity
+              <PressableScale
+                key="wave"
+                pressedScale={0.85}
                 style={[styles.sendButton, styles.waveButton, sending && styles.buttonDisabled]}
                 onPress={handleWave}
                 disabled={sending}
@@ -1096,19 +1135,23 @@ export default function ConversationScreen() {
                 accessibilityLabel="Send a wave"
               >
                 {sending ? <ActivityIndicator color={colors.textDark} /> : <NSIcon name="wave" size={28} />}
-              </TouchableOpacity>
+              </PressableScale>
             ) : (
-            <TouchableOpacity
+            <PressableScale
+              key="send"
+              pressedScale={0.85}
               style={[styles.sendButton, (sending || !text.trim()) && styles.buttonDisabled]}
               onPress={handleSend}
               disabled={sending || !text.trim()}
             >
+              <FadeInView>
               {sending ? (
                 <ActivityIndicator color={colors.onPrimary} />
               ) : (
                 <Ionicons name={editingMessage ? 'checkmark' : 'send'} size={18} color={colors.onPrimary} />
               )}
-            </TouchableOpacity>
+              </FadeInView>
+            </PressableScale>
             )}
           </View>
         </>
@@ -1359,10 +1402,9 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   bubble: {
-    borderRadius: radius.lg,
+    borderRadius: 20,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    ...shadow.subtle,
+    paddingVertical: 9,
   },
   bubbleMine: {
     backgroundColor: colors.primary,
@@ -1373,10 +1415,13 @@ const styles = StyleSheet.create({
   bubbleTailTheirs: {
     borderBottomLeftRadius: 4,
   },
+  bubblePending: {
+    opacity: 0.6,
+  },
   bubbleTheirs: {
     backgroundColor: colors.cardBg,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.hairline,
   },
   bubbleDeleted: {
     backgroundColor: colors.background,
@@ -1387,11 +1432,13 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     color: colors.onPrimary,
     fontSize: fontSize.md,
+    lineHeight: 21,
   },
   bubbleTextTheirs: {
     fontFamily: fontFamily.regular,
     color: colors.textDark,
     fontSize: fontSize.md,
+    lineHeight: 21,
   },
   deletedText: {
     fontFamily: fontFamily.regular,
@@ -1476,6 +1523,8 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     backgroundColor: colors.cardBg,
+    borderWidth: 1,
+    borderColor: colors.hairline,
     borderRadius: 22,
     paddingHorizontal: spacing.md,
     paddingVertical: 10,
@@ -1513,8 +1562,8 @@ const styles = StyleSheet.create({
     elevation: 0,
   },
   emojiOnlyText: {
-    fontSize: 44,
-    lineHeight: 54,
+    fontSize: 36,
+    lineHeight: 44,
   },
   introCard: {
     alignItems: 'center',

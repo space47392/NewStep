@@ -40,12 +40,16 @@ export default function PostAuthorHeader({ author, createdAt, onPress, avatarSiz
       <TouchableOpacity style={styles.headerUser} disabled={!author} onPress={onPress}>
         <Avatar uri={author?.avatar_url} size={avatarSize} />
         <View style={styles.headerText}>
-          <Text style={styles.name}>{author?.full_name ?? 'Unknown'}</Text>
-          {schoolName ? <Text style={styles.school}>{schoolName}</Text> : null}
+          <Text style={styles.name} numberOfLines={1}>{author?.full_name ?? 'Unknown'}</Text>
+          {/* School and time share one quiet line, so the right side only
+              holds the post's own actions. */}
+          <Text style={styles.school} numberOfLines={1}>
+            {schoolName ? `${schoolName} · ` : ''}
+            <Text style={styles.timestamp}>{formatRelativeTime(createdAt)}</Text>
+          </Text>
         </View>
       </TouchableOpacity>
-      <Text style={styles.timestamp}>{formatRelativeTime(createdAt)}</Text>
-      {trailing}
+      {trailing ? <View style={styles.trailing}>{trailing}</View> : null}
     </View>
   );
 }
@@ -76,8 +80,12 @@ const styles = StyleSheet.create({
     color: colors.textMid,
   },
   timestamp: {
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.xs,
     color: colors.textLight,
+  },
+  trailing: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginLeft: spacing.sm,
   },
 });

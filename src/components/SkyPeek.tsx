@@ -99,7 +99,7 @@ export default function SkyPeek({ userId, onOpen }: Props) {
         : mine
           ? 'Your star is up tonight'
           : 'Light the first star';
-  const sub = mine ? `Feeling ${skyMood(mine.mood).label.toLowerCase()} · tap to see the sky` : 'How is today, really? Add your star';
+  const sub = mine ? `Feeling ${skyMood(mine.mood).label.toLowerCase()} · tap to see the sky` : 'How is today, really?';
 
   return (
     <View style={[styles.row, stars === null && styles.rowLoading]}>

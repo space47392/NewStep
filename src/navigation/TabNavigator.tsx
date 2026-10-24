@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Animated, StyleSheet } from 'react-native';
+import { View, Animated, StyleSheet, Text } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import TabGlyph, { TabGlyphName } from '../components/TabGlyph';
@@ -134,6 +134,17 @@ export default function TabNavigator() {
           fontSize: 10,
           letterSpacing: -0.2,
         },
+        // Shrinks a touch instead of clipping ("Commu…") on narrow phones.
+        tabBarLabel: ({ color, children }) => (
+          <Text
+            style={{ fontFamily: fontFamily.semibold, fontSize: 10, letterSpacing: -0.2, color }}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.8}
+          >
+            {children}
+          </Text>
+        ),
         tabBarItemStyle: {
           paddingHorizontal: 2,
         },

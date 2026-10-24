@@ -95,7 +95,9 @@ export default function InterestPicker({ value, onChange }: Props) {
         );
       })}
 
-      {value.length > 0 && (
+      {/* The checked chips above already show your picks; this list only
+          helps while a search hides some of them. */}
+      {value.length > 0 && query.length > 0 && (
         <View style={styles.group}>
           <Text style={styles.groupTitle}>
             Selected ({value.length}/{MAX_INTERESTS})
@@ -208,7 +210,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: colors.accentLight,
+    backgroundColor: colors.primaryLight,
     borderRadius: radius.full,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,

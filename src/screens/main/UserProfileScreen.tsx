@@ -327,7 +327,7 @@ export default function UserProfileScreen() {
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
                   <Text style={styles.statBlockNumber}>{followCounts.followers}</Text>
-                  <Text style={styles.statBlockLabel}>Followers</Text>
+                  <Text style={styles.statBlockLabel}>{followCounts.followers === 1 ? 'Follower' : 'Followers'}</Text>
                 </TouchableOpacity>
                 <View style={styles.statBlockDivider} />
                 <TouchableOpacity

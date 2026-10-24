@@ -127,6 +127,8 @@ export async function fetchMessages(
 }
 
 export async function sendMessage(params: {
+  // Chosen by the client so the live-relayed copy and the saved row match.
+  id?: string;
   conversationId: string;
   senderId: string;
   content: string;
@@ -136,6 +138,7 @@ export async function sendMessage(params: {
   replyToMessageId?: string;
 }): Promise<void> {
   const { error } = await supabase.from('messages').insert({
+    ...(params.id ? { id: params.id } : {}),
     conversation_id: params.conversationId,
     sender_id: params.senderId,
     content: params.content,
@@ -180,7 +183,16 @@ export async function deleteMessage(messageId: string): Promise<void> {
 // Both participants join the SAME channel name (unlike the postgres_changes subscriptions
 // above, which use a random suffix per subscriber) since broadcast only relays to peers
 // already listening on that exact topic.
-export function subscribeToTyping(conversationId: string, onTyping: (userId: string) => void) {
+//
+// The same channel also relays a just-sent message straight to the other
+// person ('live'), so it shows up for them at once instead of after the
+// database round trip. It's only a preview: the screen drops it unless the
+// real saved row (postgres_changes INSERT, RLS-checked) arrives soon after.
+export function subscribeToTyping(
+  conversationId: string,
+  onTyping: (userId: string) => void,
+  onLiveMessage?: (message: Message) => void
+) {
   const channel = supabase.channel(`typing:${conversationId}`, {
     config: { broadcast: { self: false } },
   });
@@ -188,11 +200,17 @@ export function subscribeToTyping(conversationId: string, onTyping: (userId: str
   channel.on('broadcast', { event: 'typing' }, (payload) => {
     onTyping(payload.payload.userId as string);
   });
+  channel.on('broadcast', { event: 'live' }, (payload) => {
+    onLiveMessage?.(payload.payload as Message);
+  });
   channel.subscribe();
 
   return {
     sendTyping: (userId: string) => {
       channel.send({ type: 'broadcast', event: 'typing', payload: { userId } });
+    },
+    sendLive: (message: Message) => {
+      channel.send({ type: 'broadcast', event: 'live', payload: message });
     },
     unsubscribe: () => {
       supabase.removeChannel(channel);

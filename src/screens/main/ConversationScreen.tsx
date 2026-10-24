@@ -21,6 +21,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
+import * as Crypto from 'expo-crypto';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import {
@@ -183,8 +184,11 @@ export default function ConversationScreen() {
   }, [conversationId]);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const listRef = useRef<FlatList>(null);
-  // Real message id -> the optimistic placeholder's key it replaced.
-  const listKeyRef = useRef<Record<string, string>>({});
+  // Mine, sent but not yet saved (shown faded).
+  const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
+  // Theirs, relayed live but not yet confirmed by the saved row; dropped if
+  // the real row never arrives (so nothing unsaved can linger).
+  const liveTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const typingRef = useRef<ReturnType<typeof subscribeToTyping> | null>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Suppresses the auto-scroll-to-bottom while an older page is being
@@ -332,18 +336,16 @@ export default function ConversationScreen() {
         if (user && message.sender_id === user.id) {
           isNearBottomRef.current = true;
         }
+        // Already on screen (my optimistic copy, or their live preview):
+        // swap in the saved row in place — same id, so no re-mount.
+        const timer = liveTimersRef.current[message.id];
+        if (timer) {
+          clearTimeout(timer);
+          delete liveTimersRef.current[message.id];
+        }
         setMessages((prev) => {
-          if (prev.some((m) => m.id === message.id)) return prev;
-          // My message landing: swap out the placeholder shown while it sent.
-          if (user && message.sender_id === user.id) {
-            const i = prev.findIndex((m) => m.id.startsWith('pending-') && m.content === message.content);
-            if (i >= 0) {
-              // Keep the placeholder's list key so the bubble doesn't re-mount
-              // (and re-animate) when the real message lands.
-              listKeyRef.current[message.id] = prev[i].id;
-              return [...prev.slice(0, i), message, ...prev.slice(i + 1)];
-            }
-          }
+          const i = prev.findIndex((m) => m.id === message.id);
+          if (i >= 0) return [...prev.slice(0, i), message, ...prev.slice(i + 1)];
           return [...prev, message];
         });
         // onContentSizeChange's own auto-scroll is suppressed while Load
@@ -417,10 +419,24 @@ export default function ConversationScreen() {
       // Auto-clears if no further keystrokes arrive — the other side never sends
       // an explicit "stopped typing" event.
       typingTimeoutRef.current = setTimeout(() => setOtherTyping(false), 3000);
+    }, (live) => {
+      // Only a preview from the other participant in THIS conversation.
+      if (!live || typeof live.id !== 'string' || typeof live.content !== 'string') return;
+      if (live.conversation_id !== conversationId || live.sender_id === user?.id) return;
+      if (live.content.length > 4000) return;
+      setOtherTyping(false);
+      setMessages((prev) => (prev.some((m) => m.id === live.id) ? prev : [...prev, { ...live, read_at: null, edited_at: null, deleted_at: null }]));
+      liveTimersRef.current[live.id] = setTimeout(() => {
+        // The real row never came — drop the preview.
+        setMessages((prev) => prev.filter((m) => m.id !== live.id));
+        delete liveTimersRef.current[live.id];
+      }, 15000);
     });
     typingRef.current = typing;
 
     return () => {
+      Object.values(liveTimersRef.current).forEach(clearTimeout);
+      liveTimersRef.current = {};
       typing.unsubscribe();
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     };
@@ -562,7 +578,7 @@ export default function ConversationScreen() {
       } else {
         // Optimistic: the bubble appears instantly (slightly faded until the
         // server confirms), and the field is free for the next message.
-        const tempId = `pending-${Date.now()}`;
+        const tempId = Crypto.randomUUID();
         const replyId = replyTarget?.id ?? null;
         const placeholder = {
           id: tempId,
@@ -576,7 +592,10 @@ export default function ConversationScreen() {
           reply_to_message_id: replyId,
         } as Message;
         isNearBottomRef.current = true;
+        setPendingIds((p) => new Set(p).add(tempId));
         setMessages((prev) => [...prev, placeholder]);
+        // Straight to the other person, before the database round trip.
+        typingRef.current?.sendLive(placeholder);
         // Follow it down, once it has laid out.
         setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 60);
         setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 350);
@@ -586,8 +605,18 @@ export default function ConversationScreen() {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         setSending(false);
         try {
-          await sendMessage({ conversationId, senderId: user.id, content: trimmed, replyToMessageId: replyId ?? undefined });
+          await sendMessage({ id: tempId, conversationId, senderId: user.id, content: trimmed, replyToMessageId: replyId ?? undefined });
+          setPendingIds((p) => {
+            const n = new Set(p);
+            n.delete(tempId);
+            return n;
+          });
         } catch (err) {
+          setPendingIds((p) => {
+            const n = new Set(p);
+            n.delete(tempId);
+            return n;
+          });
           setMessages((prev) => prev.filter((m) => m.id !== tempId));
           setText((t) => t || trimmed);
           showToast(err instanceof Error ? err.message : "Couldn't send — try again");
@@ -762,7 +791,7 @@ export default function ConversationScreen() {
         <FlatList
           ref={listRef}
           data={messages}
-          keyExtractor={(item) => listKeyRef.current[item.id] ?? item.id}
+          keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
           maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
           onScroll={handleScroll}
@@ -968,7 +997,7 @@ export default function ConversationScreen() {
                   <View style={[styles.bubbleCol, isMine ? styles.bubbleColMine : styles.bubbleColTheirs]}>
                     <TouchableOpacity
                       activeOpacity={0.85}
-                      disabled={isDeleted || item.id.startsWith('pending-')}
+                      disabled={isDeleted || pendingIds.has(item.id)}
                       onLongPress={() => handleLongPressMessage(item)}
                       style={[
                         styles.bubble,
@@ -982,7 +1011,7 @@ export default function ConversationScreen() {
                         !isLastInGroup && (isMine ? styles.bubbleJoinBottomMine : styles.bubbleJoinBottomTheirs),
                         isDeleted && styles.bubbleDeleted,
                         bigEmoji && styles.bubbleEmojiOnly,
-                        item.id.startsWith('pending-') && styles.bubblePending,
+                        pendingIds.has(item.id) && styles.bubblePending,
                       ]}
                     >
                       {isDeleted ? (

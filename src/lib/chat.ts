@@ -44,7 +44,12 @@ export async function fetchConversations(currentUserId: string): Promise<Convers
 
   if (error) throw error;
 
-  const rows = (data ?? []) as unknown as ConversationRow[];
+  // Chats I deleted stay off my list until something new is said in them.
+  const clears = await fetchMyClears();
+  const rows = ((data ?? []) as unknown as ConversationRow[]).filter((r) => {
+    const clearedAt = clears[r.id];
+    return !clearedAt || (r.last_message_at !== null && Date.parse(r.last_message_at) > Date.parse(clearedAt));
+  });
   const unreadCounts = await fetchUnreadCounts(rows.map((r) => r.id), currentUserId);
 
   return rows.map((row) => ({
@@ -61,6 +66,25 @@ export async function fetchConversations(currentUserId: string): Promise<Convers
     otherUser: row.user1_id === currentUserId ? row.user2 : row.user1,
     unreadCount: unreadCounts[row.id] ?? 0,
   }));
+}
+
+// conversation id -> when I deleted it from my list (see conversation_clears.sql).
+// Never blocks the chat list: if this can't be read, nothing is hidden.
+async function fetchMyClears(conversationId?: string): Promise<Record<string, string>> {
+  let query = supabase.from('conversation_clears').select('conversation_id, cleared_at');
+  if (conversationId) query = query.eq('conversation_id', conversationId);
+  const { data, error } = await query;
+  if (error) return {};
+  const out: Record<string, string> = {};
+  for (const row of data ?? []) out[row.conversation_id] = row.cleared_at;
+  return out;
+}
+
+// "Delete chat": gone from my list (and its history hidden from me); the
+// other person keeps theirs. It comes back if a new message arrives.
+export async function clearConversation(conversationId: string): Promise<void> {
+  const { error } = await supabase.rpc('clear_conversation', { p_conversation_id: conversationId });
+  if (error) throw error;
 }
 
 // PostgREST has no GROUP BY through the table API, so we pull the (lightweight)
@@ -119,6 +143,11 @@ export async function fetchMessages(
 
   if (beforeCreatedAt) {
     query = query.lt('created_at', beforeCreatedAt);
+  }
+  // Only what was said after I last deleted this chat.
+  const clearedAt = (await fetchMyClears(conversationId))[conversationId];
+  if (clearedAt) {
+    query = query.gt('created_at', clearedAt);
   }
 
   const { data, error } = await query;

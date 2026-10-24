@@ -5,7 +5,9 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
-import { fetchConversations } from '../../lib/chat';
+import { clearConversation, fetchConversations } from '../../lib/chat';
+import { warmAlert } from '../../components/WarmAlert';
+import * as Haptics from 'expo-haptics';
 import { getChatDrafts } from '../../lib/chatDrafts';
 import { fetchChatSuggestions, ChatSuggestion } from '../../lib/chatSuggestions';
 import InterestIcon from '../../components/InterestIcon';
@@ -106,6 +108,28 @@ export default function ChatScreen() {
       </View>
     );
   }
+
+  const confirmDelete = (item: Conversation) => {
+    Haptics.selectionAsync().catch(() => {});
+    const who = item.otherUser?.full_name ?? 'The other person';
+    warmAlert('Delete this chat?', `It leaves your chats. ${who} still keeps their copy, and it comes back if a new message arrives.`, [
+      {
+        text: 'Delete chat',
+        style: 'destructive',
+        onPress: async () => {
+          const before = conversations;
+          setConversations((prev) => prev.filter((c) => c.id !== item.id));
+          try {
+            await clearConversation(item.id);
+          } catch {
+            setConversations(before);
+            warmAlert("Couldn't delete chat", 'Please check your connection and try again.');
+          }
+        },
+      },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  };
 
   const unreadTotal = conversations.reduce((sum, c) => sum + c.unreadCount, 0);
   const trimmedQuery = query.trim().toLowerCase();
@@ -263,6 +287,8 @@ export default function ChatScreen() {
               haptic={false}
               style={[styles.row, item.unreadCount > 0 && styles.rowUnread]}
               onPress={() => navigation.navigate('Conversation', { conversationId: item.id, otherUser: item.otherUser })}
+              onLongPress={() => confirmDelete(item)}
+              delayLongPress={350}
             >
               <TouchableOpacity onPress={goToOtherProfile} disabled={isDeletedOther}>
                 <Avatar uri={item.otherUser?.avatar_url ?? null} size={50} />

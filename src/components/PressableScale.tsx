@@ -23,13 +23,14 @@ export default function PressableScale({ style, children, pressedScale = 0.95, h
   return (
     <Pressable
       {...rest}
+      unstable_pressDelay={0}
       style={outer}
       onPressIn={(e) => {
-        Animated.spring(scale, { toValue: pressedScale, useNativeDriver: true, speed: 40, bounciness: 0 }).start();
+        Animated.timing(scale, { toValue: pressedScale, duration: 70, useNativeDriver: true }).start();
         onPressIn?.(e);
       }}
       onPressOut={(e) => {
-        Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 14, bounciness: 10 }).start();
+        Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 24, bounciness: 6 }).start();
         onPressOut?.(e);
       }}
       onPress={(e) => {

@@ -32,7 +32,7 @@ export default function MainNavigator() {
         // Pages slide in from the side; sheets rise from the bottom; full-
         // screen viewers fade. Same motion on every screen.
         animation: 'slide_from_right',
-        animationDuration: 280,
+        animationDuration: 200,
       }}
     >
       {/* Each tab scene adds its own top inset (TabNavigator), so Home can

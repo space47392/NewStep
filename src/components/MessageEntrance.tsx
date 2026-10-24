@@ -25,7 +25,7 @@ export default function MessageEntrance({ mine, createdAt, children }: Props) {
 
   useEffect(() => {
     if (!fresh) return;
-    Animated.spring(t, { toValue: 1, useNativeDriver: true, speed: 13, bounciness: 7 }).start();
+    Animated.spring(t, { toValue: 1, useNativeDriver: true, speed: 20, bounciness: 6 }).start();
     if (mine) {
       Animated.sequence([
         Animated.delay(140),

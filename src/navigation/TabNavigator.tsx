@@ -108,8 +108,8 @@ export default function TabNavigator() {
       })}
       screenOptions={({ route }) => ({
         headerShown: false,
-        // A soft cross-fade between tabs.
-        animation: 'fade',
+        // Tabs switch instantly (the tab icon's own hop is the feedback).
+        animation: 'none',
         // Every tab keeps the status-bar gap except Home, whose night-sky
         // header runs up behind the status bar on purpose.
         sceneStyle: { paddingTop: route.name === 'Feed' ? 0 : insets.top, backgroundColor: colors.background },

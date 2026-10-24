@@ -183,6 +183,8 @@ export default function ConversationScreen() {
   }, [conversationId]);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const listRef = useRef<FlatList>(null);
+  // Real message id -> the optimistic placeholder's key it replaced.
+  const listKeyRef = useRef<Record<string, string>>({});
   const typingRef = useRef<ReturnType<typeof subscribeToTyping> | null>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Suppresses the auto-scroll-to-bottom while an older page is being
@@ -335,7 +337,12 @@ export default function ConversationScreen() {
           // My message landing: swap out the placeholder shown while it sent.
           if (user && message.sender_id === user.id) {
             const i = prev.findIndex((m) => m.id.startsWith('pending-') && m.content === message.content);
-            if (i >= 0) return [...prev.slice(0, i), message, ...prev.slice(i + 1)];
+            if (i >= 0) {
+              // Keep the placeholder's list key so the bubble doesn't re-mount
+              // (and re-animate) when the real message lands.
+              listKeyRef.current[message.id] = prev[i].id;
+              return [...prev.slice(0, i), message, ...prev.slice(i + 1)];
+            }
           }
           return [...prev, message];
         });
@@ -755,7 +762,7 @@ export default function ConversationScreen() {
         <FlatList
           ref={listRef}
           data={messages}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item) => listKeyRef.current[item.id] ?? item.id}
           contentContainerStyle={styles.list}
           maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
           onScroll={handleScroll}

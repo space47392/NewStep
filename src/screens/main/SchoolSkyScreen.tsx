@@ -403,7 +403,7 @@ export default function SchoolSkyScreen() {
   const [composerOpen, setComposerOpen] = useState(false);
   useEffect(() => {
     if (!route.params?.openComposer) return;
-    const t = setTimeout(() => setComposerOpen(true), 900);
+    const t = setTimeout(() => setComposerOpen(true), 420);
     return () => clearTimeout(t);
   }, [route.params?.openComposer]);
 
@@ -411,7 +411,7 @@ export default function SchoolSkyScreen() {
   // like looking up.
   const lookUp = useRef(new Animated.Value(0)).current;
   useEffect(() => {
-    Animated.timing(lookUp, { toValue: 1, duration: 1100, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+    Animated.timing(lookUp, { toValue: 1, duration: 600, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
   }, [lookUp]);
   const [mood, setMood] = useState<SkyMood>('happy');
   const [note, setNote] = useState('');

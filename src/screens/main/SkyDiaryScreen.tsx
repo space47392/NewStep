@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, StyleSheet, useWindowDimensions } from 'react-native';
+import MoodFace from '../../components/MoodFace';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -46,7 +47,7 @@ function DayCell({ entry, day, isToday, selected, size, onPress }: { entry?: Sky
         </Svg>
       ) : null}
       <Text style={[styles.cellDay, entry && styles.cellDayFilled]}>{day}</Text>
-      {mood ? <Text style={styles.cellEmoji}>{mood.emoji}</Text> : null}
+      {mood ? <View style={styles.cellFace}><MoodFace mood={mood.key} size={18} /></View> : null}
       {entry?.sky_colors ? <Text style={styles.cellCamera}>📷</Text> : null}
     </TouchableOpacity>
   );
@@ -144,7 +145,7 @@ export default function SkyDiaryScreen() {
                 <Text style={styles.statLabel}>day streak</Text>
               </View>
               <View style={styles.stat}>
-                <Text style={styles.statNumber}>{stats.top ? skyMood(stats.top).emoji : '—'}</Text>
+                {stats.top ? <MoodFace mood={stats.top} size={30} /> : <Text style={styles.statNumber}>—</Text>}
                 <Text style={styles.statLabel}>most often</Text>
               </View>
             </View>
@@ -155,7 +156,7 @@ export default function SkyDiaryScreen() {
                 <View style={styles.journeyRow}>
                   {journey.map((e, i) => (
                     <View key={e.day} style={styles.journeyStep}>
-                      <Text style={styles.journeyEmoji}>{skyMood(e.mood).emoji}</Text>
+                      <MoodFace mood={e.mood} size={24} />
                       {i < journey.length - 1 ? <View style={styles.journeyDot} /> : null}
                     </View>
                   ))}
@@ -216,9 +217,10 @@ export default function SkyDiaryScreen() {
                 <Text style={styles.pageDate}>
                   {new Date(selected.day + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
                 </Text>
-                <Text style={styles.pageMood}>
-                  {skyMood(selected.mood).emoji} You felt {skyMood(selected.mood).label.toLowerCase()}
-                </Text>
+                <View style={styles.pageMoodRow}>
+                  <MoodFace mood={selected.mood} size={22} />
+                  <Text style={styles.pageMood}>You felt {skyMood(selected.mood).label.toLowerCase()}</Text>
+                </View>
                 {selected.note ? <Text style={styles.pageNote}>“{selected.note}”</Text> : null}
                 {selected.sky_colors ? (
                   <View style={styles.pageSky}>
@@ -238,9 +240,10 @@ export default function SkyDiaryScreen() {
 
             <View style={styles.legend}>
               {SKY_MOODS.map((m) => (
-                <Text key={m.key} style={styles.legendItem}>
-                  {m.emoji} {m.label}
-                </Text>
+                <View key={m.key} style={styles.legendRow}>
+                  <MoodFace mood={m.key} size={16} />
+                  <Text style={styles.legendItem}>{m.label}</Text>
+                </View>
               ))}
             </View>
           </>
@@ -391,6 +394,19 @@ const styles = StyleSheet.create({
   },
   cellDayFilled: {
     color: '#fff',
+  },
+  cellFace: {
+    alignSelf: 'center',
+  },
+  pageMoodRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  legendRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   cellEmoji: {
     fontSize: 16,

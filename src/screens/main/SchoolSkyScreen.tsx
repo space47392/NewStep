@@ -31,6 +31,7 @@ import { fetchLanterns, Lantern } from '../../lib/lanterns';
 import { useWarmSheet } from '../../components/WarmSheet';
 import { SkyTile, SkyWindow, skiesFor, currentSlot, FALLBACK_SCENE } from '../../components/SkyCheckSheet';
 import { interpretSky } from '../../lib/skyInterpret';
+import MoodFace from '../../components/MoodFace';
 import { useTilt, tiltTransform, Tilt } from '../../lib/useTilt';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -146,7 +147,7 @@ function SkyStarButton({
     >
       {selected ? (
         <View style={[styles.moodBubble, { borderColor: mood.color }]}>
-          <Text style={styles.moodBubbleEmoji}>{mood.emoji}</Text>
+          <MoodFace mood={mood.key} size={24} />
         </View>
       ) : null}
       {/* Twinkle burst: a ring of light that expands and fades. */}
@@ -990,10 +991,12 @@ export default function SchoolSkyScreen() {
                 <Text style={styles.cardName} numberOfLines={1}>
                   {selected.user_id === user?.id ? 'Your star' : selected.profile?.full_name ?? 'Student'}
                 </Text>
-                <Text style={styles.cardMeta}>
-                  {skyMood(selected.mood).emoji} Feeling {skyMood(selected.mood).label.toLowerCase()} ·{' '}
-                  {formatRelativeTime(selected.updated_at)}
-                </Text>
+                <View style={styles.moodLine}>
+                  <MoodFace mood={selected.mood} size={18} />
+                  <Text style={styles.cardMeta}>
+                    Feeling {skyMood(selected.mood).label.toLowerCase()} · {formatRelativeTime(selected.updated_at)}
+                  </Text>
+                </View>
               </View>
             </View>
             {selected.note ? <Text style={styles.cardNote}>“{selected.note}”</Text> : null}
@@ -1186,7 +1189,7 @@ export default function SchoolSkyScreen() {
                     accessibilityState={{ selected: on }}
                     accessibilityLabel={m.label}
                   >
-                    <Text style={styles.cMoodEmoji}>{m.emoji}</Text>
+                    <MoodFace mood={m.key} size={36} />
                   </TouchableOpacity>
                 );
               })}
@@ -1359,9 +1362,12 @@ export default function SchoolSkyScreen() {
                   accessibilityLabel={`Sky photo from ${st.user_id === user?.id ? 'you' : st.profile?.full_name ?? 'a classmate'}`}
                 >
                   <Image source={{ uri: st.photo_url! }} style={styles.galleryPhoto} />
-                  <Text style={styles.galleryCaption} numberOfLines={1}>
-                    {skyMood(st.mood).emoji} {st.user_id === user?.id ? 'You' : st.profile?.full_name?.trim().split(/\s+/)[0] ?? ''}
-                  </Text>
+                  <View style={[styles.moodLine, styles.moodLineCenter]}>
+                    <MoodFace mood={st.mood} size={20} />
+                    <Text style={[styles.galleryCaption, styles.galleryCaptionInline]} numberOfLines={1}>
+                      {st.user_id === user?.id ? 'You' : st.profile?.full_name?.trim().split(/\s+/)[0] ?? ''}
+                    </Text>
+                  </View>
                   {st.sky_colors ? (
                     <View style={styles.galleryPalette}>
                       {st.sky_colors.map((c, j) => (
@@ -1451,8 +1457,8 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   cMood: {
-    width: 48,
-    height: 48,
+    width: 50,
+    height: 50,
     borderRadius: 24,
     backgroundColor: colors.cardBg,
     borderWidth: 1,
@@ -2337,6 +2343,19 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.md,
     color: colors.warm.cream,
+  },
+  moodLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  moodLineCenter: {
+    justifyContent: 'center',
+    marginTop: 8,
+  },
+  galleryCaptionInline: {
+    marginTop: 0,
+    flexShrink: 1,
   },
   cardMeta: {
     fontFamily: fontFamily.regular,

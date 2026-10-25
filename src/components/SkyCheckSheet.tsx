@@ -10,6 +10,7 @@ import { interpretSky } from '../lib/skyInterpret';
 import { skyPhase } from './SkyScene';
 import PrimaryButton from './PrimaryButton';
 import NSIcon from './NSIcon';
+import MoodFace from './MoodFace';
 import { LanternGlyph } from '../screens/main/LanternsScreen';
 import { colors, spacing, radius, fontSize, fontFamily } from '../constants/theme';
 
@@ -420,7 +421,7 @@ export default function SkyCheckSheet({ userId, enabled, onShared, onOpenSky, on
                     accessibilityRole="button"
                     accessibilityLabel={m.label}
                   >
-                    <Text style={styles.moodEmoji}>{m.emoji}</Text>
+                    <MoodFace mood={m.key} size={32} />
                   </TouchableOpacity>
                 ))}
               </View>

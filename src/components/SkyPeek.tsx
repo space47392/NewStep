@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Animated, Easing } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import Svg, { Path } from 'react-native-svg';
+import MoodFace from './MoodFace';
 import { fetchSchoolSky, skyMood, SkyStar } from '../lib/sky';
 import { fetchBlockedUserIds } from '../lib/blocks';
 import { colors, spacing, fontSize, fontFamily } from '../constants/theme';
@@ -157,7 +158,7 @@ export default function SkyPeek({ userId, onOpen }: Props) {
         ) : null}
         <View style={[styles.starButton, mine && styles.starButtonMine]}>
           {mine ? (
-            <Text style={styles.mineEmoji}>{skyMood(mine.mood).emoji}</Text>
+            <MoodFace mood={mine.mood} size={26} />
           ) : (
             <Svg width={20} height={20} viewBox="0 0 24 24">
               <Path d={SPARKLE} fill={colors.onPrimary} />

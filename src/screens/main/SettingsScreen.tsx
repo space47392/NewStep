@@ -171,6 +171,10 @@ export default function SettingsScreen() {
         <Group label="Account">
           <Row icon="mail-outline" label={user?.email ?? ''} />
           <Row icon="create-outline" label="Edit profile" onPress={() => navigation.navigate('EditProfile')} />
+          <Row icon="key-outline" label="Change password" onPress={() => navigation.navigate('ChangePassword')} />
+          {/* Push permission lives with the phone, so this opens NewStep's
+              page in the phone's own settings. */}
+          <Row icon="notifications-outline" label="Notifications" onPress={() => Linking.openSettings().catch(() => {})} />
           <Row icon="bookmark-outline" label="Saved posts" onPress={() => navigation.navigate('SavedPosts')} last />
         </Group>
 

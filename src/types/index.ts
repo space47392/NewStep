@@ -92,6 +92,7 @@ export type MainStackParamList = {
   ChooseSchool: undefined;
   EditProfile: undefined;
   Settings: undefined;
+  ChangePassword: undefined;
   BlockedAccounts: undefined;
   Legal: { doc: LegalDoc };
   StoryViewer: { stories: Story[]; initialIndex: number };

@@ -108,6 +108,10 @@ export function interpretSky(raw: string, timeOfDay: Phase): SkyScene | null {
     palette = palette.map((band, j) => mixHex(band, ['#4b5470', '#7d8599', '#b9bdc8'][j], 0.6)) as SkyPalette;
   }
   const things = THING_WORDS.filter((t) => includesAny(text, t.words)).map((t) => t.thing);
+  // Fog washes colour out to a soft pearly haze (unless a colour was named).
+  if (things.includes('fog') && colorHits.length === 0) {
+    palette = palette.map((band, j) => mixHex(band, ['#8f97a8', '#bfc4cd', '#e4e4e2'][j], 0.65)) as SkyPalette;
+  }
   // "별똥별" contains "별" and "새벽" contains "새": check stars and birds
   // again with those words taken out.
   const plain = text.replace(/별똥별|shooting star/g, ' ').replace(/새벽/g, ' ').replace(/sunset|sunrise/g, ' ');

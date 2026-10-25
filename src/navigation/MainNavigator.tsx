@@ -18,6 +18,7 @@ import SavedPostsScreen from '../screens/main/SavedPostsScreen';
 import ChooseSchoolScreen from '../screens/main/ChooseSchoolScreen';
 import EditProfileScreen from '../screens/main/EditProfileScreen';
 import SettingsScreen from '../screens/main/SettingsScreen';
+import ChangePasswordScreen from '../screens/main/ChangePasswordScreen';
 import BlockedAccountsScreen from '../screens/main/BlockedAccountsScreen';
 import LegalScreen from '../screens/main/LegalScreen';
 import StoryViewerScreen from '../screens/main/StoryViewerScreen';
@@ -60,6 +61,7 @@ export default function MainNavigator() {
       />
       <Stack.Screen name="EditProfile" component={EditProfileScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />
+      <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
       <Stack.Screen name="BlockedAccounts" component={BlockedAccountsScreen} />
       <Stack.Screen name="Legal" component={LegalScreen} />
       <Stack.Screen name="StoryViewer" component={StoryViewerScreen} options={{ presentation: 'fullScreenModal', animation: 'fade', contentStyle: NO_TOP_INSET }} />

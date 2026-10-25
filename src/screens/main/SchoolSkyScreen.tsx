@@ -29,7 +29,7 @@ import SkyWeather from '../../components/SkyWeather';
 import { hasBlockedWords, KIND_WORDS_MESSAGE } from '../../lib/contentFilter';
 import { fetchLanterns, Lantern } from '../../lib/lanterns';
 import { useWarmSheet } from '../../components/WarmSheet';
-import { SkyTile, skiesFor, currentSlot, FALLBACK_SCENE } from '../../components/SkyCheckSheet';
+import { SkyTile, SkyWindow, skiesFor, currentSlot, FALLBACK_SCENE } from '../../components/SkyCheckSheet';
 import { interpretSky } from '../../lib/skyInterpret';
 import { useTilt, tiltTransform, Tilt } from '../../lib/useTilt';
 import { useAuth } from '../../contexts/AuthContext';
@@ -370,6 +370,35 @@ function Constellation({ stars, width, height }: { stars: SkyStar[]; width: numb
     <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
       <Path d={d} stroke="#fff" strokeOpacity={0.22} strokeWidth={1} strokeDasharray="2 5" fill="none" />
     </Svg>
+  );
+}
+
+// A soft four-point star that breathes in the window of the star composer.
+function MoodStar({ color }: { color: string }) {
+  const pulse = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1, duration: 1400, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0, duration: 1400, useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [pulse]);
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[
+        styles.cMoodStar,
+        { transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.9, 1.12] }) }], opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.85, 1] }) },
+      ]}
+    >
+      <Svg width={34} height={34} viewBox="0 0 24 24">
+        <Circle cx="12" cy="12" r="10" fill={color} opacity={0.35} />
+        <Path d="M12 2.5 C12.8 8.6 15.4 11.2 21.5 12 C15.4 12.8 12.8 15.4 12 21.5 C11.2 15.4 8.6 12.8 2.5 12 C8.6 11.2 11.2 8.6 12 2.5 Z" fill="#FFFDF5" stroke={color} strokeWidth={1.2} />
+      </Svg>
+    </Animated.View>
   );
 }
 
@@ -1118,7 +1147,25 @@ export default function SchoolSkyScreen() {
         <KeyboardAvoidingView style={styles.modalBackdrop} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setComposerOpen(false)} />
           <View style={[styles.cSheet, { paddingBottom: insets.bottom + spacing.lg }]}>
-            <View style={styles.cHandle} />
+            {/* Today's sky through NewStep's window — your star waits in it,
+                glowing in your mood's colour. */}
+            <View style={styles.cHero}>
+              <Svg width="100%" height="100%" style={StyleSheet.absoluteFill}>
+                <Defs>
+                  <LinearGradient id="composerHero" x1="0" y1="0" x2="0" y2="1">
+                    <Stop offset="0" stopColor={(composerScenes[composerSkies[0].label] ?? FALLBACK_SCENE).colors[0]} stopOpacity={0.55} />
+                    <Stop offset="0.55" stopColor={(composerScenes[composerSkies[0].label] ?? FALLBACK_SCENE).colors[2]} stopOpacity={0.35} />
+                    <Stop offset="1" stopColor={colors.background} stopOpacity={1} />
+                  </LinearGradient>
+                </Defs>
+                <Rect x="0" y="0" width="100%" height="100%" fill="url(#composerHero)" />
+              </Svg>
+              <View style={[styles.cHandle, styles.cHandleOnSky]} />
+              <View>
+                <SkyWindow scene={skyScene ?? composerScenes[composerSkies[0].label] ?? FALLBACK_SCENE} width={112} />
+                <MoodStar color={SKY_MOODS.find((m) => m.key === mood)?.color ?? colors.primary} />
+              </View>
+            </View>
             <ScrollView style={styles.sheetScroll} contentContainerStyle={styles.cContent} keyboardShouldPersistTaps="handled">
             <Text style={styles.cTitle}>How are you, really?</Text>
             <Text style={styles.cSub}>Tap one. That's all it takes.</Text>
@@ -1130,7 +1177,7 @@ export default function SchoolSkyScreen() {
                 return (
                   <TouchableOpacity
                     key={m.key}
-                    style={[styles.cMood, on && styles.cMoodOn]}
+                    style={[styles.cMood, on && styles.cMoodOn, on && { borderColor: m.color, backgroundColor: m.color + '55' }]}
                     onPress={() => {
                       Haptics.selectionAsync();
                       setMood(m.key);
@@ -1363,12 +1410,31 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginTop: spacing.xs,
   },
+  cHero: {
+    marginHorizontal: -spacing.lg,
+    marginTop: -spacing.sm,
+    height: 136,
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+    overflow: 'hidden',
+    alignItems: 'center',
+    paddingTop: spacing.sm,
+  },
+  cHandleOnSky: {
+    backgroundColor: 'rgba(255,255,255,0.7)',
+    marginBottom: spacing.sm,
+  },
+  cMoodStar: {
+    position: 'absolute',
+    top: 34,
+    alignSelf: 'center',
+  },
   cTitle: {
-    fontFamily: fontFamily.bold,
-    fontSize: fontSize.xl,
+    fontFamily: fontFamily.brand,
+    fontSize: 26,
     color: colors.textDark,
     textAlign: 'center',
-    marginTop: spacing.md,
+    marginTop: spacing.xs,
   },
   cSub: {
     fontFamily: fontFamily.regular,

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, Modal, StyleSheet, ActivityIndicator, Animated } from 'react-native';
+import { View, Text, TouchableOpacity, Modal, StyleSheet, ActivityIndicator, Animated, Easing } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
@@ -197,6 +197,30 @@ export default function SkyCheckSheet({ userId, enabled, onShared, onOpenSky, on
   }, [choices, phase]);
   const shown = choice ? scenes[choice.label] : scenes[choices[0].label];
   const paint = useRef(new Animated.Value(1)).current;
+  const drift = useRef(new Animated.Value(0)).current;
+  const breath = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (!open || step !== 'heart') return;
+    const rise = Animated.loop(
+      Animated.sequence([
+        Animated.timing(drift, { toValue: 1, duration: 4200, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+        Animated.timing(drift, { toValue: 0, duration: 0, useNativeDriver: true }),
+        Animated.delay(500),
+      ])
+    );
+    const breathe = Animated.loop(
+      Animated.sequence([
+        Animated.timing(breath, { toValue: 1, duration: 1600, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(breath, { toValue: 0, duration: 1600, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      ])
+    );
+    rise.start();
+    breathe.start();
+    return () => {
+      rise.stop();
+      breathe.stop();
+    };
+  }, [open, step, drift, breath]);
 
   // Decide whether to ask: not yet asked this part of the day, and your
   // star's sky hasn't been described since it began.
@@ -286,20 +310,49 @@ export default function SkyCheckSheet({ userId, enabled, onShared, onOpenSky, on
       <View style={styles.backdrop}>
         <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={close} accessibilityLabel="Not now" />
         <View style={[styles.sheet, { paddingBottom: insets.bottom + spacing.lg }]}>
-          <View style={styles.handle} />
           {step === 'heart' ? (
             <>
-              <View style={styles.heartGlow}>
-                <LanternGlyph size={44} />
+              {/* Today's sky at the top of the sheet, fading into the page,
+                  with NewStep's window and a lantern rising through it. */}
+              <View style={styles.hero}>
+                <Svg width="100%" height="100%" style={StyleSheet.absoluteFill}>
+                  <Defs>
+                    <LinearGradient id="heartHero" x1="0" y1="0" x2="0" y2="1">
+                      <Stop offset="0" stopColor={scenes[choices[0].label].colors[0]} stopOpacity={0.55} />
+                      <Stop offset="0.55" stopColor={scenes[choices[0].label].colors[2]} stopOpacity={0.35} />
+                      <Stop offset="1" stopColor={colors.background} stopOpacity={1} />
+                    </LinearGradient>
+                  </Defs>
+                  <Rect x="0" y="0" width="100%" height="100%" fill="url(#heartHero)" />
+                </Svg>
+                <View style={[styles.handle, styles.handleOnSky]} />
+                <View style={styles.heroWindow}>
+                  <SkyWindow scene={scenes[choices[0].label]} width={124} />
+                  <Animated.View
+                    pointerEvents="none"
+                    style={[
+                      styles.heroLantern,
+                      {
+                        opacity: drift.interpolate({ inputRange: [0, 0.15, 0.75, 1], outputRange: [0, 1, 1, 0] }),
+                        transform: [
+                          { translateY: drift.interpolate({ inputRange: [0, 1], outputRange: [18, -52] }) },
+                          { translateX: drift.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0, 5, -3] }) },
+                        ],
+                      },
+                    ]}
+                  >
+                    <LanternGlyph size={20} />
+                  </Animated.View>
+                </View>
               </View>
-              <Text style={styles.title}>{heartTitle(slot)}</Text>
+              <Text style={styles.heartTitle}>{heartTitle(slot)}</Text>
               <Text style={styles.sub}>Big or small, it's okay to not be okay.</Text>
 
               <View style={styles.paths}>
                 <TouchableOpacity style={[styles.path, styles.pathWarm]} onPress={() => goTo(onOpenLantern)} activeOpacity={0.85} accessibilityRole="button">
-                  <View style={styles.pathIcon}>
+                  <Animated.View style={[styles.pathIcon, styles.pathIconWarm, { transform: [{ translateY: breath.interpolate({ inputRange: [0, 1], outputRange: [1.5, -1.5] }) }] }]}>
                     <LanternGlyph size={22} />
-                  </View>
+                  </Animated.View>
                   <View style={styles.pathText}>
                     <Text style={styles.pathTitle}>Something's weighing on me</Text>
                     <Text style={styles.pathSub}>Set it down as a lantern. No name.</Text>
@@ -307,9 +360,9 @@ export default function SkyCheckSheet({ userId, enabled, onShared, onOpenSky, on
                   <Ionicons name="chevron-forward" size={16} color={colors.textLight} />
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.path} onPress={() => goTo(onAskHelp)} activeOpacity={0.85} accessibilityRole="button">
-                  <View style={styles.pathIcon}>
+                  <Animated.View style={[styles.pathIcon, { transform: [{ rotate: breath.interpolate({ inputRange: [0, 1], outputRange: ['-5deg', '5deg'] }) }] }]}>
                     <NSIcon name="help" size={24} />
-                  </View>
+                  </Animated.View>
                   <View style={styles.pathText}>
                     <Text style={styles.pathTitle}>I could use a hand</Text>
                     <Text style={styles.pathSub}>Ask a classmate at your school.</Text>
@@ -325,9 +378,9 @@ export default function SkyCheckSheet({ userId, enabled, onShared, onOpenSky, on
                   activeOpacity={0.85}
                   accessibilityRole="button"
                 >
-                  <View style={styles.pathIcon}>
+                  <Animated.View style={[styles.pathIcon, { transform: [{ scale: breath.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1.08] }) }] }]}>
                     <NSIcon name="star" size={24} />
-                  </View>
+                  </Animated.View>
                   <View style={styles.pathText}>
                     <Text style={styles.pathTitle}>I'm doing okay</Text>
                     <Text style={styles.pathSub}>Light your star in today's sky.</Text>
@@ -342,6 +395,7 @@ export default function SkyCheckSheet({ userId, enabled, onShared, onOpenSky, on
             </>
           ) : (
           <>
+          <View style={styles.handle} />
           <Animated.View style={[styles.windowWrap, { opacity: paint }]}>
             <SkyWindow scene={shown} width={118} />
           </Animated.View>
@@ -508,14 +562,34 @@ const styles = StyleSheet.create({
   moodEmoji: {
     fontSize: 22,
   },
-  heartGlow: {
-    alignSelf: 'center',
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    backgroundColor: colors.primaryLight,
+  hero: {
+    marginHorizontal: -spacing.lg,
+    marginTop: -spacing.sm,
+    height: 162,
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+    overflow: 'hidden',
     alignItems: 'center',
-    justifyContent: 'center',
+    paddingTop: spacing.sm,
+  },
+  handleOnSky: {
+    backgroundColor: 'rgba(255,255,255,0.7)',
+    marginBottom: spacing.md,
+  },
+  heroWindow: {
+    alignItems: 'center',
+  },
+  heroLantern: {
+    position: 'absolute',
+    bottom: 10,
+    alignSelf: 'center',
+  },
+  heartTitle: {
+    fontFamily: fontFamily.brand,
+    fontSize: 26,
+    color: colors.textDark,
+    textAlign: 'center',
+    marginTop: spacing.xs,
   },
   paths: {
     gap: spacing.sm,
@@ -544,6 +618,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  pathIconWarm: {
+    backgroundColor: '#FFE9C7',
   },
   pathText: {
     flex: 1,

@@ -537,7 +537,12 @@ export default function PostDetailScreen() {
                     <Text style={styles.contributionText}>
                       ⭐ {contribution.points} Community {contribution.points === 1 ? 'Point' : 'Points'}
                     </Text>
-                    <Text style={styles.contributionText}>💙 {contribution.thanksReceived} Thanks Received</Text>
+                    {/* A zero reads as cold here — only show thanks once there are some. */}
+                    {contribution.thanksReceived > 0 ? (
+                      <Text style={styles.contributionText}>
+                        💙 {contribution.thanksReceived} {contribution.thanksReceived === 1 ? 'thank-you' : 'thank-yous'}
+                      </Text>
+                    ) : null}
                   </View>
                 )}
                 {post.category === 'Need Help' && post.status === 'open' && user ? (
@@ -624,7 +629,7 @@ export default function PostDetailScreen() {
             </View>
 
             <Text style={styles.commentsLabel}>
-              {loading ? 'Comments' : `${comments.length} Comment${comments.length === 1 ? '' : 's'}`}
+              {loading || comments.length === 0 ? 'Comments' : `${comments.length} Comment${comments.length === 1 ? '' : 's'}`}
             </Text>
           </FadeInView>
         }

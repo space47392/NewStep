@@ -278,7 +278,9 @@ export function resolveNotificationTarget(fields: {
 // way would silently lose which achievements were actually earned.
 // ---------------------------------------------------------------------------
 
-const GROUPABLE_TYPES = new Set<NotificationType>(['like', 'comment', 'follow', 'points_earned']);
+// 'message' groups per conversation and 'volunteer' per post, so a burst of
+// texts or a wave of help offers reads as one row instead of a stack.
+const GROUPABLE_TYPES = new Set<NotificationType>(['like', 'comment', 'follow', 'points_earned', 'message', 'volunteer']);
 
 export type NotificationGroup = {
   id: string;
@@ -307,7 +309,12 @@ export function groupNotifications(notifications: AppNotification[]): Notificati
   for (const n of notifications) {
     const lastIndex = groups.length - 1;
     const last = lastIndex >= 0 ? groups[lastIndex] : undefined;
-    const canMerge = !!last && GROUPABLE_TYPES.has(n.type) && last.type === n.type && last.post_id === n.post_id;
+    const canMerge =
+      !!last &&
+      GROUPABLE_TYPES.has(n.type) &&
+      last.type === n.type &&
+      last.post_id === n.post_id &&
+      last.conversation_id === n.conversation_id;
 
     if (canMerge && last) {
       last.memberIds.push(n.id);
@@ -448,6 +455,10 @@ export function formatGroupedNotificationMessage(group: NotificationGroup): stri
   if (group.type === 'points_earned' && group.memberIds.length > 1) {
     return `You earned ${group.memberIds.length} Community Points`;
   }
+  // One conversation, several texts — count the texts, not the people.
+  if (group.type === 'message' && group.memberIds.length > 1) {
+    return `${group.actor?.full_name ?? 'Someone'} sent you ${group.memberIds.length} messages`;
+  }
   if (group.extraActorCount === 0) return formatNotificationMessage(group);
 
   const actorName = group.actor?.full_name ?? 'Someone';
@@ -459,6 +470,8 @@ export function formatGroupedNotificationMessage(group: NotificationGroup): stri
       return `${actorName} and ${suffix} commented on your post`;
     case 'follow':
       return `${actorName} and ${suffix} started following you`;
+    case 'volunteer':
+      return `${actorName} and ${suffix} offered to help you — choose a helper`;
     default:
       return formatNotificationMessage(group);
   }

@@ -526,9 +526,10 @@ const styles = StyleSheet.create({
     borderRadius: radius.full,
     backgroundColor: colors.primary,
   },
+  // Same footprint as avatarWrap, so every row's text starts in one line.
   iconAvatar: {
-    width: 44,
-    height: 44,
+    width: 48,
+    height: 48,
     borderRadius: radius.full,
     backgroundColor: colors.background,
     justifyContent: 'center',

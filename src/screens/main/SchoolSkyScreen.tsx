@@ -1145,6 +1145,23 @@ export default function SchoolSkyScreen() {
               })}
             </View>
             <Text style={styles.cMoodLabel}>Feeling {(SKY_MOODS.find((m) => m.key === mood)?.label ?? 'good').toLowerCase()}</Text>
+            {/* A heavier day gets a gentle way to set it down, no name. */}
+            {mood === 'down' || mood === 'nervous' || mood === 'tired' ? (
+              <TouchableOpacity
+                style={styles.cHeavy}
+                activeOpacity={0.85}
+                onPress={() => {
+                  setComposerOpen(false);
+                  navigation.navigate('Lanterns', { compose: true });
+                }}
+                accessibilityRole="button"
+              >
+                <Text style={styles.cHeavyText}>
+                  {mood === 'down' ? "Sorry today's heavy. " : mood === 'nervous' ? "That's a lot to hold. " : 'Rest is okay. '}
+                  <Text style={styles.cHeavyLink}>Want to set it down as a lantern? ›</Text>
+                </Text>
+              </TouchableOpacity>
+            ) : null}
 
             {/* One place to say what's on your heart. */}
             <TextInput
@@ -1422,6 +1439,24 @@ const styles = StyleSheet.create({
     color: colors.primaryDark,
     textAlign: 'center',
     marginTop: spacing.sm,
+  },
+  cHeavy: {
+    alignSelf: 'center',
+    backgroundColor: '#FFF6E6',
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  cHeavyText: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    color: colors.textMid,
+    textAlign: 'center',
+  },
+  cHeavyLink: {
+    fontFamily: fontFamily.semibold,
+    color: colors.primaryDark,
   },
   cSection: {
     fontFamily: fontFamily.semibold,

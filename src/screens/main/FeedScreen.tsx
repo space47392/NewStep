@@ -1239,6 +1239,8 @@ export default function FeedScreen() {
         enabled={!!mySchoolName && isFocused}
         onShared={() => showToast("Your sky is up ✨ See it in School Sky")}
         onOpenSky={() => mySchoolName && navigation.navigate('SchoolSky', { schoolName: mySchoolName, openComposer: true })}
+        onOpenLantern={() => navigation.navigate('Lanterns', { compose: true })}
+        onAskHelp={() => navigation.navigate('CreatePost', { prefillCategory: 'Need Help' })}
       />
     </View>
   );

@@ -3,11 +3,14 @@ import { View, Text, TouchableOpacity, Modal, StyleSheet, ActivityIndicator, Ani
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
+import { Ionicons } from '@expo/vector-icons';
 import Svg, { Circle, ClipPath, Defs, Ellipse, G, Line, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
 import { describeSky, fetchSchoolSky, setMyStar, SKY_MOODS, SkyMood, SkyScene } from '../lib/sky';
 import { interpretSky } from '../lib/skyInterpret';
 import { skyPhase } from './SkyScene';
 import PrimaryButton from './PrimaryButton';
+import NSIcon from './NSIcon';
+import { LanternGlyph } from '../screens/main/LanternsScreen';
 import { colors, spacing, radius, fontSize, fontFamily } from '../constants/theme';
 
 // "Look up — how's the sky right now?" Asked inside the app once each part
@@ -29,7 +32,7 @@ export function currentSlot(d = new Date()): Slot {
 
 function slotKey(userId: string, d = new Date()) {
   const day = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
-  return `skycheck:${userId}:${day}:${currentSlot(d)}`;
+  return `checkin:${userId}:${day}:${currentSlot(d)}`;
 }
 
 const DAY_SKIES: Choice[] = [
@@ -153,21 +156,37 @@ export function SkyTile({ choice, scene, selected, onPress }: { choice: Choice; 
   );
 }
 
+// The check-in opens on the heart, not the weather: first "is anything on
+// your mind?", with three soft ways forward — set a worry down as an
+// anonymous lantern, ask classmates for a hand, or (if today is okay) light
+// a star in the school sky, which is the sky picker below.
+function heartTitle(slot: Slot) {
+  if (slot === 'night') return 'Still up? Anything on your mind?';
+  if (slot === 'evening') return 'How was today, really?';
+  return 'Anything on your mind?';
+}
+
 type Props = {
   userId: string | undefined;
   // Only ask students who are in a school (School Sky is per school).
   enabled: boolean;
   onShared?: () => void;
   onOpenSky: () => void;
+  // Opens the lantern composer (anonymous, with its own crisis support).
+  onOpenLantern: () => void;
+  // Opens a new "Need Help" post.
+  onAskHelp: () => void;
 };
 
-export default function SkyCheckSheet({ userId, enabled, onShared, onOpenSky }: Props) {
+export default function SkyCheckSheet({ userId, enabled, onShared, onOpenSky, onOpenLantern, onAskHelp }: Props) {
   const insets = useSafeAreaInsets();
   const [open, setOpen] = useState(false);
   const [choice, setChoice] = useState<Choice | null>(null);
   const [mood, setMood] = useState<SkyMood | null>(null);
   const [existing, setExisting] = useState<{ mood: SkyMood; note: string | null; photo: string | null } | null>(null);
   const [saving, setSaving] = useState(false);
+  // 'heart' asks how they're really doing; 'sky' is the star/sky picker.
+  const [step, setStep] = useState<'heart' | 'sky'>('heart');
   const slot = currentSlot();
   const phase = skyPhase();
   const choices = skiesFor(slot);
@@ -214,6 +233,13 @@ export default function SkyCheckSheet({ userId, enabled, onShared, onOpenSky }: 
     setOpen(false);
     setChoice(null);
     setMood(null);
+    setStep('heart');
+  };
+
+  const goTo = (next: () => void) => {
+    Haptics.selectionAsync();
+    close();
+    next();
   };
 
   const pick = (c: Choice) => {
@@ -242,6 +268,7 @@ export default function SkyCheckSheet({ userId, enabled, onShared, onOpenSky }: 
       setOpen(false);
       setChoice(null);
       setMood(null);
+      setStep('heart');
       onShared?.();
     } catch {
       // stay open so they can try again
@@ -260,6 +287,61 @@ export default function SkyCheckSheet({ userId, enabled, onShared, onOpenSky }: 
         <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={close} accessibilityLabel="Not now" />
         <View style={[styles.sheet, { paddingBottom: insets.bottom + spacing.lg }]}>
           <View style={styles.handle} />
+          {step === 'heart' ? (
+            <>
+              <View style={styles.heartGlow}>
+                <LanternGlyph size={44} />
+              </View>
+              <Text style={styles.title}>{heartTitle(slot)}</Text>
+              <Text style={styles.sub}>Big or small, it's okay to not be okay.</Text>
+
+              <View style={styles.paths}>
+                <TouchableOpacity style={[styles.path, styles.pathWarm]} onPress={() => goTo(onOpenLantern)} activeOpacity={0.85} accessibilityRole="button">
+                  <View style={styles.pathIcon}>
+                    <LanternGlyph size={22} />
+                  </View>
+                  <View style={styles.pathText}>
+                    <Text style={styles.pathTitle}>Something's weighing on me</Text>
+                    <Text style={styles.pathSub}>Set it down as a lantern. No name.</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={16} color={colors.textLight} />
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.path} onPress={() => goTo(onAskHelp)} activeOpacity={0.85} accessibilityRole="button">
+                  <View style={styles.pathIcon}>
+                    <NSIcon name="help" size={24} />
+                  </View>
+                  <View style={styles.pathText}>
+                    <Text style={styles.pathTitle}>I could use a hand</Text>
+                    <Text style={styles.pathSub}>Ask a classmate at your school.</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={16} color={colors.textLight} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.path}
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    setStep('sky');
+                  }}
+                  activeOpacity={0.85}
+                  accessibilityRole="button"
+                >
+                  <View style={styles.pathIcon}>
+                    <NSIcon name="star" size={24} />
+                  </View>
+                  <View style={styles.pathText}>
+                    <Text style={styles.pathTitle}>I'm doing okay</Text>
+                    <Text style={styles.pathSub}>Light your star in today's sky.</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={16} color={colors.textLight} />
+                </TouchableOpacity>
+              </View>
+
+              <TouchableOpacity onPress={close} style={styles.laterCenter} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Text style={styles.later}>Not now</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+          <>
           <Animated.View style={[styles.windowWrap, { opacity: paint }]}>
             <SkyWindow scene={shown} width={118} />
           </Animated.View>
@@ -311,6 +393,8 @@ export default function SkyCheckSheet({ userId, enabled, onShared, onOpenSky }: 
               <Text style={styles.later}>Not now</Text>
             </TouchableOpacity>
           </View>
+          </>
+          )}
         </View>
       </View>
     </Modal>
@@ -423,6 +507,61 @@ const styles = StyleSheet.create({
   },
   moodEmoji: {
     fontSize: 22,
+  },
+  heartGlow: {
+    alignSelf: 'center',
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  paths: {
+    gap: spacing.sm,
+    marginTop: spacing.lg,
+  },
+  path: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: colors.cardBg,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 14,
+  },
+  // The first way forward is the one this check-in is really for.
+  pathWarm: {
+    backgroundColor: '#FFF6E6',
+    borderColor: '#F6DFB4',
+  },
+  pathIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pathText: {
+    flex: 1,
+  },
+  pathTitle: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.md,
+    color: colors.textDark,
+  },
+  pathSub: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    color: colors.textMid,
+    marginTop: 1,
+  },
+  laterCenter: {
+    alignSelf: 'center',
+    marginTop: spacing.lg,
   },
   footer: {
     flexDirection: 'row',

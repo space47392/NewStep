@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -385,6 +385,20 @@ const FOLLOW_UPS: Record<SkyMood, { q: string; placeholder: string }> = {
   tired: { q: 'Long day? What wore you out?', placeholder: "It's okay to just rest…" },
   down: { q: "I'm sorry it's heavy. Want to say what happened?", placeholder: 'Only if you want to…' },
 };
+
+// Each composer step slides in from its side, so moving between them feels
+// like turning to the next page.
+function SlideIn({ from, children }: { from: number; children: ReactNode }) {
+  const t = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(t, { toValue: 1, duration: 220, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+  }, [t]);
+  return (
+    <Animated.View style={{ opacity: t, transform: [{ translateX: t.interpolate({ inputRange: [0, 1], outputRange: [from, 0] }) }] }}>
+      {children}
+    </Animated.View>
+  );
+}
 
 // A soft four-point star that breathes in the window of the star composer.
 function MoodStar({ color }: { color: string }) {
@@ -1186,66 +1200,83 @@ export default function SchoolSkyScreen() {
               </View>
             </View>
             <ScrollView style={styles.sheetScroll} contentContainerStyle={styles.cContent} keyboardShouldPersistTaps="handled">
-            <Text style={styles.cTitle}>How are you, really?</Text>
-            <Text style={styles.cSub}>Tap one. That's all it takes.</Text>
-
-            {/* Moods: one calm row of round bubbles. */}
-            <View style={styles.cMoodRow}>
-              {SKY_MOODS.map((m) => {
-                const on = moodPicked && m.key === mood;
-                return (
+            {!moodPicked ? (
+              // Step 1: just the feeling.
+              <SlideIn key="mood" from={-36}>
+                <Text style={styles.cTitle}>How are you, really?</Text>
+                <Text style={styles.cSub}>Tap the one that feels closest.</Text>
+                <View style={styles.cMoodGrid}>
+                  {SKY_MOODS.map((m) => (
+                    <TouchableOpacity
+                      key={m.key}
+                      style={styles.cMoodTile}
+                      activeOpacity={0.8}
+                      onPress={() => {
+                        Haptics.selectionAsync();
+                        setMood(m.key);
+                        setMoodPicked(true);
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel={m.label}
+                    >
+                      <View style={[styles.cMoodTileFace, { backgroundColor: m.color + '33' }]}>
+                        <MoodFace mood={m.key} size={46} />
+                      </View>
+                      <Text style={styles.cMoodTileLabel}>{m.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </SlideIn>
+            ) : (
+              // Step 2: a question made for that feeling. Answering is up to them.
+              <SlideIn key="share" from={36}>
+                <View style={styles.cStepBar}>
                   <TouchableOpacity
-                    key={m.key}
-                    style={[styles.cMood, on && styles.cMoodOn, on && { borderColor: m.color, backgroundColor: m.color + '55' }]}
+                    style={styles.cBack}
+                    onPress={() => setMoodPicked(false)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    accessibilityRole="button"
+                    accessibilityLabel="Pick a different feeling"
+                  >
+                    <Ionicons name="chevron-back" size={18} color={colors.textMid} />
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.cMoodChip, { backgroundColor: skyMood(mood).color + '40' }]} onPress={() => setMoodPicked(false)} activeOpacity={0.8}>
+                    <MoodFace mood={mood} size={22} />
+                    <Text style={styles.cMoodChipText}>Feeling {skyMood(mood).label.toLowerCase()}</Text>
+                  </TouchableOpacity>
+                  <View style={styles.cBack} />
+                </View>
+
+                <Text style={[styles.cTitle, styles.cQuestion]}>{FOLLOW_UPS[mood].q}</Text>
+                <TextInput
+                  style={[styles.cInput, styles.cHeart]}
+                  placeholder={FOLLOW_UPS[mood].placeholder}
+                  placeholderTextColor={colors.textLight}
+                  value={note}
+                  onChangeText={setNote}
+                  maxLength={SKY_NOTE_MAX}
+                  multiline
+                />
+                <Text style={styles.cOptional}>Only if you want to · classmates see it with your star</Text>
+
+                {/* A heavier day gets a gentle way to say it with no name. */}
+                {mood === 'down' || mood === 'nervous' || mood === 'tired' ? (
+                  <TouchableOpacity
+                    style={styles.cHeavy}
+                    activeOpacity={0.85}
                     onPress={() => {
-                      Haptics.selectionAsync();
-                      setMood(m.key);
-                      setMoodPicked(true);
+                      setComposerOpen(false);
+                      navigation.navigate('Lanterns', { compose: true });
                     }}
                     accessibilityRole="button"
-                    accessibilityState={{ selected: on }}
-                    accessibilityLabel={m.label}
                   >
-                    <MoodFace mood={m.key} size={36} />
+                    <Text style={styles.cHeavyText}>
+                      Rather say it with no name? <Text style={styles.cHeavyLink}>Send a lantern ›</Text>
+                    </Text>
                   </TouchableOpacity>
-                );
-              })}
-            </View>
-            {moodPicked ? (
-            <FadeInView key={mood}>
-            <Text style={styles.cMoodLabel}>Feeling {(SKY_MOODS.find((m) => m.key === mood)?.label ?? 'good').toLowerCase()}</Text>
-
-            {/* A question that fits the feeling. Answering is up to them. */}
-            <Text style={styles.cFollowQ}>{FOLLOW_UPS[mood].q}</Text>
-            <TextInput
-              style={[styles.cInput, styles.cHeart]}
-              placeholder={FOLLOW_UPS[mood].placeholder}
-              placeholderTextColor={colors.textLight}
-              value={note}
-              onChangeText={setNote}
-              maxLength={SKY_NOTE_MAX}
-              multiline
-            />
-            <Text style={styles.cOptional}>Only if you want to · classmates see it with your star</Text>
-
-            {/* A heavier day gets a gentle way to say it with no name. */}
-            {mood === 'down' || mood === 'nervous' || mood === 'tired' ? (
-              <TouchableOpacity
-                style={styles.cHeavy}
-                activeOpacity={0.85}
-                onPress={() => {
-                  setComposerOpen(false);
-                  navigation.navigate('Lanterns', { compose: true });
-                }}
-                accessibilityRole="button"
-              >
-                <Text style={styles.cHeavyText}>
-                  Rather say it with no name? <Text style={styles.cHeavyLink}>Send a lantern ›</Text>
-                </Text>
-              </TouchableOpacity>
-            ) : null}
-            </FadeInView>
-            ) : null}
+                ) : null}
+              </SlideIn>
+            )}
             {moodPicked ? (
             <>
 
@@ -1501,6 +1532,67 @@ const styles = StyleSheet.create({
   },
   cMoodEmoji: {
     fontSize: 24,
+  },
+  cQuestion: {
+    fontSize: 22,
+    lineHeight: 28,
+    marginTop: spacing.md,
+  },
+  cMoodGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: spacing.md,
+    marginTop: spacing.lg,
+    marginBottom: spacing.md,
+  },
+  cMoodTile: {
+    width: '31%',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    borderRadius: radius.lg,
+    backgroundColor: colors.cardBg,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+  },
+  cMoodTileFace: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cMoodTileLabel: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
+    color: colors.textDark,
+    marginTop: 6,
+  },
+  cStepBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: spacing.xs,
+  },
+  cBack: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cMoodChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+  },
+  cMoodChipText: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
+    color: colors.textDark,
   },
   cFollowQ: {
     fontFamily: fontFamily.semibold,

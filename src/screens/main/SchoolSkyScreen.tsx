@@ -32,6 +32,7 @@ import { useWarmSheet } from '../../components/WarmSheet';
 import { SkyTile, SkyWindow, skiesFor, currentSlot, FALLBACK_SCENE } from '../../components/SkyCheckSheet';
 import { interpretSky } from '../../lib/skyInterpret';
 import MoodFace from '../../components/MoodFace';
+import FadeInView from '../../components/FadeInView';
 import { useTilt, tiltTransform, Tilt } from '../../lib/useTilt';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -374,6 +375,17 @@ function Constellation({ stars, width, height }: { stars: SkyStar[]; width: numb
   );
 }
 
+// After a face is picked, the composer asks a question that fits it.
+// Answering is always optional — a star can go up without words.
+const FOLLOW_UPS: Record<SkyMood, { q: string; placeholder: string }> = {
+  happy: { q: 'Nice! What made today good?', placeholder: 'Even something small counts…' },
+  excited: { q: "Ooh, what's got you excited?", placeholder: 'Tell your school about it…' },
+  chill: { q: "Love that. What's keeping it calm?", placeholder: 'A quiet moment, a good song…' },
+  nervous: { q: "What's making you nervous?", placeholder: 'A test, a new class, meeting people…' },
+  tired: { q: 'Long day? What wore you out?', placeholder: "It's okay to just rest…" },
+  down: { q: "I'm sorry it's heavy. Want to say what happened?", placeholder: 'Only if you want to…' },
+};
+
 // A soft four-point star that breathes in the window of the star composer.
 function MoodStar({ color }: { color: string }) {
   const pulse = useRef(new Animated.Value(0)).current;
@@ -444,6 +456,8 @@ export default function SchoolSkyScreen() {
     Animated.timing(lookUp, { toValue: 1, duration: 600, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
   }, [lookUp]);
   const [mood, setMood] = useState<SkyMood>('happy');
+  // False until a face is tapped on a new star: the follow-up waits for it.
+  const [moodPicked, setMoodPicked] = useState(false);
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
   const [openingChat, setOpeningChat] = useState(false);
@@ -611,6 +625,7 @@ export default function SchoolSkyScreen() {
   const openComposer = () => {
     setShowSkyExtras(false);
     setMood((myStar?.mood as SkyMood) ?? 'happy');
+    setMoodPicked(!!myStar);
     setNote(myStar?.note ?? '');
     setPhotoUri(myStar?.photo_url ?? null);
     setPhotoIsNew(false);
@@ -631,6 +646,7 @@ export default function SchoolSkyScreen() {
     prefilledRef.current = true;
     if (myStar) {
       setMood(myStar.mood);
+      setMoodPicked(true);
       setNote(myStar.note ?? '');
       setPhotoUri(myStar.photo_url ?? null);
       setPhotoIsNew(false);
@@ -1166,7 +1182,7 @@ export default function SchoolSkyScreen() {
               <View style={[styles.cHandle, styles.cHandleOnSky]} />
               <View>
                 <SkyWindow scene={skyScene ?? composerScenes[composerSkies[0].label] ?? FALLBACK_SCENE} width={112} />
-                <MoodStar color={SKY_MOODS.find((m) => m.key === mood)?.color ?? colors.primary} />
+                <MoodStar color={moodPicked ? SKY_MOODS.find((m) => m.key === mood)?.color ?? colors.primary : colors.primary} />
               </View>
             </View>
             <ScrollView style={styles.sheetScroll} contentContainerStyle={styles.cContent} keyboardShouldPersistTaps="handled">
@@ -1176,7 +1192,7 @@ export default function SchoolSkyScreen() {
             {/* Moods: one calm row of round bubbles. */}
             <View style={styles.cMoodRow}>
               {SKY_MOODS.map((m) => {
-                const on = m.key === mood;
+                const on = moodPicked && m.key === mood;
                 return (
                   <TouchableOpacity
                     key={m.key}
@@ -1184,6 +1200,7 @@ export default function SchoolSkyScreen() {
                     onPress={() => {
                       Haptics.selectionAsync();
                       setMood(m.key);
+                      setMoodPicked(true);
                     }}
                     accessibilityRole="button"
                     accessibilityState={{ selected: on }}
@@ -1194,8 +1211,24 @@ export default function SchoolSkyScreen() {
                 );
               })}
             </View>
+            {moodPicked ? (
+            <FadeInView key={mood}>
             <Text style={styles.cMoodLabel}>Feeling {(SKY_MOODS.find((m) => m.key === mood)?.label ?? 'good').toLowerCase()}</Text>
-            {/* A heavier day gets a gentle way to set it down, no name. */}
+
+            {/* A question that fits the feeling. Answering is up to them. */}
+            <Text style={styles.cFollowQ}>{FOLLOW_UPS[mood].q}</Text>
+            <TextInput
+              style={[styles.cInput, styles.cHeart]}
+              placeholder={FOLLOW_UPS[mood].placeholder}
+              placeholderTextColor={colors.textLight}
+              value={note}
+              onChangeText={setNote}
+              maxLength={SKY_NOTE_MAX}
+              multiline
+            />
+            <Text style={styles.cOptional}>Only if you want to · classmates see it with your star</Text>
+
+            {/* A heavier day gets a gentle way to say it with no name. */}
             {mood === 'down' || mood === 'nervous' || mood === 'tired' ? (
               <TouchableOpacity
                 style={styles.cHeavy}
@@ -1207,22 +1240,14 @@ export default function SchoolSkyScreen() {
                 accessibilityRole="button"
               >
                 <Text style={styles.cHeavyText}>
-                  {mood === 'down' ? "Sorry today's heavy. " : mood === 'nervous' ? "That's a lot to hold. " : 'Rest is okay. '}
-                  <Text style={styles.cHeavyLink}>Want to set it down as a lantern? ›</Text>
+                  Rather say it with no name? <Text style={styles.cHeavyLink}>Send a lantern ›</Text>
                 </Text>
               </TouchableOpacity>
             ) : null}
-
-            {/* One place to say what's on your heart. */}
-            <TextInput
-              style={[styles.cInput, styles.cHeart]}
-              placeholder="Anything on your heart? (optional)"
-              placeholderTextColor={colors.textLight}
-              value={note}
-              onChangeText={setNote}
-              maxLength={SKY_NOTE_MAX}
-              multiline
-            />
+            </FadeInView>
+            ) : null}
+            {moodPicked ? (
+            <>
 
             {/* Everything else is optional and tucked away. */}
             {showSkyExtras ? (
@@ -1306,6 +1331,8 @@ export default function SchoolSkyScreen() {
               onPress={handleSave}
               style={styles.sheetSave}
             />
+            </>
+            ) : null}
             </ScrollView>
           </View>
         </KeyboardAvoidingView>
@@ -1475,8 +1502,22 @@ const styles = StyleSheet.create({
   cMoodEmoji: {
     fontSize: 24,
   },
-  cHeart: {
+  cFollowQ: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.md,
+    color: colors.textDark,
+    textAlign: 'center',
     marginTop: spacing.lg,
+  },
+  cOptional: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
+    color: colors.textLight,
+    textAlign: 'center',
+    marginTop: 6,
+  },
+  cHeart: {
+    marginTop: spacing.sm,
     minHeight: 92,
     textAlignVertical: 'top',
   },

@@ -23,7 +23,7 @@ import FadeInView from '../../components/FadeInView';
 import { colors, spacing, radius, fontSize, fontFamily, typography } from '../../constants/theme';
 import { MainStackParamList, School } from '../../types';
 
-const GRADES = ['6th', '7th', '8th', '9th', '10th', '11th', '12th'];
+const GRADES = ['7th', '8th', '9th', '10th', '11th', '12th'];
 
 // Everything a user can change about their own identity — split out of
 // ProfileScreen (which is now a read-only view, same as UserProfileScreen)

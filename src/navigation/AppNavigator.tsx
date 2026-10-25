@@ -33,6 +33,7 @@ import ChooseNewStudentScreen from '../screens/auth/ChooseNewStudentScreen';
 import WelcomeScreen from '../screens/auth/WelcomeScreen';
 import ResetPasswordScreen from '../screens/auth/ResetPasswordScreen';
 import ChooseSchoolScreen from '../screens/main/ChooseSchoolScreen';
+import LegalScreen from '../screens/main/LegalScreen';
 import MainNavigator from './MainNavigator';
 import { navigationRef } from './navigationRef';
 import { useScreenContentStyle, NO_TOP_INSET } from './screenInsets';
@@ -64,6 +65,7 @@ function AuthNavigator() {
       <AuthStack.Screen name="Login" component={LoginScreen} options={{ contentStyle: NO_TOP_INSET }} />
       <AuthStack.Screen name="Register" component={RegisterScreen} />
       <AuthStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+      <AuthStack.Screen name="Legal" component={LegalScreen} />
     </AuthStack.Navigator>
   );
 }

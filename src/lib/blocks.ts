@@ -29,3 +29,24 @@ export async function unblockUser(params: { blockerId: string; blockedId: string
     .eq('blocked_id', params.blockedId);
   if (error) throw error;
 }
+
+export type BlockedAccount = {
+  id: string;
+  full_name: string | null;
+  username: string | null;
+  avatar_url: string | null;
+};
+
+// For Settings → Blocked accounts, newest first. Accounts deleted since are
+// skipped — there's nobody left to unblock.
+export async function fetchBlockedAccounts(userId: string): Promise<BlockedAccount[]> {
+  const { data, error } = await supabase
+    .from('blocks')
+    .select('created_at, profile:profiles!blocks_blocked_id_fkey ( id, full_name, username, avatar_url )')
+    .eq('blocker_id', userId)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return ((data ?? []) as unknown as { profile: BlockedAccount | null }[])
+    .map((row) => row.profile)
+    .filter((p): p is BlockedAccount => p !== null);
+}

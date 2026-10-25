@@ -1,3 +1,4 @@
+import type { LegalDoc } from '../constants/legal';
 export type RootStackParamList = {
   Auth: undefined;
   // Opened from the "Forgot password?" email link — takes priority over every
@@ -26,6 +27,8 @@ export type AuthStackParamList = {
   Login: undefined;
   Register: undefined;
   ForgotPassword: undefined;
+  // Terms / Privacy, readable before signing up.
+  Legal: { doc: LegalDoc };
 };
 
 export type MainTabParamList = {
@@ -88,6 +91,9 @@ export type MainStackParamList = {
   SavedPosts: undefined;
   ChooseSchool: undefined;
   EditProfile: undefined;
+  Settings: undefined;
+  BlockedAccounts: undefined;
+  Legal: { doc: LegalDoc };
   StoryViewer: { stories: Story[]; initialIndex: number };
   PhotoViewer: { photoUrls: string[]; initialIndex: number };
 };

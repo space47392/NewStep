@@ -14,7 +14,6 @@ import { fetchFollowCounts } from '../../lib/follows';
 import { fetchBlockedUserIds } from '../../lib/blocks';
 import { fetchSchoolById } from '../../lib/schools';
 import { fetchPostsByAuthor } from '../../lib/posts';
-import { deleteMyAccount } from '../../lib/account';
 import { formatRelativeTime } from '../../lib/time';
 import PostPreviewCard from '../../components/PostPreviewCard';
 import EmptyState from '../../components/EmptyState';
@@ -36,12 +35,10 @@ import { MainStackParamList, PointsHistoryEntry, AchievementProgress, School, Po
 // EditProfileScreen now; this screen only ever reads.
 export default function ProfileScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const { showToast } = useToast();
 
   const [loadingProfile, setLoadingProfile] = useState(true);
-  const [loggingOut, setLoggingOut] = useState(false);
-  const [deletingAccount, setDeletingAccount] = useState(false);
   // True only after a load attempt that never previously succeeded fails —
   // a background refresh failure after the profile has ever loaded shows a
   // toast instead and keeps the profile exactly as last displayed (Step 36).
@@ -154,105 +151,6 @@ export default function ProfileScreen() {
     setRetrying(false);
   };
 
-  const handleLogout = () => {
-    warmAlert('Log out', 'Are you sure you want to log out?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Log out',
-        style: 'destructive',
-        onPress: async () => {
-          setLoggingOut(true);
-          try {
-            await signOut();
-          } catch {
-            // Never surface the raw Supabase error — the session very likely
-            // never changed, so it's safe to just let them try again rather
-            // than leave the button stuck spinning forever (Step 40).
-            showToast("Couldn't log out — check your connection and try again");
-          } finally {
-            // Harmless no-op if this already unmounted because the logout
-            // actually succeeded (session cleared → AppNavigator swaps this
-            // whole screen out) — only visibly matters on the failure path.
-            setLoggingOut(false);
-          }
-        },
-      },
-    ]);
-  };
-
-  // scope: 'global' revokes every refresh token for this account, not just
-  // this device's — useful if you think another device is still signed in
-  // somewhere you don't want it to be.
-  const handleLogoutAllDevices = () => {
-    warmAlert(
-      'Log out of all devices?',
-      "This will sign you out everywhere, including this device. You'll need to sign in again.",
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Log Out Everywhere',
-          style: 'destructive',
-          onPress: async () => {
-            setLoggingOut(true);
-            try {
-              await signOut({ scope: 'global' });
-            } catch {
-              showToast("Couldn't log out — check your connection and try again");
-            } finally {
-              setLoggingOut(false);
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  // Two-step confirmation on purpose — this is the one irreversible action on
-  // this whole screen, so it gets more friction than a normal destructive
-  // Alert, not less.
-  const handleDeleteAccount = () => {
-    warmAlert(
-      'Delete your account?',
-      'This permanently deletes your profile, posts, comments, stories, and messages. This cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Continue',
-          style: 'destructive',
-          onPress: () => {
-            warmAlert(
-              'Are you absolutely sure?',
-              'Your account and all of its data will be permanently deleted right now. There is no way to undo this.',
-              [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                  text: 'Delete My Account',
-                  style: 'destructive',
-                  onPress: async () => {
-                    if (!user) return;
-                    setDeletingAccount(true);
-                    try {
-                      await deleteMyAccount(user.id);
-                      // The account (and its session server-side) is already
-                      // gone at this point — this just clears the local
-                      // cached session so AppNavigator's gate redirects to
-                      // the Auth stack, same as a normal sign-out.
-                      await supabase.auth.signOut().catch(() => {});
-                    } catch (err) {
-                      const message = err instanceof Error ? err.message : 'Could not delete your account.';
-                      warmAlert('Error', message);
-                      setDeletingAccount(false);
-                    }
-                  },
-                },
-              ]
-            );
-          },
-        },
-      ]
-    );
-  };
-
   if (loadingProfile) {
     return <LoadingScreen />;
   }
@@ -263,6 +161,15 @@ export default function ProfileScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
+      <TouchableOpacity
+        style={styles.settingsButton}
+        onPress={() => navigation.navigate('Settings')}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        accessibilityRole="button"
+        accessibilityLabel="Settings"
+      >
+        <Ionicons name="settings-outline" size={20} color={colors.textDark} />
+      </TouchableOpacity>
       <FadeInView style={styles.headerArea}>
         <Avatar uri={avatarUrl} size={96} />
 
@@ -437,42 +344,12 @@ export default function ProfileScreen() {
       </View>
 
       <FadeInView style={styles.accountSection} delay={100}>
-        {/* Own-account info only — user.email comes from the Supabase Auth
-            session (see AuthContext), not the profiles table, which has no
-            email column at all (see PUBLIC_PROFILE_FIELDS in lib/profile.ts).
-            UserProfileScreen fetches a PublicProfile instead, which never
-            carries an email, so this can't leak onto another user's profile,
-            search, feed, notifications, or follow lists — there's simply no
-            path for another viewer's session to reach it. Same icon+text row
-            pattern as the school metaRow above, restyled from bare text
-            (Step 65 — read as leftover debug text without a label). */}
-        <Text style={styles.accountLabel}>Account</Text>
-        <View style={styles.accountCard}>
+        <TouchableOpacity style={styles.accountCard} onPress={() => navigation.navigate('Settings')} activeOpacity={0.7}>
           <View style={styles.accountRow}>
-            <Ionicons name="mail-outline" size={18} color={colors.textMid} />
-            <Text style={styles.accountRowText} numberOfLines={1}>
-              {user?.email}
-            </Text>
-          </View>
-          <View style={styles.accountDivider} />
-          <TouchableOpacity onPress={handleLogout} style={styles.accountRow} disabled={loggingOut} activeOpacity={0.7}>
-            <Ionicons name="log-out-outline" size={18} color={colors.textDark} />
-            <Text style={styles.accountRowText}>Log out</Text>
-            {loggingOut ? <ActivityIndicator size="small" color={colors.textMid} /> : <Ionicons name="chevron-forward" size={16} color={colors.textLight} />}
-          </TouchableOpacity>
-          <View style={styles.accountDivider} />
-          <TouchableOpacity onPress={handleLogoutAllDevices} style={styles.accountRow} disabled={loggingOut} activeOpacity={0.7}>
-            <Ionicons name="phone-portrait-outline" size={18} color={colors.textDark} />
-            <Text style={styles.accountRowText}>Log out of all devices</Text>
+            <Ionicons name="settings-outline" size={18} color={colors.textDark} />
+            <Text style={styles.accountRowText}>Settings & privacy</Text>
             <Ionicons name="chevron-forward" size={16} color={colors.textLight} />
-          </TouchableOpacity>
-        </View>
-        <TouchableOpacity onPress={handleDeleteAccount} style={styles.deleteAccountButton} disabled={deletingAccount} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          {deletingAccount ? (
-            <ActivityIndicator size="small" color={colors.error} />
-          ) : (
-            <Text style={styles.deleteAccountText}>Delete account</Text>
-          )}
+          </View>
         </TouchableOpacity>
       </FadeInView>
       <AchievementUnlockModal achievement={unlockQueue[0] ?? null} onClose={handleUnlockClose} />
@@ -485,6 +362,18 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     backgroundColor: colors.background,
     paddingBottom: spacing.xl,
+  },
+  settingsButton: {
+    position: 'absolute',
+    top: spacing.lg,
+    right: spacing.lg,
+    zIndex: 2,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: colors.cardBg,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerArea: {
     alignItems: 'center',
@@ -735,13 +624,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     marginTop: spacing.xl,
   },
-  accountLabel: {
-    fontFamily: fontFamily.bold,
-    fontSize: fontSize.sm,
-    color: colors.textMid,
-    marginBottom: spacing.sm,
-    marginLeft: 4,
-  },
   accountCard: {
     backgroundColor: colors.cardBg,
     borderRadius: radius.lg,
@@ -761,11 +643,6 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.medium,
     fontSize: fontSize.md,
     color: colors.textDark,
-  },
-  accountDivider: {
-    height: 1,
-    backgroundColor: colors.hairline,
-    marginLeft: spacing.md + 28,
   },
   emailRow: {
     flexDirection: 'row',
@@ -796,14 +673,5 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
     color: colors.textLight,
     textDecorationLine: 'underline',
-  },
-  deleteAccountButton: {
-    alignSelf: 'center',
-    marginTop: spacing.lg,
-  },
-  deleteAccountText: {
-    fontFamily: fontFamily.medium,
-    fontSize: fontSize.sm,
-    color: colors.error,
   },
 });

@@ -1232,7 +1232,7 @@ export default function SchoolSkyScreen() {
             {selected.user_id !== user?.id && selected.profile ? (
               <View style={styles.warmthRow}>
                 {warmthSent[selected.user_id] ? (
-                  <Text style={styles.warmthSent}>You sent “{warmthSent[selected.user_id]}” 💛</Text>
+                  <Text style={styles.warmthSent}>You sent “{warmthSent[selected.user_id]}”</Text>
                 ) : (
                   (WARM_WORDS[selected.mood as SkyMood] ?? WARM_WORDS.happy).map((w) => (
                     <TouchableOpacity key={w} style={styles.warmthChip} onPress={() => sendWarmth(selected, w)} activeOpacity={0.8} accessibilityRole="button">

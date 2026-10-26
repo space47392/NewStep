@@ -215,6 +215,7 @@ export default function BuddyScreen() {
                     <PrimaryButton
                       title="Ask"
                       size="sm"
+                      style={styles.smallButton}
                       onPress={() => {
                         setAskText(DEFAULT_ASK);
                         setAsking(s);
@@ -251,7 +252,7 @@ export default function BuddyScreen() {
                     <Text style={styles.quietLinkText}>End pairing</Text>
                   </TouchableOpacity>
                 </View>
-                <PrimaryButton title="Say hi" size="sm" variant="outline" icon="chatbubble-ellipses-outline" onPress={() => openChat(pair.newcomer)} />
+                <PrimaryButton title="Say hi" size="sm" variant="outline" icon="chatbubble-ellipses-outline" onPress={() => openChat(pair.newcomer)} style={styles.smallButton} />
               </View>
             ))}
           </FadeInView>
@@ -460,6 +461,11 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: 'row',
     gap: spacing.sm,
+  },
+  // Fixed width so a short label never gets squeezed by the name beside it.
+  smallButton: {
+    minWidth: 116,
+    paddingHorizontal: spacing.md,
   },
   mainButton: {
     marginTop: spacing.sm,

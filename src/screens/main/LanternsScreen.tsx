@@ -84,10 +84,11 @@ export default function LanternsScreen() {
   // Opened from Home's "Something on your mind?" card: go straight to writing.
   useEffect(() => {
     if (route.params?.compose) {
+      if (route.params.prefill) setText(route.params.prefill);
       setComposeOpen(true);
-      navigation.setParams({ compose: false });
+      navigation.setParams({ compose: false, prefill: undefined });
     }
-  }, [route.params?.compose, navigation]);
+  }, [route.params?.compose, route.params?.prefill, navigation]);
 
   const openCompose = (starter?: string) => {
     if (starter && !text.trim()) setText(starter);

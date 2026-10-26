@@ -33,6 +33,7 @@ import { SkyTile, SkyWindow, skiesFor, currentSlot, FALLBACK_SCENE } from '../..
 import { interpretSky } from '../../lib/skyInterpret';
 import MoodFace from '../../components/MoodFace';
 import SupportLines from '../../components/SupportLines';
+import { warmAlert } from '../../components/WarmAlert';
 import FadeInView from '../../components/FadeInView';
 import { useTilt, tiltTransform, Tilt } from '../../lib/useTilt';
 import { useAuth } from '../../contexts/AuthContext';
@@ -827,10 +828,31 @@ export default function SchoolSkyScreen() {
   // Typed words (not a tile) are what the paint button paints.
   const ownWords = skyText.trim().length >= 2 && !composerSkies.some((c) => c.text === skyText);
 
-  const handleSave = async () => {
+  const handleSave = async (confirmedCrisis = false) => {
     if (saving || !user) return;
     if (hasBlockedWords(note) || hasBlockedWords(skyText)) {
       showToast(KIND_WORDS_MESSAGE);
+      return;
+    }
+    // Words that sound like they may be in danger would go up with their
+    // name on them. Pause once and offer the nameless lantern first.
+    if (!confirmedCrisis && soundsLikeCrisis(note)) {
+      warmAlert(
+        'Want to say this with no name?',
+        'Your star shows your name to classmates. A lantern carries the same words with no name, and the support lines are right there with it.',
+        [
+          {
+            text: 'Send it as a lantern',
+            onPress: () => {
+              const words = note.trim();
+              setComposerOpen(false);
+              navigation.navigate('Lanterns', { compose: true, prefill: words });
+            },
+          },
+          { text: 'Put up my star anyway', onPress: () => handleSave(true) },
+          { text: 'Keep writing', style: 'cancel' },
+        ]
+      );
       return;
     }
     setSaving(true);
@@ -1320,7 +1342,7 @@ export default function SchoolSkyScreen() {
               size="sm"
               icon="sparkles"
               loading={saving}
-              onPress={handleSave}
+              onPress={() => handleSave()}
               style={styles.cardButton}
             />
           </View>
@@ -1526,7 +1548,7 @@ export default function SchoolSkyScreen() {
               title={myStar ? 'Update my star' : 'Put it in the sky'}
               icon="sparkles"
               loading={saving}
-              onPress={handleSave}
+              onPress={() => handleSave()}
               style={styles.sheetSave}
             />
             </>

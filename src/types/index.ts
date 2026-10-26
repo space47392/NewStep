@@ -85,7 +85,8 @@ export type MainStackParamList = {
   SchoolSky: { schoolName?: string; openComposer?: boolean } | undefined;
   SkyDiary: undefined;
   // School Sky Lanterns (school_sky_lanterns.sql).
-  Lanterns: { compose?: boolean } | undefined;
+  // prefill: start the lantern with these words (e.g. moved over from a star note).
+  Lanterns: { compose?: boolean; prefill?: string } | undefined;
   LanternDetail: { lanternId: string; text: string; mine: boolean; crisis: boolean; createdAt: string; hugCount?: number; huggedByMe?: boolean };
   FollowList: { userId: string; mode: 'followers' | 'following' };
   SavedPosts: undefined;

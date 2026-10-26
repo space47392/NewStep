@@ -314,6 +314,8 @@ export type Message = {
   // preview is resolved client-side from messages already loaded, never
   // duplicated; this is just the pointer.
   reply_to_message_id: string | null;
+  // A photo in the private 'chat-photos' bucket (chat_photos.sql), or null.
+  photo_path?: string | null;
 };
 
 export type NotificationType =

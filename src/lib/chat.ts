@@ -165,6 +165,8 @@ export async function sendMessage(params: {
   // caller can already see (RLS re-validates it belongs to this same
   // conversation server-side, independent of whatever the client sends).
   replyToMessageId?: string;
+  // Already uploaded with uploadChatPhoto().
+  photoPath?: string;
 }): Promise<void> {
   const { error } = await supabase.from('messages').insert({
     ...(params.id ? { id: params.id } : {}),
@@ -172,6 +174,7 @@ export async function sendMessage(params: {
     sender_id: params.senderId,
     content: params.content,
     reply_to_message_id: params.replyToMessageId ?? null,
+    ...(params.photoPath ? { photo_path: params.photoPath } : {}),
   });
 
   if (error) throw error;

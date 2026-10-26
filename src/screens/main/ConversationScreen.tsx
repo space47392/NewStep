@@ -38,6 +38,9 @@ import MessageEntrance from '../../components/MessageEntrance';
 import FadeInView from '../../components/FadeInView';
 import PressableScale from '../../components/PressableScale';
 import { getChatDraft, saveChatDraft } from '../../lib/chatDrafts';
+import * as ImagePicker from 'expo-image-picker';
+import { Image } from 'react-native';
+import { removeChatPhoto, uploadChatPhoto, useChatPhotoUrl } from '../../lib/chatPhotos';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
 import { MainStackParamList, Message, Post, ReportTargetType } from '../../types';
 
@@ -62,6 +65,29 @@ try {
 } catch {
   // Engine without Unicode property escapes: just never use the big style.
 }
+function ChatPhoto({ path, localUri, onOpen, onLongPress }: { path?: string | null; localUri?: string; onOpen: (url: string) => void; onLongPress?: () => void }) {
+  const signed = useChatPhotoUrl(localUri ? null : path);
+  const uri = localUri ?? signed;
+  return (
+    <TouchableOpacity activeOpacity={0.9} disabled={!uri || !!localUri} onPress={() => uri && onOpen(uri)} onLongPress={onLongPress} delayLongPress={350} accessibilityRole="imagebutton" accessibilityLabel="Open photo">
+      {uri ? <Image source={{ uri }} style={photoStyles.photo} /> : <View style={[photoStyles.photo, photoStyles.loading]}><ActivityIndicator color={colors.textLight} /></View>}
+    </TouchableOpacity>
+  );
+}
+
+const photoStyles = StyleSheet.create({
+  photo: {
+    width: 220,
+    height: 260,
+    borderRadius: 16,
+    backgroundColor: colors.hairline,
+  },
+  loading: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});
+
 function isEmojiOnly(text: string): boolean {
   return !!EMOJI_ONLY && EMOJI_ONLY.test(text.trim());
 }
@@ -211,6 +237,7 @@ export default function ConversationScreen() {
   // new message arriving) still scrolls smoothly as before.
   const hasScrolledOnLoadRef = useRef(false);
   const inputRef = useRef<TextInput>(null);
+  const [localPhotos, setLocalPhotos] = useState<Record<string, string>>({});
   // Reply / Edit put the cursor straight in the message box. Slight delay so
   // the action sheet has finished closing and doesn't steal focus back.
   const focusComposer = () => setTimeout(() => inputRef.current?.focus(), 250);
@@ -617,6 +644,67 @@ export default function ConversationScreen() {
     }
   };
 
+  const handlePhoto = async () => {
+    if (!user || !otherUser || sending) return;
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      warmAlert('Allow photo access', 'NewStep needs access to your photos to send one.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7 });
+    if (result.canceled || !result.assets?.length) return;
+    const asset = result.assets[0];
+    const caption = text.trim();
+    const tempId = Crypto.randomUUID();
+    const replyId = replyTarget?.id ?? null;
+    const placeholder = {
+      id: tempId,
+      conversation_id: conversationId,
+      sender_id: user.id,
+      content: caption,
+      created_at: new Date().toISOString(),
+      read_at: null,
+      edited_at: null,
+      deleted_at: null,
+      reply_to_message_id: replyId,
+      photo_path: null,
+    } as Message;
+    isNearBottomRef.current = true;
+    setLocalPhotos((p) => ({ ...p, [tempId]: asset.uri }));
+    setPendingIds((p) => new Set(p).add(tempId));
+    setMessages((prev) => [...prev, placeholder]);
+    setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 80);
+    setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 400);
+    setText('');
+    setReplyTarget(null);
+    saveChatDraft(user.id, conversationId, '');
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    let path: string | null = null;
+    try {
+      path = await uploadChatPhoto({ conversationId, senderId: user.id, localUri: asset.uri, mimeType: asset.mimeType ?? undefined });
+      await sendMessage({ id: tempId, conversationId, senderId: user.id, content: caption, replyToMessageId: replyId ?? undefined, photoPath: path });
+      setMessages((prev) => prev.map((m) => (m.id === tempId && !m.photo_path ? { ...m, photo_path: path } : m)));
+    } catch (err) {
+      removeChatPhoto(path);
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      if (caption) setText((t) => t || caption);
+      showToast("Couldn't send the photo — try again");
+    } finally {
+      setPendingIds((p) => {
+        const n = new Set(p);
+        n.delete(tempId);
+        return n;
+      });
+      // Keep the local preview a moment so the bubble doesn't flash while
+      // the signed URL loads.
+      setTimeout(() => setLocalPhotos((p) => {
+        const n = { ...p };
+        delete n[tempId];
+        return n;
+      }), 4000);
+    }
+  };
+
   const handleWave = async () => {
     if (!user || !otherUser || sending) return;
     setSending(true);
@@ -675,6 +763,7 @@ export default function ConversationScreen() {
         onPress: async () => {
           try {
             await deleteMessage(message.id);
+            removeChatPhoto(message.photo_path);
             if (editingMessage?.id === message.id) handleCancelEdit();
           } catch (err) {
             const errMessage = err instanceof Error ? err.message : 'Could not delete message.';
@@ -694,14 +783,16 @@ export default function ConversationScreen() {
         ...(otherUser
           ? ([{ label: 'Reply', icon: 'arrow-undo-outline', onPress: () => handleReplyMessage(menuMessage) }] as ActionSheetAction[])
           : []),
-        { label: 'Copy', icon: 'copy-outline', onPress: () => handleCopyMessage(menuMessage) },
+        ...(menuMessage.content.trim()
+          ? ([{ label: 'Copy', icon: 'copy-outline', onPress: () => handleCopyMessage(menuMessage) }] as ActionSheetAction[])
+          : []),
         ...(isMenuMessageMine
           ? ([
               // Edit also needs the composer (same as Reply above) — omitted
               // in the preserved-conversation state for the same reason.
               // Delete doesn't touch the composer at all (a direct RPC call
               // behind a confirm dialog), so it stays available either way.
-              ...(otherUser
+              ...(otherUser && menuMessage.content.trim()
                 ? ([{ label: 'Edit', icon: 'create-outline', onPress: () => handleEditMessage(menuMessage) }] as ActionSheetAction[])
                 : []),
               {
@@ -940,7 +1031,8 @@ export default function ConversationScreen() {
             // a same-minute run across two different senders still only
             // shows one timestamp, at the end of that run.
             const showTimestamp = !nextItem || !sameTimestampBucket(item.created_at, nextItem.created_at);
-            const bigEmoji = !isDeleted && !item.reply_to_message_id && isEmojiOnly(item.content);
+            const hasPhoto = !isDeleted && (!!item.photo_path || !!localPhotos[item.id]);
+            const bigEmoji = !isDeleted && !hasPhoto && !item.reply_to_message_id && isEmojiOnly(item.content);
 
             return (
               <View>
@@ -997,6 +1089,7 @@ export default function ConversationScreen() {
                         !isLastInGroup && (isMine ? styles.bubbleJoinBottomMine : styles.bubbleJoinBottomTheirs),
                         isDeleted && styles.bubbleDeleted,
                         bigEmoji && styles.bubbleEmojiOnly,
+                        hasPhoto && styles.bubblePhoto,
                         pendingIds.has(item.id) && styles.bubblePending,
                       ]}
                     >
@@ -1041,14 +1134,25 @@ export default function ConversationScreen() {
                                 </TouchableOpacity>
                               );
                             })()}
-                          <LinkifiedText
-                            style={[
-                              isMine ? styles.bubbleTextMine : styles.bubbleTextTheirs,
-                              bigEmoji && [styles.emojiOnlyText, { transform: [{ rotate: isMine ? '6deg' : '-6deg' }] }],
-                            ]}
-                          >
-                            {item.content}
-                          </LinkifiedText>
+                          {hasPhoto ? (
+                            <ChatPhoto
+                              path={item.photo_path}
+                              localUri={localPhotos[item.id]}
+                              onOpen={(url) => navigation.navigate('PhotoViewer', { photoUrls: [url], initialIndex: 0 })}
+                              onLongPress={() => handleLongPressMessage(item)}
+                            />
+                          ) : null}
+                          {item.content ? (
+                            <LinkifiedText
+                              style={[
+                                isMine ? styles.bubbleTextMine : styles.bubbleTextTheirs,
+                                bigEmoji && [styles.emojiOnlyText, { transform: [{ rotate: isMine ? '6deg' : '-6deg' }] }],
+                                hasPhoto && styles.photoCaption,
+                              ]}
+                            >
+                              {item.content}
+                            </LinkifiedText>
+                          ) : null}
                         </>
                       )}
                     </TouchableOpacity>
@@ -1134,6 +1238,18 @@ export default function ConversationScreen() {
           )}
 
           <View style={[styles.inputRow, { paddingBottom: spacing.md + insets.bottom }]}>
+            {!editingMessage ? (
+              <PressableScale
+                pressedScale={0.85}
+                style={styles.photoButton}
+                onPress={handlePhoto}
+                disabled={sending}
+                accessibilityRole="button"
+                accessibilityLabel="Send a photo"
+              >
+                <Ionicons name="image-outline" size={22} color={colors.textMid} />
+              </PressableScale>
+            ) : null}
             <TextInput
               ref={inputRef}
               style={styles.input}
@@ -1574,6 +1690,21 @@ const styles = StyleSheet.create({
   },
   waveButtonText: {
     fontSize: 20,
+  },
+  bubblePhoto: {
+    padding: 4,
+  },
+  photoCaption: {
+    paddingHorizontal: spacing.sm,
+    paddingTop: 6,
+    paddingBottom: 4,
+  },
+  photoButton: {
+    width: 40,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 2,
   },
   bubbleEmojiOnly: {
     backgroundColor: 'transparent',

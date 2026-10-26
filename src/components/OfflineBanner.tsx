@@ -16,21 +16,36 @@ export default function OfflineBanner() {
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    // Only a lost connection counts (isConnected) — the internet-reachability
+    // probe flickers on some networks. And it has to last a moment, so a
+    // brief blip at launch or between networks shows nothing at all.
+    let offlineTimer: ReturnType<typeof setTimeout> | null = null;
     const unsubscribe = NetInfo.addEventListener((s) => {
-      // isInternetReachable is null while unknown — only trust a clear "no".
-      const offline = s.isConnected === false || s.isInternetReachable === false;
-      if (hideTimer.current) clearTimeout(hideTimer.current);
+      const offline = s.isConnected === false;
       if (offline) {
-        wasOffline.current = true;
-        setState('offline');
-      } else if (wasOffline.current) {
+        if (offlineTimer || wasOffline.current) return;
+        offlineTimer = setTimeout(() => {
+          offlineTimer = null;
+          if (hideTimer.current) clearTimeout(hideTimer.current);
+          wasOffline.current = true;
+          setState('offline');
+        }, 1500);
+        return;
+      }
+      if (offlineTimer) {
+        clearTimeout(offlineTimer);
+        offlineTimer = null;
+      }
+      if (wasOffline.current) {
         wasOffline.current = false;
         setState('back');
+        if (hideTimer.current) clearTimeout(hideTimer.current);
         hideTimer.current = setTimeout(() => setState('online'), 2200);
       }
     });
     return () => {
       unsubscribe();
+      if (offlineTimer) clearTimeout(offlineTimer);
       if (hideTimer.current) clearTimeout(hideTimer.current);
     };
   }, []);

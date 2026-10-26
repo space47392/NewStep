@@ -187,6 +187,16 @@ export default function HelpScreen() {
                 </View>
                 <PressableScale
                   pressedScale={0.97}
+                  style={[styles.askRow, styles.guideRow]}
+                  onPress={() => navigation.navigate('SchoolGuide')}
+                  accessibilityRole="button"
+                >
+                  <NSIcon name="backpack" size={22} />
+                  <Text style={styles.askText}>School guide: tips from classmates</Text>
+                  <Ionicons name="chevron-forward" size={18} color={colors.primaryDark} />
+                </PressableScale>
+                <PressableScale
+                  pressedScale={0.97}
                   style={styles.askRow}
                   onPress={() => navigation.navigate('CreatePost', { prefillCategory: 'Need Help' })}
                   accessibilityRole="button"
@@ -295,6 +305,11 @@ const styles = StyleSheet.create({
   },
   segmentCountTextOn: {
     color: colors.onPrimary,
+  },
+  guideRow: {
+    backgroundColor: colors.cardBg,
+    borderWidth: 1,
+    borderColor: colors.hairline,
   },
   askRow: {
     flexDirection: 'row',

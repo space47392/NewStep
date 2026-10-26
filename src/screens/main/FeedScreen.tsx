@@ -903,11 +903,11 @@ export default function FeedScreen() {
                 <Text style={styles.welcomeEmoji}>👋</Text>
                 <TouchableOpacity
                   style={{ flex: 1 }}
-                  onPress={() => navigation.navigate('School', { schoolId: mySchoolId ?? undefined, schoolName: mySchoolName })}
+                  onPress={() => navigation.navigate('SchoolGuide')}
                   accessibilityRole="button"
                 >
                   <Text style={styles.welcomeSubtitle} numberOfLines={1}>
-                    New here? <Text style={styles.welcomeButtonText}>Explore your school ›</Text>
+                    New here? <Text style={styles.welcomeButtonText}>Read the school guide ›</Text>
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={handleDismissWelcome} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityLabel="Dismiss">

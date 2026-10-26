@@ -32,6 +32,7 @@ import { useWarmSheet } from '../../components/WarmSheet';
 import { SkyTile, SkyWindow, skiesFor, currentSlot, FALLBACK_SCENE } from '../../components/SkyCheckSheet';
 import { interpretSky } from '../../lib/skyInterpret';
 import MoodFace from '../../components/MoodFace';
+import SupportLines from '../../components/SupportLines';
 import FadeInView from '../../components/FadeInView';
 import { useTilt, tiltTransform, Tilt } from '../../lib/useTilt';
 import { useAuth } from '../../contexts/AuthContext';
@@ -69,6 +70,7 @@ import {
   SkyStar,
 } from '../../lib/sky';
 import { fetchBlockedUserIds } from '../../lib/blocks';
+import { soundsLikeCrisis } from '../../lib/lanterns';
 import { getOrCreateConversation } from '../../lib/chat';
 import { formatRelativeTime } from '../../lib/time';
 import Avatar from '../../components/Avatar';
@@ -1346,6 +1348,11 @@ export default function SchoolSkyScreen() {
                   multiline
                 />
                 <Text style={styles.cOptional}>Only if you want to · classmates see it with your star</Text>
+                {soundsLikeCrisis(note) ? (
+                  <FadeInView style={styles.cSupport}>
+                    <SupportLines tone="light" />
+                  </FadeInView>
+                ) : null}
 
                 {/* A heavier day gets a gentle way to say it with no name. */}
                 {mood === 'down' || mood === 'nervous' || mood === 'tired' ? (
@@ -1688,6 +1695,9 @@ const styles = StyleSheet.create({
     color: colors.textDark,
     textAlign: 'center',
     marginTop: spacing.lg,
+  },
+  cSupport: {
+    marginTop: spacing.md,
   },
   cOptional: {
     fontFamily: fontFamily.regular,

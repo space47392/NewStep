@@ -10,29 +10,31 @@ const LINES: { label: string; detail: string; url: string; icon: keyof typeof Io
   { label: 'Korea: 109 · Teens: 1388', detail: '자살예방상담 109 · 청소년상담 1388', url: 'tel:109', icon: 'call' },
 ];
 
-export default function SupportLines({ compact = false }: { compact?: boolean }) {
+// tone 'light' is for the bright, cream screens (e.g. the star composer).
+export default function SupportLines({ compact = false, tone = 'dark' }: { compact?: boolean; tone?: 'dark' | 'light' }) {
+  const light = tone === 'light';
   return (
-    <View style={styles.box}>
-      <Text style={styles.title}>{compact ? "If you're worried about them" : "You don't have to carry this alone 💛"}</Text>
-      <Text style={styles.sub}>
+    <View style={[styles.box, light && styles.boxLight]}>
+      <Text style={[styles.title, light && styles.titleLight]}>{compact ? "If you're worried about them" : "You don't have to carry this alone 💛"}</Text>
+      <Text style={[styles.sub, light && styles.subLight]}>
         {compact
           ? 'Tell a trusted adult, or share these free lines that are open 24/7.'
           : 'Talking to someone can help, right now. These are free and open 24/7. If you are in danger, call 911.'}
       </Text>
-      {LINES.map((l) => (
+      {LINES.map((line) => (
         <TouchableOpacity
-          key={l.label}
+          key={line.label}
           style={styles.row}
-          onPress={() => Linking.openURL(l.url).catch(() => {})}
+          onPress={() => Linking.openURL(line.url).catch(() => {})}
           accessibilityRole="button"
-          accessibilityLabel={`${l.label}, ${l.detail}`}
+          accessibilityLabel={`${line.label}, ${line.detail}`}
         >
           <View style={styles.icon}>
-            <Ionicons name={l.icon} size={16} color={colors.warm.honeyInk} />
+            <Ionicons name={line.icon} size={16} color={colors.warm.honeyInk} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.label}>{l.label}</Text>
-            <Text style={styles.detail}>{l.detail}</Text>
+            <Text style={[styles.label, light && styles.labelLight]}>{line.label}</Text>
+            <Text style={[styles.detail, light && styles.detailLight]}>{line.detail}</Text>
           </View>
         </TouchableOpacity>
       ))}
@@ -49,16 +51,26 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     gap: spacing.sm,
   },
+  boxLight: {
+    backgroundColor: '#FFF6E6',
+    borderColor: '#F6DFB4',
+  },
   title: {
     fontFamily: fontFamily.brand,
     fontSize: fontSize.md,
     color: colors.warm.cream,
+  },
+  titleLight: {
+    color: colors.textDark,
   },
   sub: {
     fontFamily: fontFamily.regular,
     fontSize: fontSize.sm,
     color: colors.warm.creamMuted,
     marginTop: -4,
+  },
+  subLight: {
+    color: colors.textMid,
   },
   row: {
     flexDirection: 'row',
@@ -79,9 +91,15 @@ const styles = StyleSheet.create({
     fontSize: fontSize.md,
     color: colors.warm.cream,
   },
+  labelLight: {
+    color: colors.textDark,
+  },
   detail: {
     fontFamily: fontFamily.regular,
     fontSize: fontSize.xs,
     color: colors.warm.creamFaint,
+  },
+  detailLight: {
+    color: colors.textMid,
   },
 });

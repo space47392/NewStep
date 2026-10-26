@@ -15,6 +15,8 @@ import FadeInView from '../../components/FadeInView';
 import ContributorRow from '../../components/ContributorRow';
 import NSIcon from '../../components/NSIcon';
 import PrimaryButton from '../../components/PrimaryButton';
+import PressableScale from '../../components/PressableScale';
+import { Ionicons } from '@expo/vector-icons';
 import { MainStackParamList, SchoolContributor } from '../../types';
 import { colors, spacing, radius, fontSize, fontFamily, typography } from '../../constants/theme';
 
@@ -186,6 +188,19 @@ export default function VolunteerScreen() {
               ))}
             </View>
           ) : null}
+          {/* The kindest way to help: walk with someone new. */}
+          {hasSchool ? (
+            <PressableScale style={styles.buddyCard} pressedScale={0.98} haptic={false} onPress={() => navigation.navigate('Buddy')} accessibilityRole="button">
+              <View style={styles.buddyIcon}>
+                <NSIcon name="help" size={26} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.buddyTitle}>Be a buddy for someone new</Text>
+                <Text style={styles.buddySub}>Help a classmate find their way in their first weeks</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.primaryDark} />
+            </PressableScale>
+          ) : null}
           {contributors.length > 0 ? <Text style={styles.listLabel}>Thank-you wall</Text> : null}
         </View>
       }
@@ -274,6 +289,37 @@ const styles = StyleSheet.create({
   },
   header: {
     marginBottom: spacing.lg,
+  },
+  buddyCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: '#FFF6E6',
+    borderWidth: 1,
+    borderColor: '#F6DFB4',
+    borderRadius: radius.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 4,
+    marginTop: spacing.md,
+  },
+  buddyIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.cardBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  buddyTitle: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.md,
+    color: colors.textDark,
+  },
+  buddySub: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    color: colors.textMid,
+    marginTop: 1,
   },
   // flexWrap so a long/localized title never pushes the badge off-screen —
   // it wraps to its own line instead of clipping or forcing horizontal

@@ -93,6 +93,7 @@ export type MainStackParamList = {
   ChooseSchool: undefined;
   EditProfile: undefined;
   Settings: undefined;
+  Buddy: undefined;
   ChangePassword: undefined;
   BlockedAccounts: undefined;
   Legal: { doc: LegalDoc };
@@ -337,7 +338,10 @@ export type NotificationType =
   | 'sky_twinkle'
   | 'wish_cheer'
   | 'lantern_note'
-  | 'lantern_thanks';
+  | 'lantern_thanks'
+  // Buddies (buddies.sql)
+  | 'buddy_request'
+  | 'buddy_accepted';
 
 // See notifications_schema.sql — stores only IDs/relationships, never
 // duplicated profile or post data. actor/achievement are joined at read time

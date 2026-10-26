@@ -43,6 +43,7 @@ import BreatheSheet from '../../components/BreatheSheet';
 import HelpStatusPill from '../../components/HelpStatusPill';
 import { offerHelp, fetchMyOfferPostIds } from '../../lib/helpOffers';
 import LanternInvite from '../../components/LanternInvite';
+import BuddyHomeCard from '../../components/BuddyHomeCard';
 import SkyPeek from '../../components/SkyPeek';
 import { useTodaySky } from '../../lib/useTodaySky';
 import PrimaryButton from '../../components/PrimaryButton';
@@ -914,6 +915,11 @@ export default function FeedScreen() {
                 </TouchableOpacity>
               </FadeInView>
             )}
+
+            {/* Buddy: someone asked you, your buddy, or (if you're new) find one. */}
+            {mySchoolName && user ? (
+              <BuddyHomeCard userId={user.id} isNewStudent={isNewStudent} onOpen={() => navigation.navigate('Buddy')} />
+            ) : null}
 
             {/* Lanterns, always one tap away: a place to let a worry out. */}
             {mySchoolName && user ? (

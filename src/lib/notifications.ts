@@ -223,7 +223,8 @@ export type NotificationTarget =
   | { screen: 'UserProfile'; userId: string }
   | { screen: 'ProfileTab' }
   | { screen: 'SchoolSky' }
-  | { screen: 'Lanterns' };
+  | { screen: 'Lanterns' }
+  | { screen: 'Buddy' };
 
 export function resolveNotificationTarget(fields: {
   type: string;
@@ -256,6 +257,9 @@ export function resolveNotificationTarget(fields: {
   }
   if (type === 'lantern_note' || type === 'lantern_thanks') {
     return { screen: 'Lanterns' };
+  }
+  if (type === 'buddy_request' || type === 'buddy_accepted') {
+    return { screen: 'Buddy' };
   }
   return null;
 }
@@ -372,6 +376,8 @@ const CATEGORY_BY_TYPE: Record<NotificationType, NotificationCategory> = {
   lantern_thanks: 'social',
   volunteer: 'help',
   helper_chosen: 'help',
+  buddy_request: 'help',
+  buddy_accepted: 'help',
   help_completed: 'help',
   thanks_received: 'help',
   points_earned: 'achievement',
@@ -436,6 +442,10 @@ export function formatNotificationMessage(
       return `${actorName} sent your lantern a warm note 💛`;
     case 'lantern_thanks':
       return 'Your warm note helped someone 💛';
+    case 'buddy_request':
+      return `${actorName} asked you to be their buddy 🤝`;
+    case 'buddy_accepted':
+      return `${actorName} said yes — you have a buddy 💛`;
     default:
       return 'New notification';
   }
@@ -486,6 +496,8 @@ export function getNotificationNSIcon(type: NotificationType): NSIconName | null
       return 'chat';
     case 'volunteer':
     case 'helper_chosen':
+    case 'buddy_request':
+    case 'buddy_accepted':
       return 'help';
     case 'help_completed':
       return 'party';

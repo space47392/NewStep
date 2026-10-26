@@ -103,6 +103,8 @@ export default function App() {
           navigateToMainStack('SchoolSky', undefined);
         } else if (target.screen === 'Lanterns') {
           navigateToMainStack('Lanterns', undefined);
+        } else if (target.screen === 'Buddy') {
+          navigateToMainStack('Buddy', undefined);
         } else {
           navigateToMainStack('Tabs', { screen: 'Profile' });
         }

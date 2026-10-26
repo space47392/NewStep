@@ -271,6 +271,8 @@ export default function NotificationsScreen() {
         navigation.navigate('SchoolSky');
       } else if (target.screen === 'Lanterns') {
         navigation.navigate('Lanterns');
+      } else if (target.screen === 'Buddy') {
+        navigation.navigate('Buddy');
       } else {
         // points_earned / achievement_earned
         navigation.navigate('Tabs', { screen: 'Profile' });

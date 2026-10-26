@@ -93,8 +93,11 @@ function SkyStarButton({
   onPress,
   onLongPress,
   tilt,
+  justPlaced = 0,
 }: {
   tilt?: Tilt;
+  // Changes when this star was just put up → it rises from the school.
+  justPlaced?: number;
   star: SkyStar;
   index: number;
   mine: boolean;
@@ -129,6 +132,20 @@ function SkyStarButton({
     return () => loop.stop();
   }, [pulse, rise, index]);
 
+  const arrive = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    if (!justPlaced) return;
+    arrive.setValue(0);
+    Animated.timing(arrive, { toValue: 1, duration: 1700, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start(({ finished }) => {
+      if (!finished) return;
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+      burst.setValue(0);
+      Animated.timing(burst, { toValue: 1, duration: 1100, easing: Easing.out(Easing.quad), useNativeDriver: true }).start();
+    });
+  }, [justPlaced, arrive, burst]);
+
+  // The first few words of their note, shown in the thought bubble.
+  const snippet = star.note?.trim() ? (star.note.trim().length > 22 ? star.note.trim().slice(0, 21).trimEnd() + '…' : star.note.trim()) : '';
   const first = star.profile?.full_name?.trim().split(/\s+/)[0] ?? 'Student';
   return (
     <Animated.View
@@ -141,15 +158,53 @@ function SkyStarButton({
             // Classmates' stars sit at a middle depth when the phone tilts.
             ...tiltTransform(tilt, 9),
             { translateY: rise.interpolate({ inputRange: [0, 1], outputRange: [40, 0] }) },
+            { translateY: arrive.interpolate({ inputRange: [0, 1], outputRange: [340, 0] }) },
             { scale: rise.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) },
+            { scale: arrive.interpolate({ inputRange: [0, 0.7, 1], outputRange: [0.45, 0.9, 1] }) },
           ],
         },
       ]}
     >
+      {/* While rising: a soft streak of its own light trailing below. */}
+      <Animated.View
+        pointerEvents="none"
+        style={[styles.trail, { top: size / 2, opacity: arrive.interpolate({ inputRange: [0, 0.1, 0.8, 1], outputRange: [0, 0.9, 0.35, 0] }) }]}
+      >
+        <Svg width="100%" height="100%" viewBox="0 0 10 100" preserveAspectRatio="none">
+          <Defs>
+            <LinearGradient id={`trail-${star.user_id}`} x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor={mood.color} stopOpacity={0.9} />
+              <Stop offset="1" stopColor={mood.color} stopOpacity={0} />
+            </LinearGradient>
+          </Defs>
+          <Rect x="3.5" y="0" width="3" height="100" rx="1.5" fill={`url(#trail-${star.user_id})`} />
+        </Svg>
+      </Animated.View>
+
+      {/* Tapped: a little thought floating over the star — the feeling,
+          and the first words of what they wrote. */}
       {selected ? (
-        <View style={[styles.moodBubble, { borderColor: mood.color }]}>
-          <MoodFace mood={mood.key} size={24} />
-        </View>
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.thought,
+            {
+              opacity: arrive.interpolate({ inputRange: [0, 0.85, 1], outputRange: [0, 0, 1] }),
+              transform: [{ translateY: pulse.interpolate({ inputRange: [0, 1], outputRange: [0, -3] }) }],
+            },
+          ]}
+        >
+          <View style={[styles.thoughtBubble, { borderColor: mood.color }]}>
+            <MoodFace mood={mood.key} size={20} />
+            {snippet ? (
+              <Text style={styles.thoughtText} numberOfLines={1}>
+                {snippet}
+              </Text>
+            ) : null}
+          </View>
+          <View style={[styles.thoughtDot, { borderColor: mood.color }]} />
+          <View style={[styles.thoughtDotSmall, { borderColor: mood.color }]} />
+        </Animated.View>
       ) : null}
       {/* Twinkle burst: a ring of light that expands and fades. */}
       <Animated.View
@@ -193,6 +248,35 @@ function SkyStarButton({
               </RadialGradient>
             </Defs>
             <Circle cx="50" cy="50" r="50" fill={`url(#halo-${star.user_id})`} />
+          </Svg>
+        </Animated.View>
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.rays,
+            {
+              width: size * 2.2,
+              height: size * 2.2,
+              opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.25, 0.7] }),
+              transform: [{ rotate: '8deg' }, { scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.85, 1.1] }) }],
+            },
+          ]}
+        >
+          <Svg width="100%" height="100%" viewBox="0 0 100 100">
+            <Defs>
+              <LinearGradient id={`rayH-${star.user_id}`} x1="0" y1="0" x2="1" y2="0">
+                <Stop offset="0" stopColor="#fff" stopOpacity={0} />
+                <Stop offset="0.5" stopColor="#fff" stopOpacity={0.9} />
+                <Stop offset="1" stopColor="#fff" stopOpacity={0} />
+              </LinearGradient>
+              <LinearGradient id={`rayV-${star.user_id}`} x1="0" y1="0" x2="0" y2="1">
+                <Stop offset="0" stopColor="#fff" stopOpacity={0} />
+                <Stop offset="0.5" stopColor="#fff" stopOpacity={0.9} />
+                <Stop offset="1" stopColor="#fff" stopOpacity={0} />
+              </LinearGradient>
+            </Defs>
+            <Rect x="0" y="49.3" width="100" height="1.4" fill={`url(#rayH-${star.user_id})`} />
+            <Rect x="49.3" y="0" width="1.4" height="100" fill={`url(#rayV-${star.user_id})`} />
           </Svg>
         </Animated.View>
         <Animated.View style={{ transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1.06] }) }] }}>
@@ -472,6 +556,8 @@ export default function SchoolSkyScreen() {
   const [mood, setMood] = useState<SkyMood>('happy');
   // False until a face is tapped on a new star: the follow-up waits for it.
   const [moodPicked, setMoodPicked] = useState(false);
+  // Bumped after saving, so my star rises into the sky.
+  const [placedKey, setPlacedKey] = useState(0);
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
   const [openingChat, setOpeningChat] = useState(false);
@@ -747,6 +833,7 @@ export default function SchoolSkyScreen() {
       showToast(myStar ? 'Your star is updated ✨' : 'Your star is in the sky ✨');
       await load();
       if (user) setSelectedId(user.id);
+      setPlacedKey(Date.now());
     } catch (err) {
       showToast(err instanceof Error ? err.message : "Couldn't save your star");
     } finally {
@@ -975,6 +1062,7 @@ export default function SchoolSkyScreen() {
               }}
               onLongPress={() => handleTwinkle(s)}
               tilt={tilt}
+              justPlaced={s.user_id === user?.id ? placedKey : 0}
             />
           ))
         )}
@@ -1884,6 +1972,63 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     fontSize: fontSize.sm,
     color: dark.textMid,
+  },
+  trail: {
+    position: 'absolute',
+    width: 10,
+    height: 150,
+  },
+  rays: {
+    position: 'absolute',
+  },
+  thought: {
+    position: 'absolute',
+    bottom: '100%',
+    left: -60,
+    right: -60,
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  thoughtBubble: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    maxWidth: 190,
+    backgroundColor: '#FFFDF7',
+    borderRadius: 16,
+    borderWidth: 1.5,
+    paddingLeft: 5,
+    paddingRight: 10,
+    paddingVertical: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 3,
+  },
+  thoughtText: {
+    flexShrink: 1,
+    fontFamily: fontFamily.medium,
+    fontSize: 12,
+    color: '#3B3557',
+  },
+  thoughtDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    borderWidth: 1.2,
+    backgroundColor: '#FFFDF7',
+    marginTop: 3,
+    marginLeft: -10,
+  },
+  thoughtDotSmall: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    borderWidth: 1,
+    backgroundColor: '#FFFDF7',
+    marginTop: 2,
+    marginLeft: -2,
   },
   moodBubble: {
     position: 'absolute',

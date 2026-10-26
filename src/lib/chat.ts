@@ -167,6 +167,9 @@ export async function sendMessage(params: {
   replyToMessageId?: string;
   // Already uploaded with uploadChatPhoto().
   photoPath?: string;
+  // Already uploaded with uploadChatAudio().
+  audioPath?: string;
+  audioMs?: number;
 }): Promise<void> {
   const { error } = await supabase.from('messages').insert({
     ...(params.id ? { id: params.id } : {}),
@@ -175,6 +178,7 @@ export async function sendMessage(params: {
     content: params.content,
     reply_to_message_id: params.replyToMessageId ?? null,
     ...(params.photoPath ? { photo_path: params.photoPath } : {}),
+    ...(params.audioPath ? { audio_path: params.audioPath, audio_ms: Math.round(params.audioMs ?? 0) } : {}),
   });
 
   if (error) throw error;

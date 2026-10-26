@@ -54,6 +54,12 @@
           "resizeMode": "contain",
           "backgroundColor": "#121110"
         }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Allow NewStep to use your microphone to send voice messages."
+        }
       ]
     ],
     "extra": {

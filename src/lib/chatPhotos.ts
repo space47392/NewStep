@@ -61,3 +61,12 @@ export function useChatPhotoUrl(path: string | null | undefined): string | null 
   }, [path]);
   return url;
 }
+
+// Voice messages share the same private bucket and folder rules.
+export async function uploadChatAudio(params: { conversationId: string; senderId: string; localUri: string }): Promise<string> {
+  const path = `${params.conversationId}/${params.senderId}/${Date.now()}-${Math.random().toString(36).slice(2)}.m4a`;
+  const bytes = await new File(params.localUri).bytes();
+  const { error } = await supabase.storage.from(BUCKET).upload(path, bytes, { contentType: 'audio/mp4' });
+  if (error) throw error;
+  return path;
+}

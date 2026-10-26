@@ -316,6 +316,9 @@ export type Message = {
   reply_to_message_id: string | null;
   // A photo in the private 'chat-photos' bucket (chat_photos.sql), or null.
   photo_path?: string | null;
+  // A voice recording in the same bucket (voice_messages.sql), and its length.
+  audio_path?: string | null;
+  audio_ms?: number | null;
 };
 
 export type NotificationType =

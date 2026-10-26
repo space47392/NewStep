@@ -40,7 +40,9 @@ import PressableScale from '../../components/PressableScale';
 import { getChatDraft, saveChatDraft } from '../../lib/chatDrafts';
 import * as ImagePicker from 'expo-image-picker';
 import { Image } from 'react-native';
-import { removeChatPhoto, uploadChatPhoto, useChatPhotoUrl } from '../../lib/chatPhotos';
+import { removeChatPhoto, uploadChatAudio, uploadChatPhoto, useChatPhotoUrl } from '../../lib/chatPhotos';
+import { RecordingPresets, requestRecordingPermissionsAsync, setAudioModeAsync, useAudioRecorder, useAudioRecorderState } from 'expo-audio';
+import VoiceBubble, { formatVoiceTime } from '../../components/VoiceBubble';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
 import { MainStackParamList, Message, Post, ReportTargetType } from '../../types';
 
@@ -238,6 +240,12 @@ export default function ConversationScreen() {
   const hasScrolledOnLoadRef = useRef(false);
   const inputRef = useRef<TextInput>(null);
   const [localPhotos, setLocalPhotos] = useState<Record<string, string>>({});
+  // Voice messages: the recorder, whether it's on, and local files still sending.
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const recState = useAudioRecorderState(recorder, 250);
+  const [recording, setRecording] = useState(false);
+  const [localAudio, setLocalAudio] = useState<Record<string, string>>({});
+  const sendingVoiceRef = useRef(false);
   // Reply / Edit put the cursor straight in the message box. Slight delay so
   // the action sheet has finished closing and doesn't steal focus back.
   const focusComposer = () => setTimeout(() => inputRef.current?.focus(), 250);
@@ -705,6 +713,100 @@ export default function ConversationScreen() {
     }
   };
 
+  const VOICE_MAX_MS = 120000;
+
+  const startRecording = async () => {
+    if (!user || !otherUser || sending || recording) return;
+    const permission = await requestRecordingPermissionsAsync();
+    if (!permission.granted) {
+      warmAlert('Allow the microphone', 'NewStep needs your microphone to record a voice message.');
+      return;
+    }
+    try {
+      Keyboard.dismiss();
+      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+      await recorder.prepareToRecordAsync();
+      recorder.record();
+      setRecording(true);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    } catch {
+      showToast("Couldn't start recording — try again");
+    }
+  };
+
+  const stopRecorder = async () => {
+    try {
+      await recorder.stop();
+    } catch {
+      // already stopped
+    }
+    setRecording(false);
+    setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => {});
+  };
+
+  const cancelRecording = async () => {
+    await stopRecorder();
+    Haptics.selectionAsync();
+  };
+
+  const sendRecording = async () => {
+    if (!user || !otherUser || sendingVoiceRef.current) return;
+    sendingVoiceRef.current = true;
+    const ms = Math.min(VOICE_MAX_MS, recState.durationMillis);
+    await stopRecorder();
+    const uri = recorder.uri;
+    if (!uri || ms < 800) {
+      sendingVoiceRef.current = false;
+      showToast('Hold on a little longer to record');
+      return;
+    }
+    const tempId = Crypto.randomUUID();
+    const replyId = replyTarget?.id ?? null;
+    const placeholder = {
+      id: tempId,
+      conversation_id: conversationId,
+      sender_id: user.id,
+      content: '',
+      created_at: new Date().toISOString(),
+      read_at: null,
+      edited_at: null,
+      deleted_at: null,
+      reply_to_message_id: replyId,
+      audio_path: null,
+      audio_ms: ms,
+    } as Message;
+    isNearBottomRef.current = true;
+    setLocalAudio((a) => ({ ...a, [tempId]: uri }));
+    setPendingIds((p) => new Set(p).add(tempId));
+    setMessages((prev) => [...prev, placeholder]);
+    setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 80);
+    setReplyTarget(null);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    let path: string | null = null;
+    try {
+      path = await uploadChatAudio({ conversationId, senderId: user.id, localUri: uri });
+      await sendMessage({ id: tempId, conversationId, senderId: user.id, content: '', replyToMessageId: replyId ?? undefined, audioPath: path, audioMs: ms });
+      setMessages((prev) => prev.map((m) => (m.id === tempId && !m.audio_path ? { ...m, audio_path: path } : m)));
+    } catch {
+      removeChatPhoto(path);
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      showToast("Couldn't send the voice message — try again");
+    } finally {
+      sendingVoiceRef.current = false;
+      setPendingIds((p) => {
+        const n = new Set(p);
+        n.delete(tempId);
+        return n;
+      });
+    }
+  };
+
+  // Two minutes at most: then it sends on its own.
+  useEffect(() => {
+    if (recording && recState.durationMillis >= VOICE_MAX_MS) sendRecording();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recording, recState.durationMillis]);
+
   const handleWave = async () => {
     if (!user || !otherUser || sending) return;
     setSending(true);
@@ -764,6 +866,7 @@ export default function ConversationScreen() {
           try {
             await deleteMessage(message.id);
             removeChatPhoto(message.photo_path);
+            removeChatPhoto(message.audio_path);
             if (editingMessage?.id === message.id) handleCancelEdit();
           } catch (err) {
             const errMessage = err instanceof Error ? err.message : 'Could not delete message.';
@@ -1032,7 +1135,8 @@ export default function ConversationScreen() {
             // shows one timestamp, at the end of that run.
             const showTimestamp = !nextItem || !sameTimestampBucket(item.created_at, nextItem.created_at);
             const hasPhoto = !isDeleted && (!!item.photo_path || !!localPhotos[item.id]);
-            const bigEmoji = !isDeleted && !hasPhoto && !item.reply_to_message_id && isEmojiOnly(item.content);
+            const hasAudio = !isDeleted && (!!item.audio_path || !!localAudio[item.id]);
+            const bigEmoji = !isDeleted && !hasPhoto && !hasAudio && !item.reply_to_message_id && isEmojiOnly(item.content);
 
             return (
               <View>
@@ -1129,7 +1233,9 @@ export default function ConversationScreen() {
                                     ]}
                                     numberOfLines={2}
                                   >
-                                    {repliedTo.deleted_at ? 'Original message deleted' : repliedTo.content}
+                                    {repliedTo.deleted_at
+                                      ? 'Original message deleted'
+                                      : repliedTo.content || (repliedTo.audio_path ? '🎤 Voice message' : repliedTo.photo_path ? '📷 Photo' : '')}
                                   </Text>
                                 </TouchableOpacity>
                               );
@@ -1139,6 +1245,16 @@ export default function ConversationScreen() {
                               path={item.photo_path}
                               localUri={localPhotos[item.id]}
                               onOpen={(url) => navigation.navigate('PhotoViewer', { photoUrls: [url], initialIndex: 0 })}
+                              onLongPress={() => handleLongPressMessage(item)}
+                            />
+                          ) : null}
+                          {hasAudio ? (
+                            <VoiceBubble
+                              id={item.id}
+                              path={item.audio_path}
+                              localUri={localAudio[item.id]}
+                              ms={item.audio_ms ?? 0}
+                              mine={isMine}
                               onLongPress={() => handleLongPressMessage(item)}
                             />
                           ) : null}
@@ -1238,6 +1354,24 @@ export default function ConversationScreen() {
           )}
 
           <View style={[styles.inputRow, { paddingBottom: spacing.md + insets.bottom }]}>
+            {recording ? (
+              <>
+                <TouchableOpacity style={styles.recCancel} onPress={cancelRecording} accessibilityRole="button" accessibilityLabel="Cancel recording">
+                  <Ionicons name="trash-outline" size={20} color={colors.error} />
+                </TouchableOpacity>
+                <View style={styles.recPill}>
+                  <View style={[styles.recDot, { opacity: Math.floor(recState.durationMillis / 500) % 2 ? 0.35 : 1 }]} />
+                  <Text style={styles.recTime}>{formatVoiceTime(recState.durationMillis)}</Text>
+                  <Text style={styles.recHint} numberOfLines={1}>
+                    Recording… tap send when done
+                  </Text>
+                </View>
+                <PressableScale pressedScale={0.85} style={styles.sendButton} onPress={sendRecording} accessibilityRole="button" accessibilityLabel="Send voice message">
+                  <Ionicons name="send" size={18} color={colors.onPrimary} />
+                </PressableScale>
+              </>
+            ) : (
+            <>
             {!editingMessage ? (
               <PressableScale
                 pressedScale={0.85}
@@ -1248,6 +1382,18 @@ export default function ConversationScreen() {
                 accessibilityLabel="Send a photo"
               >
                 <Ionicons name="image-outline" size={22} color={colors.textMid} />
+              </PressableScale>
+            ) : null}
+            {!editingMessage && !text.trim() ? (
+              <PressableScale
+                pressedScale={0.85}
+                style={styles.photoButton}
+                onPress={startRecording}
+                disabled={sending}
+                accessibilityRole="button"
+                accessibilityLabel="Record a voice message"
+              >
+                <Ionicons name="mic-outline" size={22} color={colors.textMid} />
               </PressableScale>
             ) : null}
             <TextInput
@@ -1290,6 +1436,8 @@ export default function ConversationScreen() {
               )}
               </FadeInView>
             </PressableScale>
+            )}
+            </>
             )}
           </View>
         </>
@@ -1698,6 +1846,42 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingTop: 6,
     paddingBottom: 4,
+  },
+  recCancel: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  recPill: {
+    flex: 1,
+    height: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.cardBg,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    borderRadius: 22,
+    paddingHorizontal: spacing.md,
+    marginRight: spacing.sm,
+  },
+  recDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.error,
+  },
+  recTime: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.md,
+    color: colors.textDark,
+  },
+  recHint: {
+    flex: 1,
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
+    color: colors.textLight,
   },
   photoButton: {
     width: 40,

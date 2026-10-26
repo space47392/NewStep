@@ -39,6 +39,7 @@ import AppLogo from '../../components/AppLogo';
 import NightSkyCard from '../../components/NightSkyCard';
 import StoryRing from '../../components/StoryRing';
 import SkyCheckSheet from '../../components/SkyCheckSheet';
+import BreatheSheet from '../../components/BreatheSheet';
 import HelpStatusPill from '../../components/HelpStatusPill';
 import { offerHelp, fetchMyOfferPostIds } from '../../lib/helpOffers';
 import LanternInvite from '../../components/LanternInvite';
@@ -137,6 +138,8 @@ export default function FeedScreen() {
   // always a full replace (it has no merge mode), so every call bumps this.
   const followingLoadTokenRef = useRef(0);
   const [menuPost, setMenuPost] = useState<Post | null>(null);
+  // The one-minute breathing screen, opened from the check-in.
+  const [breatheOpen, setBreatheOpen] = useState(false);
   const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
   const [likedPostIds, setLikedPostIds] = useState<Set<string>>(new Set());
   const [savedPostIds, setSavedPostIds] = useState<Set<string>>(new Set());
@@ -1241,7 +1244,9 @@ export default function FeedScreen() {
         onOpenSky={() => mySchoolName && navigation.navigate('SchoolSky', { schoolName: mySchoolName, openComposer: true })}
         onOpenLantern={() => navigation.navigate('Lanterns', { compose: true })}
         onAskHelp={() => navigation.navigate('CreatePost', { prefillCategory: 'Need Help' })}
+        onBreathe={() => setBreatheOpen(true)}
       />
+      <BreatheSheet visible={breatheOpen} onClose={() => setBreatheOpen(false)} />
     </View>
   );
 }

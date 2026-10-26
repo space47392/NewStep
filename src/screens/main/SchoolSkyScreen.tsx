@@ -41,6 +41,7 @@ import {
   fetchSchoolSky,
   setMyStar,
   removeMyStar,
+  fetchSkyDiary,
   uploadSkyPhoto,
   removeSkyPhoto,
   describeSky,
@@ -71,7 +72,10 @@ import {
 } from '../../lib/sky';
 import { fetchBlockedUserIds } from '../../lib/blocks';
 import { soundsLikeCrisis } from '../../lib/lanterns';
-import { getOrCreateConversation } from '../../lib/chat';
+import { getOrCreateConversation, sendMessage } from '../../lib/chat';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import BreatheSheet from '../../components/BreatheSheet';
+import CareSheet, { Care, careFor } from '../../components/CareSheet';
 import { formatRelativeTime } from '../../lib/time';
 import Avatar from '../../components/Avatar';
 import PrimaryButton from '../../components/PrimaryButton';
@@ -461,6 +465,16 @@ function Constellation({ stars, width, height }: { stars: SkyStar[]; width: numb
   );
 }
 
+// One-tap warm words for a classmate's star, fitting how they feel.
+const WARM_WORDS: Record<SkyMood, string[]> = {
+  happy: ['Love this ✨', 'So happy for you!'],
+  excited: ['Yay! 🎉', 'Tell me everything!'],
+  chill: ['Love that calm 🌿', 'Enjoy it!'],
+  nervous: ["You've got this 💪", 'Rooting for you'],
+  tired: ['Rest well 🌙', 'Proud of you today'],
+  down: ['Here for you 💛', 'Sending a hug 🫂'],
+};
+
 // After a face is picked, the composer asks a question that fits it.
 // Answering is always optional — a star can go up without words.
 const FOLLOW_UPS: Record<SkyMood, { q: string; placeholder: string }> = {
@@ -563,6 +577,11 @@ export default function SchoolSkyScreen() {
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
   const [openingChat, setOpeningChat] = useState(false);
+  // A gentle moment after a heavy star (see CareSheet), and the breathing minute.
+  const [care, setCare] = useState<Care | null>(null);
+  const [breatheOpen, setBreatheOpen] = useState(false);
+  // Warm words already sent to a star today (this visit), by user id.
+  const [warmthSent, setWarmthSent] = useState<Record<string, string>>({});
   // The composer's sky photo: the current one (a URL), a fresh camera shot
   // (a local file, uploaded on save), or none.
   const [photoUri, setPhotoUri] = useState<string | null>(null);
@@ -836,6 +855,22 @@ export default function SchoolSkyScreen() {
       await load();
       if (user) setSelectedId(user.id);
       setPlacedKey(Date.now());
+      if (user && (mood === 'down' || mood === 'nervous')) {
+        const savedMood = mood;
+        const uid = user.id;
+        setTimeout(async () => {
+          try {
+            const key = `care:${uid}:${new Date().toDateString()}`;
+            if (await AsyncStorage.getItem(key)) return;
+            const next = careFor(await fetchSkyDiary(uid, 30), savedMood);
+            if (!next) return;
+            await AsyncStorage.setItem(key, '1');
+            setCare(next);
+          } catch {
+            // no care moment this time
+          }
+        }, 2600);
+      }
     } catch (err) {
       showToast(err instanceof Error ? err.message : "Couldn't save your star");
     } finally {
@@ -870,6 +905,24 @@ export default function SchoolSkyScreen() {
       showToast("Couldn't open the chat");
     } finally {
       setOpeningChat(false);
+    }
+  };
+
+  const sendWarmth = async (star: SkyStar, words: string) => {
+    if (!user || !star.profile || warmthSent[star.user_id]) return;
+    Haptics.selectionAsync();
+    setWarmthSent((w) => ({ ...w, [star.user_id]: words }));
+    try {
+      const conversationId = await getOrCreateConversation(star.user_id);
+      await sendMessage({ conversationId, senderId: user.id, content: `${words} (saw your star in School Sky)` });
+      showToast(`Sent to ${star.profile.full_name?.split(' ')[0] ?? 'them'} 💛`);
+    } catch {
+      setWarmthSent((w) => {
+        const n = { ...w };
+        delete n[star.user_id];
+        return n;
+      });
+      showToast("Couldn't send that — try again");
     }
   };
 
@@ -1154,6 +1207,19 @@ export default function SchoolSkyScreen() {
                 <Image source={{ uri: selected.photo_url }} style={styles.cardPhoto} />
               </TouchableOpacity>
             ) : null}
+            {selected.user_id !== user?.id && selected.profile ? (
+              <View style={styles.warmthRow}>
+                {warmthSent[selected.user_id] ? (
+                  <Text style={styles.warmthSent}>You sent “{warmthSent[selected.user_id]}” 💛</Text>
+                ) : (
+                  (WARM_WORDS[selected.mood as SkyMood] ?? WARM_WORDS.happy).map((w) => (
+                    <TouchableOpacity key={w} style={styles.warmthChip} onPress={() => sendWarmth(selected, w)} activeOpacity={0.8} accessibilityRole="button">
+                      <Text style={styles.warmthChipText}>{w}</Text>
+                    </TouchableOpacity>
+                  ))
+                )}
+              </View>
+            ) : null}
             <View style={styles.cardActions}>
               {selected.user_id === user?.id ? (
                 <>
@@ -1370,6 +1436,12 @@ export default function SchoolSkyScreen() {
                     </Text>
                   </TouchableOpacity>
                 ) : null}
+                {mood === 'down' || mood === 'nervous' || mood === 'tired' ? (
+                  <TouchableOpacity style={styles.cBreathe} onPress={() => setBreatheOpen(true)} accessibilityRole="button">
+                    <Ionicons name="leaf-outline" size={14} color={colors.primaryDark} />
+                    <Text style={styles.cHeavyLink}>Take a 1-minute breath first</Text>
+                  </TouchableOpacity>
+                ) : null}
               </SlideIn>
             )}
             {moodPicked ? (
@@ -1535,6 +1607,19 @@ export default function SchoolSkyScreen() {
         </View>
       </Modal>
       <ReportSheet target={reportTarget} reporterId={user?.id} onClose={() => setReportTarget(null)} />
+      <CareSheet
+        care={care}
+        onClose={() => setCare(null)}
+        onBreathe={() => {
+          setCare(null);
+          setBreatheOpen(true);
+        }}
+        onLantern={() => {
+          setCare(null);
+          navigation.navigate('Lanterns', { compose: true });
+        }}
+      />
+      <BreatheSheet visible={breatheOpen} onClose={() => setBreatheOpen(false)} />
       <Animated.View
         pointerEvents="none"
         style={[StyleSheet.absoluteFill, { backgroundColor: '#07060C', opacity: lookUp.interpolate({ inputRange: [0, 0.55, 1], outputRange: [1, 0.25, 0] }) }]}
@@ -1695,6 +1780,14 @@ const styles = StyleSheet.create({
     color: colors.textDark,
     textAlign: 'center',
     marginTop: spacing.lg,
+  },
+  cBreathe: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    gap: 6,
+    marginTop: spacing.sm,
+    paddingVertical: 4,
   },
   cSupport: {
     marginTop: spacing.md,
@@ -2655,6 +2748,30 @@ const styles = StyleSheet.create({
     fontSize: fontSize.md,
     color: colors.warm.cream,
     lineHeight: 22,
+  },
+  warmthRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  warmthChip: {
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: 'rgba(255,240,220,0.25)',
+    backgroundColor: 'rgba(255,240,220,0.08)',
+    paddingHorizontal: spacing.md,
+    paddingVertical: 8,
+  },
+  warmthChipText: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
+    color: colors.warm.cream,
+  },
+  warmthSent: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
+    color: colors.warm.creamMuted,
   },
   cardActions: {
     flexDirection: 'row',

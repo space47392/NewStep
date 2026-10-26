@@ -177,9 +177,11 @@ type Props = {
   onOpenLantern: () => void;
   // Opens a new "Need Help" post.
   onAskHelp: () => void;
+  // Opens the one-minute breathing screen.
+  onBreathe: () => void;
 };
 
-export default function SkyCheckSheet({ userId, enabled, onShared, onOpenSky, onOpenLantern, onAskHelp }: Props) {
+export default function SkyCheckSheet({ userId, enabled, onShared, onOpenSky, onOpenLantern, onAskHelp, onBreathe }: Props) {
   const insets = useSafeAreaInsets();
   const [open, setOpen] = useState(false);
   const [choice, setChoice] = useState<Choice | null>(null);
@@ -390,6 +392,10 @@ export default function SkyCheckSheet({ userId, enabled, onShared, onOpenSky, on
                 </TouchableOpacity>
               </View>
 
+              <TouchableOpacity onPress={() => goTo(onBreathe)} style={styles.breatheLink} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button">
+                <Ionicons name="leaf-outline" size={14} color={colors.primaryDark} />
+                <Text style={styles.link}>Not ready to say? Just breathe for a minute</Text>
+              </TouchableOpacity>
               <TouchableOpacity onPress={close} style={styles.laterCenter} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                 <Text style={styles.later}>Not now</Text>
               </TouchableOpacity>
@@ -639,6 +645,13 @@ const styles = StyleSheet.create({
   },
   laterCenter: {
     alignSelf: 'center',
+    marginTop: spacing.md,
+  },
+  breatheLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    gap: 6,
     marginTop: spacing.lg,
   },
   footer: {

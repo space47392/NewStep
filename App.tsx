@@ -15,6 +15,7 @@ import { AuthProvider } from './src/contexts/AuthContext';
 import { ToastProvider } from './src/contexts/ToastContext';
 import AppNavigator from './src/navigation/AppNavigator';
 import { WarmAlertHost } from './src/components/WarmAlert';
+import OfflineBanner from './src/components/OfflineBanner';
 import { navigateToMainStack } from './src/navigation/navigationRef';
 import {
   addNotificationResponseListener,
@@ -149,6 +150,7 @@ export default function App() {
           <StatusBar style="dark" />
           <AppNavigator />
           <WarmAlertHost />
+          <OfflineBanner />
         </ToastProvider>
       </AuthProvider>
     </SafeAreaProvider>

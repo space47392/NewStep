@@ -51,7 +51,9 @@ export default function VoiceBubble({ id, path, localUri, ms, mine, onLongPress 
 
   const toggle = async () => {
     if (!uri) return;
-    if (status.playing) {
+    // The player's own flag, not the last rendered status, so a quick tap
+    // while it's playing always pauses.
+    if (player.playing) {
       player.pause();
       return;
     }

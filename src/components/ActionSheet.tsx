@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { Modal, View, Text, TouchableOpacity, Animated, StyleSheet } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Modal, View, Text, TouchableOpacity, Animated, StyleSheet, useAnimatedValue } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -28,8 +28,8 @@ export default function ActionSheet({ visible, onClose, actions }: Props) {
   // Kept separate from the `visible` prop so the sheet can slide down before the
   // Modal actually unmounts, instead of just vanishing instantly.
   const [modalVisible, setModalVisible] = useState(visible);
-  const translateY = useRef(new Animated.Value(SHEET_OFFSET)).current;
-  const backdropOpacity = useRef(new Animated.Value(0)).current;
+  const translateY = useAnimatedValue(SHEET_OFFSET);
+  const backdropOpacity = useAnimatedValue(0);
 
   useEffect(() => {
     if (visible) {

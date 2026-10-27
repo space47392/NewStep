@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, Easing, Modal, StyleSheet, Text, TouchableOpacity, View, useAnimatedValue } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
@@ -19,7 +19,7 @@ type Phase = 'in' | 'hold' | 'out' | 'done';
 
 export default function BreatheSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const insets = useSafeAreaInsets();
-  const glow = useRef(new Animated.Value(0)).current;
+  const glow = useAnimatedValue(0);
   const [phase, setPhase] = useState<Phase>('in');
   const [round, setRound] = useState(1);
   const runningRef = useRef(false);

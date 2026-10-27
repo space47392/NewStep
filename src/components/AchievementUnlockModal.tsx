@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react';
-import { View, Text, Modal, Animated, StyleSheet } from 'react-native';
+import { useEffect } from 'react';
+import { View, Text, Modal, Animated, StyleSheet, useAnimatedValue } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import PrimaryButton from './PrimaryButton';
 import NSIcon, { achievementIcon } from './NSIcon';
@@ -14,7 +14,7 @@ type Props = {
 // The sticker "slaps" onto the card — drops in big and tilted, then settles —
 // the same sticker look as AchievementStickers on the profile.
 export default function AchievementUnlockModal({ achievement, onClose }: Props) {
-  const drop = useRef(new Animated.Value(0)).current;
+  const drop = useAnimatedValue(0);
 
   useEffect(() => {
     if (!achievement) return;

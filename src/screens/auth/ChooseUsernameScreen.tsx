@@ -9,6 +9,7 @@ import PrimaryButton from '../../components/PrimaryButton';
 import OnboardingSteps from '../../components/OnboardingSteps';
 import FadeInView from '../../components/FadeInView';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
+import { errorMessage as describeError } from '../../lib/errors';
 
 const DEBOUNCE_MS = 400;
 
@@ -73,7 +74,7 @@ export default function ChooseUsernameScreen({ onComplete }: Props) {
       await refreshUsername();
       onComplete?.();
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Could not save username.';
+      const message = describeError(err, 'Could not save username.');
       warmAlert('Error', message);
     } finally {
       setSaving(false);

@@ -29,6 +29,7 @@ import ActionSheet, { ActionSheetAction } from '../../components/ActionSheet';
 import ReportSheet from '../../components/ReportSheet';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
 import { MainStackParamList, Post, AchievementProgress, ReportTargetType } from '../../types';
+import { errorMessage } from '../../lib/errors';
 
 // Same visual language as ProfileScreen's own read-only view — the "Community"
 // card, the achievement grid, the Posts list all match, so viewing yourself
@@ -123,7 +124,7 @@ export default function UserProfileScreen() {
               setIsBlocked(false);
               showToast('User unblocked');
             } catch (err) {
-              const message = err instanceof Error ? err.message : 'Could not unblock this user.';
+              const message = errorMessage(err, 'Could not unblock this user.');
               warmAlert('Error', message);
             }
           },
@@ -144,7 +145,7 @@ export default function UserProfileScreen() {
                 setIsBlocked(true);
                 showToast('User blocked');
               } catch (err) {
-                const message = err instanceof Error ? err.message : 'Could not block this user.';
+                const message = errorMessage(err, 'Could not block this user.');
                 warmAlert('Error', message);
               }
             },
@@ -176,7 +177,7 @@ export default function UserProfileScreen() {
                 setIsFollowingUser(false);
                 setFollowCounts((prev) => ({ ...prev, followers: Math.max(0, prev.followers - 1) }));
               } catch (err) {
-                const message = err instanceof Error ? err.message : 'Could not unfollow.';
+                const message = errorMessage(err, 'Could not unfollow.');
                 warmAlert('Error', message);
               } finally {
                 setFollowLoading(false);
@@ -198,7 +199,7 @@ export default function UserProfileScreen() {
       } catch (err) {
         // Also the path a "they blocked you" attempt takes — the RPC-level
         // guard's message is deliberately generic, so this doesn't reveal why.
-        const message = err instanceof Error ? err.message : 'Could not follow this user.';
+        const message = errorMessage(err, 'Could not follow this user.');
         warmAlert('Error', message);
       } finally {
         setFollowLoading(false);
@@ -227,7 +228,7 @@ export default function UserProfileScreen() {
         otherUser: { id: userId, full_name: profile.full_name, avatar_url: profile.avatar_url },
       });
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Could not start the conversation.';
+      const message = errorMessage(err, 'Could not start the conversation.');
       warmAlert('Error', message);
     } finally {
       setMessaging(false);

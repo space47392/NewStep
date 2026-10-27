@@ -14,6 +14,7 @@ import { warmAlert } from '../../components/WarmAlert';
 import { CONTACT_EMAIL } from '../../constants/legal';
 import { colors, spacing, radius, fontSize, fontFamily, typography } from '../../constants/theme';
 import { MainStackParamList } from '../../types';
+import { errorMessage } from '../../lib/errors';
 
 type Nav = NativeStackNavigationProp<MainStackParamList>;
 
@@ -138,7 +139,7 @@ export default function SettingsScreen() {
                   // the local session so the app returns to sign-in.
                   await supabase.auth.signOut().catch(() => {});
                 } catch (err) {
-                  const message = err instanceof Error ? err.message : 'Could not delete your account.';
+                  const message = errorMessage(err, 'Could not delete your account.');
                   warmAlert('Error', message);
                   setDeletingAccount(false);
                 }

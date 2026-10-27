@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useRef, useState, ReactNode } from 'react';
-import { Animated, Text, StyleSheet } from 'react-native';
+import { Animated, Text, StyleSheet, useAnimatedValue } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { navigationRef } from '../navigation/navigationRef';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../constants/theme';
@@ -34,8 +34,8 @@ const EXTRA_CLEARANCE_ROUTE_NAMES = new Set([...TAB_BAR_ROUTE_NAMES, 'StoryViewe
 export function ToastProvider({ children }: { children: ReactNode }) {
   const insets = useSafeAreaInsets();
   const [message, setMessage] = useState<string | null>(null);
-  const opacity = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(20)).current;
+  const opacity = useAnimatedValue(0);
+  const translateY = useAnimatedValue(20);
   const hideTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const showToast = useCallback(

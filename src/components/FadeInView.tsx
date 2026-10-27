@@ -1,5 +1,5 @@
-import { useEffect, useRef, ReactNode } from 'react';
-import { Animated, Easing, StyleProp, ViewStyle } from 'react-native';
+import { useEffect, ReactNode } from 'react';
+import { Animated, Easing, StyleProp, ViewStyle, useAnimatedValue } from 'react-native';
 
 type Props = {
   children: ReactNode;
@@ -12,8 +12,8 @@ type Props = {
 const MAX_DELAY = 90;
 
 export default function FadeInView({ children, style, delay = 0 }: Props) {
-  const opacity = useRef(new Animated.Value(0.35)).current;
-  const translateY = useRef(new Animated.Value(6)).current;
+  const opacity = useAnimatedValue(0.35);
+  const translateY = useAnimatedValue(6);
 
   useEffect(() => {
     const d = Math.min(delay, MAX_DELAY);
@@ -21,7 +21,7 @@ export default function FadeInView({ children, style, delay = 0 }: Props) {
       Animated.timing(opacity, { toValue: 1, duration: 180, delay: d, easing: Easing.out(Easing.quad), useNativeDriver: true }),
       Animated.timing(translateY, { toValue: 0, duration: 200, delay: d, easing: Easing.out(Easing.quad), useNativeDriver: true }),
     ]).start();
-  }, []);
+  }, [delay, opacity, translateY]);
 
   return <Animated.View style={[style, { opacity, transform: [{ translateY }] }]}>{children}</Animated.View>;
 }

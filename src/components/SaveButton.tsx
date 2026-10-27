@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef } from 'react';
 import { TouchableOpacity, GestureResponderEvent, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
+import { useSyncedState } from '../lib/useSyncedState';
 import { savePost, unsavePost } from '../lib/postSaves';
 import { colors } from '../constants/theme';
 
@@ -18,14 +19,10 @@ type Props = {
 export default function SaveButton({ postId, initialSaved }: Props) {
   const { user } = useAuth();
   const { showToast } = useToast();
-  const [saved, setSaved] = useState(initialSaved);
+  const [saved, setSaved] = useSyncedState(initialSaved);
   // Guards against a fast double-tap firing two overlapping toggle calls
   // before the first resolves.
   const pendingRef = useRef(false);
-
-  useEffect(() => {
-    setSaved(initialSaved);
-  }, [initialSaved]);
 
   const handleToggle = async (e: GestureResponderEvent) => {
     e.stopPropagation();

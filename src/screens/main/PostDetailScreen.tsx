@@ -37,13 +37,16 @@ import LikeButton from '../../components/LikeButton';
 import SaveButton from '../../components/SaveButton';
 import InterestButton from '../../components/InterestButton';
 import PhotoCarousel from '../../components/PhotoCarousel';
-import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
+import { colors, spacing, radius, fontSize, fontFamily } from '../../constants/theme';
 import { MainStackParamList, Comment, ReportTargetType } from '../../types';
+import { errorMessage } from '../../lib/errors';
 
 export default function PostDetailScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
   const route = useRoute<RouteProp<MainStackParamList, 'PostDetail'>>();
   const { user } = useAuth();
+  // Effects key off the id: `user` is a new object on every token refresh.
+  const userId = user?.id;
   const { showToast } = useToast();
   // Stack-pushed full-screen — the comment composer sits at the true bottom
   // edge on Android's edge-to-edge layout, same reasoning as ConversationScreen.
@@ -112,11 +115,11 @@ export default function PostDetailScreen() {
         try {
           const freshPost = await fetchPostById(route.params.post.id);
           setPost(freshPost);
-          if (user) {
+          if (userId) {
             const [liked, saved, interested] = await Promise.all([
-              fetchLikedPostIds(user.id, [freshPost.id]),
-              fetchSavedPostIds(user.id, [freshPost.id]),
-              fetchInterestedPostIds(user.id, [freshPost.id]),
+              fetchLikedPostIds(userId, [freshPost.id]),
+              fetchSavedPostIds(userId, [freshPost.id]),
+              fetchInterestedPostIds(userId, [freshPost.id]),
             ]);
             setLikedByMe(liked.has(freshPost.id));
             setSavedByMe(saved.has(freshPost.id));
@@ -138,7 +141,7 @@ export default function PostDetailScreen() {
       // signed-in account hasn't changed, which would otherwise re-run this
       // full post/like/save/interest refetch roughly hourly on a long-lived
       // PostDetail screen (Step 41).
-    }, [route.params.post.id, user?.id])
+    }, [route.params.post.id, userId])
   );
 
   useEffect(() => {
@@ -149,7 +152,7 @@ export default function PostDetailScreen() {
         const data = await fetchComments(post.id);
         if (isMounted) setComments(data);
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Could not load comments.';
+        const message = errorMessage(err, 'Could not load comments.');
         warmAlert('Error', message);
       } finally {
         if (isMounted) setLoading(false);
@@ -169,7 +172,7 @@ export default function PostDetailScreen() {
       // Only auto-scroll for the current user's own comment — someone reading
       // older comments must not be forcibly moved to the bottom by others'
       // incoming comments.
-      if (comment.profiles?.id === user?.id) {
+      if (comment.profiles?.id === userId) {
         requestAnimationFrame(() => flatListRef.current?.scrollToEnd({ animated: true }));
       }
     });
@@ -178,7 +181,7 @@ export default function PostDetailScreen() {
       isMounted = false;
       unsubscribe();
     };
-  }, [post.id]);
+  }, [post.id, userId]);
 
   // Lets FeedScreen's "X Comments" link open straight into a focused input,
   // instead of requiring a second tap once the screen has already loaded.
@@ -208,8 +211,9 @@ export default function PostDetailScreen() {
     };
   }, []);
 
+  const helperId = post.helper?.id;
   useEffect(() => {
-    if (post.status !== 'completed' || !post.helper) {
+    if (post.status !== 'completed' || !helperId) {
       setContribution(null);
       return;
     }
@@ -217,7 +221,7 @@ export default function PostDetailScreen() {
     let isMounted = true;
     (async () => {
       try {
-        const result = await fetchContribution(post.helper!.id);
+        const result = await fetchContribution(helperId);
         if (isMounted) setContribution(result);
       } catch {
         if (isMounted) setContribution(null);
@@ -227,7 +231,7 @@ export default function PostDetailScreen() {
     return () => {
       isMounted = false;
     };
-  }, [post.status, post.helper?.id, fetchContribution]);
+  }, [post.status, helperId, fetchContribution]);
 
   const canComplete = post.status === 'accepted' && post.author_id === user?.id;
   // Deliberately NOT gated on category === 'Need Help': status/helper_id already
@@ -255,7 +259,7 @@ export default function PostDetailScreen() {
       setConfettiKey(Date.now());
     } catch (err) {
       // Transient/retryable, not destructive — a toast is enough (Step 30).
-      const message = err instanceof Error ? err.message : 'Could not mark as completed.';
+      const message = errorMessage(err, 'Could not mark as completed.');
       showToast(message);
     } finally {
       completingRef.current = false;
@@ -292,7 +296,7 @@ export default function PostDetailScreen() {
     } catch (err) {
       // Success already used a toast above — failure should match instead of
       // jumping to a heavier blocking dialog for the same action (Step 30).
-      const message = err instanceof Error ? err.message : 'Could not send thanks.';
+      const message = errorMessage(err, 'Could not send thanks.');
       showToast(message);
     } finally {
       thankingRef.current = false;
@@ -342,7 +346,7 @@ export default function PostDetailScreen() {
       });
     } catch (err) {
       if (!isMountedRef.current) return;
-      const message = err instanceof Error ? err.message : 'Could not start the conversation.';
+      const message = errorMessage(err, 'Could not start the conversation.');
       warmAlert('Error', message);
     } finally {
       if (isMountedRef.current) setMessaging(false);
@@ -368,7 +372,7 @@ export default function PostDetailScreen() {
             showToast('Post deleted');
             navigation.goBack();
           } catch (err) {
-            const message = err instanceof Error ? err.message : 'Could not delete post.';
+            const message = errorMessage(err, 'Could not delete post.');
             warmAlert('Error', message);
             setDeletingPost(false);
           }
@@ -421,7 +425,7 @@ export default function PostDetailScreen() {
       setCommentText(''); // the new comment arrives via the real-time subscription above
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Could not post comment.';
+      const message = errorMessage(err, 'Could not post comment.');
       warmAlert('Error', message);
     } finally {
       setSending(false);

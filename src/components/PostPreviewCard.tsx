@@ -1,10 +1,10 @@
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import Avatar from './Avatar';
 import HelpStatusPill from './HelpStatusPill';
 import { useAuth } from '../contexts/AuthContext';
 import CategoryBadge from './CategoryBadge';
 import { formatRelativeTime } from '../lib/time';
-import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../constants/theme';
+import { colors, spacing, fontSize, fontFamily } from '../constants/theme';
 import EventDetails from './EventDetails';
 import PressableScale from './PressableScale';
 import { Post } from '../types';

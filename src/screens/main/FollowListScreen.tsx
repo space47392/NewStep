@@ -16,6 +16,7 @@ import { ConversationRowSkeleton } from '../../components/Skeleton';
 import FadeInView from '../../components/FadeInView';
 import { colors, spacing, radius, fontSize, fontFamily, shadow, typography } from '../../constants/theme';
 import { MainStackParamList, PersonSearchResult } from '../../types';
+import { errorMessage } from '../../lib/errors';
 
 const PAGE_SIZE = 30;
 
@@ -215,7 +216,7 @@ export default function FollowListScreen() {
                 return next;
               });
             } catch (err) {
-              const message = err instanceof Error ? err.message : 'Could not unfollow.';
+              const message = errorMessage(err, 'Could not unfollow.');
               warmAlert('Error', message);
             } finally {
               setPendingFollowIds((prev) => {
@@ -236,7 +237,7 @@ export default function FollowListScreen() {
         await followUser({ followerId: user.id, followingId: person.id });
         setFollowingIds((prev) => new Set(prev).add(person.id));
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Could not follow this user.';
+        const message = errorMessage(err, 'Could not follow this user.');
         warmAlert('Error', message);
       } finally {
         setPendingFollowIds((prev) => {

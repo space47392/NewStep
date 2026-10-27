@@ -1,5 +1,5 @@
-import { ReactNode, useRef } from 'react';
-import { Animated, Pressable, PressableProps, StyleProp, StyleSheet, ViewStyle } from 'react-native';
+import { ReactNode } from 'react';
+import { Animated, Pressable, PressableProps, StyleProp, StyleSheet, ViewStyle, useAnimatedValue } from 'react-native';
 import * as Haptics from 'expo-haptics';
 
 // A pressable that gently sinks while held and springs back on release,
@@ -13,7 +13,7 @@ type Props = Omit<PressableProps, 'style' | 'children'> & {
 };
 
 export default function PressableScale({ style, children, pressedScale = 0.95, haptic = true, onPressIn, onPressOut, onPress, ...rest }: Props) {
-  const scale = useRef(new Animated.Value(1)).current;
+  const scale = useAnimatedValue(1);
   // The outer Pressable takes the layout (flex, width, margins) so the item
   // sits in rows exactly as a plain view would; the inner view scales.
   const flat = StyleSheet.flatten(style) ?? {};

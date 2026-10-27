@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef } from 'react';
-import { Animated, Easing, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { useEffect, useMemo } from 'react';
+import { Animated, Easing, StyleSheet, View, useWindowDimensions, useAnimatedValue } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { colors, dark } from '../constants/theme';
 import { brightness, SkyPalette } from '../lib/skyColors';
@@ -36,7 +36,7 @@ function seeded(n: number) {
 }
 
 function TwinkleDot({ x, y, r, delay }: { x: number; y: number; r: number; delay: number }) {
-  const t = useRef(new Animated.Value(0)).current;
+  const t = useAnimatedValue(0);
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
@@ -67,7 +67,7 @@ function TwinkleDot({ x, y, r, delay }: { x: number; y: number; r: number; delay
 
 function ShootingStar() {
   const { width } = useWindowDimensions();
-  const t = useRef(new Animated.Value(0)).current;
+  const t = useAnimatedValue(0);
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
@@ -104,7 +104,7 @@ function ShootingStar() {
 const CLOUD_COUNT: Record<SkyClouds, number> = { none: 0, few: 2, scattered: 4, overcast: 8 };
 
 function DescribedCloud({ i, color, width, height, overcast }: { i: number; color: string; width: number; height: number; overcast: boolean }) {
-  const t = useRef(new Animated.Value(0)).current;
+  const t = useAnimatedValue(0);
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
@@ -183,7 +183,7 @@ export default function SkyScene({
 }) {
   const { width, height } = useWindowDimensions();
   // A very slow drift, like clouds and stars moving across the sky.
-  const drift = useRef(new Animated.Value(0)).current;
+  const drift = useAnimatedValue(0);
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
@@ -195,17 +195,18 @@ export default function SkyScene({
     return () => loop.stop();
   }, [drift]);
 
-  const paint = useRef(new Animated.Value(0)).current;
+  const paint = useAnimatedValue(0);
+  const paintedKey = painted ? painted.join(',') : '';
   useEffect(() => {
-    if (!painted) return;
+    if (!paintedKey) return;
     paint.setValue(0);
     Animated.timing(paint, { toValue: 1, duration: 1600, easing: Easing.inOut(Easing.quad), useNativeDriver: true }).start();
-  }, [painted?.join(','), paint]);
+  }, [paintedKey, paint]);
 
   const describedKey = described ? described.colors.join(',') + described.clouds + described.cloudColor : '';
-  const repaint = useRef(new Animated.Value(0)).current;
+  const repaint = useAnimatedValue(0);
   useEffect(() => {
-    if (!described) return;
+    if (!describedKey) return;
     repaint.setValue(0);
     Animated.timing(repaint, { toValue: 1, duration: 1400, easing: Easing.inOut(Easing.quad), useNativeDriver: true }).start();
   }, [describedKey, repaint]);

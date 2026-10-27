@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef } from 'react';
-import { View, Animated, Easing, StyleSheet, useWindowDimensions } from 'react-native';
+import { useEffect, useMemo } from 'react';
+import { View, Animated, Easing, StyleSheet, useWindowDimensions, useAnimatedValue } from 'react-native';
 import { colors } from '../constants/theme';
 
 type Props = {
@@ -11,34 +11,44 @@ const PIECES = 36;
 const DURATION = 1600;
 const PIECE_COLORS = [colors.primary, colors.secondary, colors.accent, colors.warning, colors.primaryLight];
 
+// Small seeded PRNG (mulberry32): the same trigger always gives the same
+// layout, so render stays pure while each new burst still looks different.
+function seededRandom(seed: number) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 // A one-shot confetti pop from the upper middle of the screen — little
 // squares and dots fly out, fall with a bit of gravity, spin and fade.
 // Purely decorative: never intercepts touches.
 export default function ConfettiBurst({ trigger }: Props) {
   const { width, height } = useWindowDimensions();
-  const progress = useRef(new Animated.Value(0)).current;
+  const progress = useAnimatedValue(0);
 
-  // Fixed random layout per burst, so pieces don't jump between renders.
-  const pieces = useMemo(
-    () =>
-      Array.from({ length: PIECES }, (_, i) => {
-        const angle = (Math.PI * 2 * i) / PIECES + (Math.random() - 0.5) * 0.4;
-        const speed = 110 + Math.random() * 140;
-        return {
-          dx: Math.cos(angle) * speed,
-          // Biased upward first, then gravity pulls everything down.
-          dy: Math.sin(angle) * speed - 120,
-          fall: 260 + Math.random() * 200,
-          spin: (Math.random() > 0.5 ? 1 : -1) * (360 + Math.random() * 360),
-          size: 6 + Math.random() * 6,
-          round: Math.random() > 0.6,
-          color: PIECE_COLORS[i % PIECE_COLORS.length],
-        };
-      }),
-    // New random layout on every new trigger.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [trigger]
-  );
+  // One fixed layout per burst, so pieces don't jump between renders.
+  const pieces = useMemo(() => {
+    const random = seededRandom(trigger);
+    return Array.from({ length: PIECES }, (_, i) => {
+      const angle = (Math.PI * 2 * i) / PIECES + (random() - 0.5) * 0.4;
+      const speed = 110 + random() * 140;
+      return {
+        dx: Math.cos(angle) * speed,
+        // Biased upward first, then gravity pulls everything down.
+        dy: Math.sin(angle) * speed - 120,
+        fall: 260 + random() * 200,
+        spin: (random() > 0.5 ? 1 : -1) * (360 + random() * 360),
+        size: 6 + random() * 6,
+        round: random() > 0.6,
+        color: PIECE_COLORS[i % PIECE_COLORS.length],
+      };
+    });
+  }, [trigger]);
 
   useEffect(() => {
     if (!trigger) return;

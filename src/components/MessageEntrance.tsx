@@ -1,5 +1,5 @@
-import { ReactNode, useEffect, useRef } from 'react';
-import { Animated, Easing, StyleSheet, View } from 'react-native';
+import { ReactNode, useEffect, useState } from 'react';
+import { Animated, Easing, StyleSheet, View, useAnimatedValue } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { colors } from '../constants/theme';
 
@@ -19,9 +19,10 @@ type Props = {
 };
 
 export default function MessageEntrance({ mine, createdAt, children }: Props) {
-  const fresh = useRef(Date.now() - new Date(createdAt).getTime() < FRESH_MS).current;
-  const t = useRef(new Animated.Value(fresh ? 0 : 1)).current;
-  const star = useRef(new Animated.Value(0)).current;
+  // Decided once, when the bubble first mounts.
+  const [fresh] = useState(() => Date.now() - new Date(createdAt).getTime() < FRESH_MS);
+  const t = useAnimatedValue(fresh ? 0 : 1);
+  const star = useAnimatedValue(0);
 
   useEffect(() => {
     if (!fresh) return;

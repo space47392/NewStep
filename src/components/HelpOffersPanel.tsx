@@ -8,6 +8,7 @@ import { useWarmSheet } from './WarmSheet';
 import Avatar from './Avatar';
 import PrimaryButton from './PrimaryButton';
 import { colors, spacing, radius, fontSize, fontFamily } from '../constants/theme';
+import { errorMessage } from '../lib/errors';
 
 // On an open Need Help post: classmates offer to help (with an optional
 // line about why), and the person who asked picks the one they want.
@@ -55,7 +56,7 @@ export default function HelpOffersPanel({ postId, isAuthor, authorFirstName, onC
       showToast(`Offer sent 🤝 ${authorFirstName} will choose a helper.`);
       await load();
     } catch (err) {
-      showToast(err instanceof Error ? err.message : "Couldn't send your offer.");
+      showToast(errorMessage(err, "Couldn't send your offer."));
     } finally {
       setBusy(false);
     }
@@ -73,7 +74,7 @@ export default function HelpOffersPanel({ postId, isAuthor, authorFirstName, onC
               await withdrawHelpOffer(postId);
               await load();
             } catch (err) {
-              showToast(err instanceof Error ? err.message : "Couldn't do that.");
+              showToast(errorMessage(err, "Couldn't do that."));
             }
           },
         },
@@ -95,7 +96,7 @@ export default function HelpOffersPanel({ postId, isAuthor, authorFirstName, onC
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
               onChosen();
             } catch (err) {
-              showToast(err instanceof Error ? err.message : "Couldn't choose a helper.");
+              showToast(errorMessage(err, "Couldn't choose a helper."));
             }
           },
         },

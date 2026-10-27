@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, Animated, GestureResponderEvent, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, Animated, GestureResponderEvent, StyleSheet, useAnimatedValue } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
+import { useSyncedState } from '../lib/useSyncedState';
 import { likePost, unlikePost, subscribeToLikes } from '../lib/likes';
 import LikesListModal from './LikesListModal';
 import { colors, spacing, fontSize, fontFamily } from '../constants/theme';
@@ -21,23 +22,15 @@ export default function LikeButton({ postId, initialLikeCount, initialLikedByMe 
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
   const { user } = useAuth();
   const { showToast } = useToast();
-  const [liked, setLiked] = useState(initialLikedByMe);
-  const [count, setCount] = useState(initialLikeCount);
+  // Re-sync to the server truth whenever the parent screen refetches (e.g. on
+  // focus); a tap overrides these right away via the optimistic update.
+  const [liked, setLiked] = useSyncedState(initialLikedByMe);
+  const [count, setCount] = useSyncedState(initialLikeCount);
   const [listVisible, setListVisible] = useState(false);
-  const scale = useRef(new Animated.Value(1)).current;
+  const scale = useAnimatedValue(1);
   // Guards against a fast double-tap firing two overlapping toggle calls
   // before the first resolves — not a ref-driven re-render, just a latch.
   const pendingRef = useRef(false);
-
-  // Re-sync to the server truth whenever the parent screen refetches (e.g. on focus) —
-  // but only between taps, since a tap immediately overrides these via the optimistic update.
-  useEffect(() => {
-    setLiked(initialLikedByMe);
-  }, [initialLikedByMe]);
-
-  useEffect(() => {
-    setCount(initialLikeCount);
-  }, [initialLikeCount]);
 
   useEffect(() => {
     const unsubscribe = subscribeToLikes(postId, ({ type, userId }) => {
@@ -46,7 +39,7 @@ export default function LikeButton({ postId, initialLikeCount, initialLikedByMe 
       setCount((prev) => Math.max(0, prev + (type === 'insert' ? 1 : -1)));
     });
     return unsubscribe;
-  }, [postId, user?.id]);
+  }, [postId, user?.id, setCount]);
 
   const handleToggle = async (e: GestureResponderEvent) => {
     e.stopPropagation();

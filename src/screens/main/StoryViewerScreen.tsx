@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, Image, TouchableOpacity, Animated, ActivityIndicator, BackHandler, StyleSheet } from 'react-native';
+import { View, Text, Image, TouchableOpacity, Animated, ActivityIndicator, BackHandler, StyleSheet, useAnimatedValue } from 'react-native';
 import { warmAlert } from '../../components/WarmAlert';
 import { useNavigation, useRoute, useFocusEffect, RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -20,6 +20,7 @@ import ReportSheet from '../../components/ReportSheet';
 import StoryViewsModal from '../../components/StoryViewsModal';
 import { colors, spacing, radius, fontSize, fontFamily, dark } from '../../constants/theme';
 import { MainStackParamList, ReportTargetType } from '../../types';
+import { errorMessage } from '../../lib/errors';
 
 const STORY_DURATION_MS = 5000;
 
@@ -42,14 +43,14 @@ export default function StoryViewerScreen() {
   // yellow "Said hi" so it's clear the wave landed (not persisted; the
   // notification itself is the durable record).
   const [wavedStoryIds, setWavedStoryIds] = useState<Set<string>>(new Set());
-  const waveAnim = useRef(new Animated.Value(0)).current;
+  const waveAnim = useAnimatedValue(0);
   const [menuVisible, setMenuVisible] = useState(false);
   const [reportTarget, setReportTarget] = useState<{ type: ReportTargetType; id: string } | null>(null);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageFailed, setImageFailed] = useState(false);
   const [viewCount, setViewCount] = useState(0);
   const [viewsModalVisible, setViewsModalVisible] = useState(false);
-  const progress = useRef(new Animated.Value(0)).current;
+  const progress = useAnimatedValue(0);
   // Only set while an onLongPress has actually fired — a plain tap's onPressOut
   // shouldn't try to "resume" an animation that was never paused.
   const isPausedRef = useRef(false);
@@ -73,11 +74,11 @@ export default function StoryViewerScreen() {
   const story = stories[index];
   const isOwnStory = user?.id === story.author_id;
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     if (closingRef.current) return;
     closingRef.current = true;
     navigation.goBack();
-  };
+  }, [navigation]);
 
   const goToNext = () => {
     if (index < stories.length - 1) {
@@ -100,7 +101,7 @@ export default function StoryViewerScreen() {
       return true;
     });
     return () => subscription.remove();
-  }, [navigation]);
+  }, [handleClose]);
 
   const startProgress = (fromValue: number) => {
     progress.setValue(fromValue);
@@ -216,7 +217,7 @@ export default function StoryViewerScreen() {
             await deleteStory(story.id);
             navigation.goBack();
           } catch (err) {
-            const message = err instanceof Error ? err.message : 'Could not delete story.';
+            const message = errorMessage(err, 'Could not delete story.');
             warmAlert('Error', message);
             setDeleting(false);
           }
@@ -248,7 +249,7 @@ export default function StoryViewerScreen() {
       });
     } catch (err) {
       if (!isMountedRef.current) return;
-      const message = err instanceof Error ? err.message : 'Could not start a conversation.';
+      const message = errorMessage(err, 'Could not start a conversation.');
       warmAlert('Error', message);
     } finally {
       if (isMountedRef.current) setMessaging(false);
@@ -277,7 +278,7 @@ export default function StoryViewerScreen() {
       ]).start();
     } catch (err) {
       // Transient/retryable, not destructive — a toast is enough (Step 30).
-      const message = err instanceof Error ? err.message : 'Could not send that.';
+      const message = errorMessage(err, 'Could not send that.');
       showToast(message);
     } finally {
       setWaving(false);

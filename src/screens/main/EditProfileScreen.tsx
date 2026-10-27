@@ -6,12 +6,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { File } from 'expo-file-system';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
-import { supabase } from '../../lib/supabase';
 import { fetchSchoolById } from '../../lib/schools';
-import { PUBLIC_PROFILE_FIELDS, PublicProfile } from '../../lib/profile';
+import { fetchMyProfile, fetchMySchoolId, saveMyProfile, uploadAvatar, PublicProfile } from '../../lib/profile';
 import Avatar from '../../components/Avatar';
 import IconInput from '../../components/IconInput';
 import InterestPicker from '../../components/InterestPicker';
@@ -22,6 +20,7 @@ import LoadingScreen from '../../components/LoadingScreen';
 import FadeInView from '../../components/FadeInView';
 import { colors, spacing, radius, fontSize, fontFamily, typography } from '../../constants/theme';
 import { MainStackParamList, School } from '../../types';
+import { errorMessage } from '../../lib/errors';
 
 const GRADES = ['7th', '8th', '9th', '10th', '11th', '12th'];
 
@@ -78,14 +77,16 @@ export default function EditProfileScreen() {
     if (!user) return;
 
     (async () => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select(PUBLIC_PROFILE_FIELDS)
-        .eq('id', user.id)
-        .maybeSingle<PublicProfile>();
+      let data: PublicProfile | null = null;
+      let loadError: unknown = null;
+      try {
+        data = await fetchMyProfile(user.id);
+      } catch (err) {
+        loadError = err;
+      }
 
-      if (error) {
-        warmAlert('Could not load profile', error.message);
+      if (loadError) {
+        warmAlert('Could not load profile', errorMessage(loadError));
       } else if (data) {
         setFullName(data.full_name ?? '');
         setGrade(data.grade ?? '');
@@ -153,9 +154,7 @@ export default function EditProfileScreen() {
       if (!user) return;
       (async () => {
         try {
-          const { data, error } = await supabase.from('profiles').select('school_id').eq('id', user.id).maybeSingle();
-          if (error) throw error;
-          const newSchoolId = data?.school_id ?? null;
+          const newSchoolId = await fetchMySchoolId(user.id);
           setSchoolId(newSchoolId);
           setSelectedSchool(newSchoolId ? await fetchSchoolById(newSchoolId) : null);
         } catch {
@@ -201,24 +200,7 @@ export default function EditProfileScreen() {
     if (pendingAvatar) {
       setUploadingAvatar(true);
       try {
-        const path = `${user.id}/avatar.jpg`;
-        const file = new File(pendingAvatar.uri);
-        const bytes = await file.bytes();
-
-        const { error: uploadError } = await supabase.storage
-          .from('avatars')
-          .upload(path, bytes, {
-            contentType: pendingAvatar.mimeType ?? 'image/jpeg',
-            upsert: true,
-          });
-        if (uploadError) throw uploadError;
-
-        const { data } = supabase.storage.from('avatars').getPublicUrl(path);
-        // The upload path is fixed per user (upsert overwrite), so the public
-        // URL is identical every time — bust it here so every screen that
-        // renders this avatar from the DB picks up the new photo instead of
-        // a stale cached one.
-        nextAvatarUrl = `${data.publicUrl}?v=${Date.now()}`;
+        nextAvatarUrl = await uploadAvatar(user.id, pendingAvatar);
       } catch (err) {
         // Nothing else about the profile is saved either — the existing
         // avatar (if any) is left exactly as it was, matching what
@@ -226,27 +208,24 @@ export default function EditProfileScreen() {
         setUploadingAvatar(false);
         setSaving(false);
         savingRef.current = false;
-        const message = err instanceof Error ? err.message : 'Something went wrong.';
+        const message = errorMessage(err, 'Something went wrong.');
         warmAlert('Upload failed', message);
         return;
       }
       setUploadingAvatar(false);
     }
 
-    const { error } = await supabase.from('profiles').upsert({
-      id: user.id,
-      full_name: fullName,
-      grade,
-      interests,
-      avatar_url: nextAvatarUrl,
-      is_new_student: isNewStudent,
-      updated_at: new Date().toISOString(),
-    });
+    let saveError: unknown = null;
+    try {
+      await saveMyProfile(user.id, { full_name: fullName, grade, interests, avatar_url: nextAvatarUrl, is_new_student: isNewStudent });
+    } catch (err) {
+      saveError = err;
+    }
     setSaving(false);
     savingRef.current = false;
 
-    if (error) {
-      warmAlert('Save failed', error.message);
+    if (saveError) {
+      warmAlert('Save failed', errorMessage(saveError));
     } else {
       setAvatarUrl(nextAvatarUrl);
       setPendingAvatar(null);

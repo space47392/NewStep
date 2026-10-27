@@ -1,5 +1,5 @@
-import { SkyClouds, SkyScene, SkyThing } from './sky';
-import { SkyPalette } from './skyColors';
+import type { SkyClouds, SkyScene, SkyThing } from './sky';
+import type { SkyPalette } from './skyColors';
 
 // Reads a student's description of the sky ("pink sunset, clouds like
 // cotton candy", "하늘이 맑고 달이 떴어") on the phone itself — no AI, no

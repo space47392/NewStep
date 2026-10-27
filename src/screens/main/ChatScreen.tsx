@@ -20,7 +20,7 @@ import FadeInView from '../../components/FadeInView';
 import NSIcon from '../../components/NSIcon';
 import { Conversation, MainStackParamList } from '../../types';
 import PressableScale from '../../components/PressableScale';
-import { colors, spacing, radius, fontSize, fontFamily, shadow, typography } from '../../constants/theme';
+import { colors, spacing, radius, fontSize, fontFamily, typography } from '../../constants/theme';
 
 export default function ChatScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();

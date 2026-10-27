@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { View, Animated, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../constants/theme';
@@ -10,7 +10,7 @@ const STEP_MS = 220;
 // the "the other person is typing" dots, same footprints as the login intro
 // and loading screen.
 export default function TypingIndicator() {
-  const steps = useRef(Array.from({ length: STEPS }, () => new Animated.Value(0))).current;
+  const [steps] = useState(() => Array.from({ length: STEPS }, () => new Animated.Value(0)));
 
   useEffect(() => {
     const loop = Animated.loop(

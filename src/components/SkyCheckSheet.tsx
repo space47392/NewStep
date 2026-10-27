@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, Modal, StyleSheet, ActivityIndicator, Animated, Easing } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { View, Text, TouchableOpacity, Modal, StyleSheet, ActivityIndicator, Animated, Easing, useAnimatedValue } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Svg, { Circle, ClipPath, Defs, Ellipse, G, Line, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
 import { describeSky, fetchSchoolSky, setMyStar, SKY_MOODS, SkyMood, SkyScene } from '../lib/sky';
 import { interpretSky } from '../lib/skyInterpret';
-import { skyPhase } from './SkyScene';
+import { skyPhase, SkyPhase } from './SkyScene';
 import PrimaryButton from './PrimaryButton';
 import NSIcon from './NSIcon';
 import MoodFace from './MoodFace';
@@ -68,6 +68,20 @@ export function skiesFor(slot: Slot) {
 }
 
 export const FALLBACK_SCENE: SkyScene = { colors: ['#9FC9F0', '#C8E2F7', '#F3F0E6'], clouds: 'none', cloud_color: '#FFFFFF', things: [], title: '' };
+
+// The painted scene for every choice in a time slot. Only a handful of
+// (slot, phase) pairs exist, so each is worked out once and kept.
+const sceneCache = new Map<string, Record<string, SkyScene>>();
+function scenesFor(slot: Slot, phase: SkyPhase): Record<string, SkyScene> {
+  const key = slot + ':' + phase;
+  let out = sceneCache.get(key);
+  if (!out) {
+    out = {};
+    for (const c of skiesFor(slot)) out[c.label] = interpretSky(c.text, phase) ?? FALLBACK_SCENE;
+    sceneCache.set(key, out);
+  }
+  return out;
+}
 
 // NewStep's arched window with a sky painted inside.
 const ARCH = 'M10 84 V40 A40 40 0 0 1 90 40 V84 Z';
@@ -193,15 +207,11 @@ export default function SkyCheckSheet({ userId, enabled, onShared, onOpenSky, on
   const slot = currentSlot();
   const phase = skyPhase();
   const choices = skiesFor(slot);
-  const scenes = useMemo(() => {
-    const out: Record<string, SkyScene> = {};
-    for (const c of choices) out[c.label] = interpretSky(c.text, phase) ?? FALLBACK_SCENE;
-    return out;
-  }, [choices, phase]);
+  const scenes = scenesFor(slot, phase);
   const shown = choice ? scenes[choice.label] : scenes[choices[0].label];
-  const paint = useRef(new Animated.Value(1)).current;
-  const drift = useRef(new Animated.Value(0)).current;
-  const breath = useRef(new Animated.Value(0)).current;
+  const paint = useAnimatedValue(1);
+  const drift = useAnimatedValue(0);
+  const breath = useAnimatedValue(0);
   useEffect(() => {
     if (!open || step !== 'heart') return;
     const rise = Animated.loop(

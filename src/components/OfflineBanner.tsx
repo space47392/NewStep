@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, StyleSheet, Text } from 'react-native';
+import { Animated, Easing, StyleSheet, Text, useAnimatedValue } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,7 +11,7 @@ import { fontFamily, fontSize, spacing } from '../constants/theme';
 export default function OfflineBanner() {
   const insets = useSafeAreaInsets();
   const [state, setState] = useState<'online' | 'offline' | 'back'>('online');
-  const slide = useRef(new Animated.Value(0)).current;
+  const slide = useAnimatedValue(0);
   const wasOffline = useRef(false);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 

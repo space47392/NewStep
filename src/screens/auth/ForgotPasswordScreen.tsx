@@ -2,14 +2,13 @@ import { useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 import { warmAlert } from '../../components/WarmAlert';
 import { StatusBar } from 'expo-status-bar';
-import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
 import IconInput from '../../components/IconInput';
 import PrimaryButton from '../../components/PrimaryButton';
 import FadeInView from '../../components/FadeInView';
 import NSIcon from '../../components/NSIcon';
-import { colors, spacing, radius, fontSize, fontFamily, light } from '../../constants/theme';
+import { spacing, radius, fontSize, fontFamily, light } from '../../constants/theme';
 import { AuthStackParamList } from '../../types';
 
 type Props = {

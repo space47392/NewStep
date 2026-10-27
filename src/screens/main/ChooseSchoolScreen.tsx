@@ -13,6 +13,7 @@ import NSIcon from '../../components/NSIcon';
 import OnboardingSteps from '../../components/OnboardingSteps';
 import { colors, spacing, radius, fontSize, fontFamily, shadow, typography } from '../../constants/theme';
 import { MainStackParamList, School } from '../../types';
+import { errorMessage } from '../../lib/errors';
 
 type Step = 'state' | 'city' | 'search';
 const DEBOUNCE_MS = 250;
@@ -136,7 +137,7 @@ export default function ChooseSchoolScreen({ onDone, showSkip, title, subtitle }
       await setMySchool(user.id, school.id);
       setJoinedSchool(school);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Could not save your school.';
+      const message = errorMessage(err, 'Could not save your school.');
       warmAlert('Error', message);
     } finally {
       setSavingId(null);

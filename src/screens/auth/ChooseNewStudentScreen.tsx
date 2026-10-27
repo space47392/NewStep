@@ -8,6 +8,7 @@ import OnboardingSteps from '../../components/OnboardingSteps';
 import FadeInView from '../../components/FadeInView';
 import NSIcon from '../../components/NSIcon';
 import { colors, spacing, radius, fontSize, fontFamily } from '../../constants/theme';
+import { errorMessage } from '../../lib/errors';
 
 // One tap answers and moves on, same as the old two buttons.
 const CHOICES = [
@@ -58,7 +59,7 @@ export default function ChooseNewStudentScreen({ onDone }: Props) {
       await setIsNewStudent(user.id, isNew);
       onDone();
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Could not save your answer.';
+      const message = errorMessage(err, 'Could not save your answer.');
       warmAlert('Error', message);
       setPendingChoice(null);
     }

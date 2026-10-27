@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { Modal, View, Text, FlatList, TouchableOpacity, ActivityIndicator, Animated, StyleSheet } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Modal, View, Text, FlatList, TouchableOpacity, ActivityIndicator, Animated, StyleSheet, useAnimatedValue } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import EmptyState from './EmptyState';
 import UserSelectRow from './UserSelectRow';
@@ -27,8 +27,8 @@ export default function StoryViewsModal({ storyId, visible, onClose, onSelectUse
   const [modalVisible, setModalVisible] = useState(visible);
   const [viewers, setViewers] = useState<ChatProfile[]>([]);
   const [loading, setLoading] = useState(true);
-  const translateY = useRef(new Animated.Value(SHEET_OFFSET)).current;
-  const backdropOpacity = useRef(new Animated.Value(0)).current;
+  const translateY = useAnimatedValue(SHEET_OFFSET);
+  const backdropOpacity = useAnimatedValue(0);
 
   useEffect(() => {
     if (visible) {

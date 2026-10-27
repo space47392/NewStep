@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   useWindowDimensions,
+  useAnimatedValue,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
@@ -52,13 +53,13 @@ const ORB = 22;
 // the login page underneath, which then simply takes over.
 export default function FootstepsIntro({ onDone }: Props) {
   const { width, height } = useWindowDimensions();
-  const walk = useRef(new Animated.Value(0)).current;
-  const hint = useRef(new Animated.Value(0)).current;
-  const bob = useRef(new Animated.Value(0)).current;
+  const walk = useAnimatedValue(0);
+  const hint = useAnimatedValue(0);
+  const bob = useAnimatedValue(0);
   // 0..1 while dragging up: the light gathering.
-  const charge = useRef(new Animated.Value(0)).current;
+  const charge = useAnimatedValue(0);
   // 0..1 once released: the light filling the screen.
-  const burst = useRef(new Animated.Value(0)).current;
+  const burst = useAnimatedValue(0);
   const loopRef = useRef<Animated.CompositeAnimation | null>(null);
   const leavingRef = useRef(false);
   const [reduceMotion, setReduceMotion] = useState(false);
@@ -107,7 +108,9 @@ export default function FootstepsIntro({ onDone }: Props) {
     ]).start(() => onDone());
   };
 
-  const panResponder = useRef(
+  // The handlers read refs on touch, not during render.
+  // eslint-disable-next-line react-hooks/refs
+  const [panResponder] = useState(() =>
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 8,
@@ -122,7 +125,7 @@ export default function FootstepsIntro({ onDone }: Props) {
         }
       },
     })
-  ).current;
+  );
 
   // Steps climb from near the bottom to the light, alternating left and
   // right foot.

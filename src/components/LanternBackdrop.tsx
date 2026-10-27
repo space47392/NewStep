@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react';
-import { Animated, Easing, StyleSheet, View } from 'react-native';
+import { useEffect } from 'react';
+import { Animated, Easing, StyleSheet, View, useAnimatedValue } from 'react-native';
 import Svg, { Defs, LinearGradient, RadialGradient, Rect, Stop } from 'react-native-svg';
 
 // The Lanterns backdrop: a warm evening (plum fading into ember) with a few
@@ -14,7 +14,7 @@ const FAR_LANTERNS = [
 ];
 
 function FarLantern({ x, y, size, delay }: { x: number; y: number; size: number; delay: number }) {
-  const t = useRef(new Animated.Value(0)).current;
+  const t = useAnimatedValue(0);
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([

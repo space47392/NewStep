@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { warmAlert } from '../../components/WarmAlert';
-import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { fetchProfileById, setMyInterests } from '../../lib/profile';
 import InterestPicker from '../../components/InterestPicker';
@@ -11,6 +10,7 @@ import OnboardingSteps from '../../components/OnboardingSteps';
 import FadeInView from '../../components/FadeInView';
 import NSIcon from '../../components/NSIcon';
 import { colors, spacing, radius, fontSize, fontFamily } from '../../constants/theme';
+import { errorMessage } from '../../lib/errors';
 
 type Props = {
   // Same onDone-driven pattern as ChooseSchoolScreen's onboarding mode —
@@ -54,7 +54,7 @@ export default function ChooseInterestsScreen({ onDone }: Props) {
       await setMyInterests(user.id, interests);
       onDone();
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Could not save your interests.';
+      const message = errorMessage(err, 'Could not save your interests.');
       warmAlert('Error', message);
     } finally {
       setSaving(false);

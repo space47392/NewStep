@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react';
-import { View, Animated, StyleSheet, StyleProp, ViewStyle } from 'react-native';
+import { useEffect } from 'react';
+import { View, Animated, StyleSheet, StyleProp, ViewStyle, useAnimatedValue } from 'react-native';
 import { colors, spacing, radius, shadow } from '../constants/theme';
 
 type BlockProps = {
@@ -12,7 +12,7 @@ type BlockProps = {
 // Base shimmering placeholder — a soft opacity pulse rather than a moving
 // gradient, so it stays cheap to run inside long lists of skeleton rows.
 export function Skeleton({ width = '100%', height = 14, radius: r = 6, style }: BlockProps) {
-  const opacity = useRef(new Animated.Value(0.4)).current;
+  const opacity = useAnimatedValue(0.4);
 
   useEffect(() => {
     const loop = Animated.loop(

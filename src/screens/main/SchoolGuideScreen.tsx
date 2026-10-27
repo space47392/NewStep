@@ -33,6 +33,7 @@ import ErrorState from '../../components/ErrorState';
 import { warmAlert } from '../../components/WarmAlert';
 import { colors, spacing, radius, fontSize, fontFamily, typography } from '../../constants/theme';
 import { MainStackParamList } from '../../types';
+import { errorMessage } from '../../lib/errors';
 
 type Nav = NativeStackNavigationProp<MainStackParamList>;
 
@@ -108,7 +109,7 @@ export default function SchoolGuideScreen() {
       setSort('new');
       await load();
     } catch (err) {
-      showToast(err instanceof Error ? err.message : "Couldn't share your tip");
+      showToast(errorMessage(err, "Couldn't share your tip"));
     } finally {
       setSaving(false);
     }
@@ -119,7 +120,8 @@ export default function SchoolGuideScreen() {
     Haptics.selectionAsync().catch(() => {});
     setHelped((h) => {
       const n = new Set(h);
-      was ? n.delete(tip.id) : n.add(tip.id);
+      if (was) n.delete(tip.id);
+      else n.add(tip.id);
       return n;
     });
     setTips((list) => (list ?? []).map((t) => (t.id === tip.id ? { ...t, helpful_count: Math.max(0, t.helpful_count + (was ? -1 : 1)) } : t)));
@@ -129,11 +131,12 @@ export default function SchoolGuideScreen() {
     } catch (err) {
       setHelped((h) => {
         const n = new Set(h);
-        was ? n.add(tip.id) : n.delete(tip.id);
+        if (was) n.add(tip.id);
+        else n.delete(tip.id);
         return n;
       });
       setTips((list) => (list ?? []).map((t) => (t.id === tip.id ? { ...t, helpful_count: tip.helpful_count } : t)));
-      showToast(err instanceof Error ? err.message : "Couldn't save that");
+      showToast(errorMessage(err, "Couldn't save that"));
     }
   };
 

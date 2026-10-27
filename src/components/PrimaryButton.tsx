@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+
 import {
   Animated,
   Text,
@@ -8,6 +8,7 @@ import {
   GestureResponderEvent,
   StyleProp,
   ViewStyle,
+  useAnimatedValue,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../constants/theme';
@@ -47,7 +48,7 @@ export default function PrimaryButton({
   style,
   size = 'md',
 }: Props) {
-  const scale = useRef(new Animated.Value(1)).current;
+  const scale = useAnimatedValue(1);
   const v = VARIANT_STYLES[variant];
   const isDisabled = disabled || loading;
 

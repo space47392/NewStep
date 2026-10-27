@@ -35,7 +35,6 @@ import AuthorRow from '../../components/AuthorRow';
 import NSIcon from '../../components/NSIcon';
 import { PostCardSkeleton } from '../../components/Skeleton';
 import { colors, spacing, radius, fontSize, fontFamily, shadow, typography } from '../../constants/theme';
-import InterestIcon from '../../components/InterestIcon';
 import PressableScale from '../../components/PressableScale';
 import {
   MainStackParamList,
@@ -84,9 +83,6 @@ function sharedInterests(mine: string[], theirs: string[]): string[] {
 }
 
 const SUGGESTED_PEOPLE_LIMIT = 5;
-// Same pastel cycle as InterestChips, so shared interests look like the ones
-// on a profile.
-const SHARED_TINTS = [colors.primaryLight, colors.secondaryLight, colors.accentLight, colors.warningLight];
 
 export default function SearchScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();

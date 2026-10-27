@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef } from 'react';
-import { Animated, Easing, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { useEffect, useMemo } from 'react';
+import { Animated, Easing, StyleSheet, View, useWindowDimensions, useAnimatedValue } from 'react-native';
 import Svg, { Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 import { colors } from '../constants/theme';
 import { SkyWeather as Weather } from '../lib/sky';
@@ -14,7 +14,7 @@ function seeded(n: number) {
 }
 
 function useLoop(duration: number, delay = 0) {
-  const t = useRef(new Animated.Value(0)).current;
+  const t = useAnimatedValue(0);
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
@@ -122,7 +122,7 @@ function Firefly({ i, width, height }: { i: number; width: number; height: numbe
 }
 
 function Aurora({ width, height }: { width: number; height: number }) {
-  const t = useRef(new Animated.Value(0)).current;
+  const t = useAnimatedValue(0);
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([

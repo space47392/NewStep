@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Image, ScrollView, ActivityIndicator, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Image, ScrollView, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 import { warmAlert } from '../../components/WarmAlert';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -19,6 +19,7 @@ import NSIcon from '../../components/NSIcon';
 import { colors, spacing, radius, fontSize, fontFamily } from '../../constants/theme';
 import { CATEGORY_STYLES } from '../../constants/categoryStyles';
 import { MainStackParamList, PostCategory } from '../../types';
+import { errorMessage } from '../../lib/errors';
 
 const CATEGORIES: PostCategory[] = ['Need Help', 'School Question', 'Looking for Friends', 'Event'];
 
@@ -331,7 +332,7 @@ export default function CreatePostScreen() {
       if (uploadedUrls.length > 0) {
         await removePostPhotos(uploadedUrls).catch(() => {});
       }
-      const message = err instanceof Error ? err.message : 'Something went wrong.';
+      const message = errorMessage(err, 'Something went wrong.');
       warmAlert(editingPost ? 'Could not save changes' : 'Could not post', message);
     } finally {
       postingRef.current = false;

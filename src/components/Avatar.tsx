@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Image, View, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../constants/theme';
@@ -16,14 +16,11 @@ export default function Avatar({ uri, size = 40 }: Props) {
   // circle forever. Resets whenever `uri` changes so a recycled list row's
   // next avatar gets its own fresh attempt rather than staying stuck on a
   // previous row's failure (Step 42).
-  const [failed, setFailed] = useState(false);
+  // Remembering which uri failed (not just "failed") resets it for free.
+  const [failedUri, setFailedUri] = useState<string | null>(null);
 
-  useEffect(() => {
-    setFailed(false);
-  }, [uri]);
-
-  if (uri && !failed) {
-    return <Image source={{ uri }} style={[styles.image, dimensionStyle]} onError={() => setFailed(true)} />;
+  if (uri && failedUri !== uri) {
+    return <Image source={{ uri }} style={[styles.image, dimensionStyle]} onError={() => setFailedUri(uri)} />;
   }
 
   return (

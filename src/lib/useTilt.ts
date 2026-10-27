@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react';
-import { Animated } from 'react-native';
+import { useEffect } from 'react';
+import { useAnimatedValue } from 'react-native';
 import { Accelerometer } from 'expo-sensors';
 
 // How far the phone is tilted from where it was held when the screen
@@ -7,8 +7,8 @@ import { Accelerometer } from 'expo-sensors';
 // parallax: far layers barely move, near layers move more, which reads as
 // depth — like looking at the sky through a window.
 export function useTilt() {
-  const x = useRef(new Animated.Value(0)).current;
-  const y = useRef(new Animated.Value(0)).current;
+  const x = useAnimatedValue(0);
+  const y = useAnimatedValue(0);
 
   useEffect(() => {
     let sub: { remove: () => void } | null = null;

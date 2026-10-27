@@ -1,3 +1,4 @@
+import { File } from 'expo-file-system';
 import { supabase } from './supabase';
 import { Profile } from '../types';
 
@@ -71,5 +72,50 @@ export async function setMyInterests(userId: string, interests: string[]): Promi
 // second New Student Mode implementation.
 export async function setIsNewStudent(userId: string, isNewStudent: boolean): Promise<void> {
   const { error } = await supabase.from('profiles').update({ is_new_student: isNewStudent }).eq('id', userId);
+  if (error) throw error;
+}
+
+// My own row for the edit form. null when the row doesn't exist yet
+// (a brand-new account) rather than an error.
+export async function fetchMyProfile(userId: string): Promise<PublicProfile | null> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select(PUBLIC_PROFILE_FIELDS)
+    .eq('id', userId)
+    .maybeSingle<PublicProfile>();
+  if (error) throw error;
+  return data;
+}
+
+export async function fetchMySchoolId(userId: string): Promise<string | null> {
+  const { data, error } = await supabase.from('profiles').select('school_id').eq('id', userId).maybeSingle();
+  if (error) throw error;
+  return data?.school_id ?? null;
+}
+
+// Uploads to the fixed path avatars/{userId}/avatar.jpg (overwriting the old
+// one) and returns its public URL. The path never changes, so the URL gets a
+// version suffix — otherwise every screen keeps showing the cached old photo.
+export async function uploadAvatar(userId: string, photo: { uri: string; mimeType?: string | null }): Promise<string> {
+  const path = `${userId}/avatar.jpg`;
+  const bytes = await new File(photo.uri).bytes();
+  const { error } = await supabase.storage
+    .from('avatars')
+    .upload(path, bytes, { contentType: photo.mimeType ?? 'image/jpeg', upsert: true });
+  if (error) throw error;
+  const { data } = supabase.storage.from('avatars').getPublicUrl(path);
+  return `${data.publicUrl}?v=${Date.now()}`;
+}
+
+export type ProfileEdits = {
+  full_name: string;
+  grade: string;
+  interests: string[];
+  avatar_url: string | null;
+  is_new_student: boolean | null;
+};
+
+export async function saveMyProfile(userId: string, edits: ProfileEdits): Promise<void> {
+  const { error } = await supabase.from('profiles').upsert({ id: userId, ...edits, updated_at: new Date().toISOString() });
   if (error) throw error;
 }

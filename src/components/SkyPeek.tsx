@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Animated, Easing } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Animated, Easing, useAnimatedValue } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import Svg, { Path } from 'react-native-svg';
 import MoodFace from './MoodFace';
@@ -24,7 +24,7 @@ const STRIP_W = 112;
 const STRIP_H = 36;
 
 function TwinkleStar({ x, y, color, size, delay }: { x: number; y: number; color: string; size: number; delay: number }) {
-  const t = useRef(new Animated.Value(0)).current;
+  const t = useAnimatedValue(0);
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
@@ -55,7 +55,7 @@ function TwinkleStar({ x, y, color, size, delay }: { x: number; y: number; color
 
 export default function SkyPeek({ userId, onOpen }: Props) {
   const [stars, setStars] = useState<SkyStar[] | null>(null);
-  const pulse = useRef(new Animated.Value(0)).current;
+  const pulse = useAnimatedValue(0);
 
   useFocusEffect(
     useCallback(() => {

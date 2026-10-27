@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, FlatList, TextInput, TouchableOpacity, KeyboardAvoidingView, Keyboard, Platform, ActivityIndicator, AppState, StyleSheet, NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
+import { View, Text, Image, FlatList, TextInput, TouchableOpacity, KeyboardAvoidingView, Keyboard, Platform, ActivityIndicator, AppState, StyleSheet, NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import { warmAlert } from '../../components/WarmAlert';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -39,12 +39,12 @@ import FadeInView from '../../components/FadeInView';
 import PressableScale from '../../components/PressableScale';
 import { getChatDraft, saveChatDraft } from '../../lib/chatDrafts';
 import * as ImagePicker from 'expo-image-picker';
-import { Image } from 'react-native';
 import { removeChatPhoto, uploadChatAudio, uploadChatPhoto, useChatPhotoUrl } from '../../lib/chatPhotos';
 import { RecordingPresets, requestRecordingPermissionsAsync, setAudioModeAsync, useAudioRecorder, useAudioRecorderState } from 'expo-audio';
 import VoiceBubble, { formatVoiceTime } from '../../components/VoiceBubble';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
 import { MainStackParamList, Message, Post, ReportTargetType } from '../../types';
+import { errorMessage } from '../../lib/errors';
 
 const PAGE_SIZE = 50;
 // How close to the bottom (in px) counts as "near the bottom" for auto-scroll
@@ -114,6 +114,8 @@ export default function ConversationScreen() {
   const route = useRoute<RouteProp<MainStackParamList, 'Conversation'>>();
   const { conversationId, otherUser } = route.params;
   const { user } = useAuth();
+  // Effects key off the id: `user` is a new object on every token refresh.
+  const userId = user?.id;
   const { showToast } = useToast();
   // This screen is stack-pushed full-screen (not nested in the bottom tab
   // bar), so its own composer sits at the true bottom edge on Android's
@@ -160,14 +162,15 @@ export default function ConversationScreen() {
   // Restore whatever was left unsent here last time (unless this chat was
   // opened with its own prefilled text), and keep saving it as it changes.
   const draftLoadedRef = useRef(false);
+  const prefillText = route.params.prefillText;
   useEffect(() => {
-    if (!user?.id) return;
+    if (!userId) return;
     let cancelled = false;
-    if (route.params.prefillText) {
+    if (prefillText) {
       draftLoadedRef.current = true;
       return;
     }
-    getChatDraft(user.id, conversationId).then((draft) => {
+    getChatDraft(userId, conversationId).then((draft) => {
       if (cancelled) return;
       if (draft) setText((current) => current || draft);
       draftLoadedRef.current = true;
@@ -175,7 +178,7 @@ export default function ConversationScreen() {
     return () => {
       cancelled = true;
     };
-  }, [user?.id, conversationId]);
+  }, [userId, conversationId, prefillText]);
   useEffect(() => {
     if (!user?.id || !draftLoadedRef.current || editingMessage) return;
     const timer = setTimeout(() => saveChatDraft(user.id, conversationId, text), 400);
@@ -345,8 +348,8 @@ export default function ConversationScreen() {
   useEffect(() => {
     loadMessages();
 
-    if (user) {
-      markMessagesAsRead(conversationId, user.id).catch(() => {});
+    if (userId) {
+      markMessagesAsRead(conversationId, userId).catch(() => {});
     }
 
     const unsubscribe = subscribeToMessages(conversationId, ({ type, message }) => {
@@ -354,7 +357,7 @@ export default function ConversationScreen() {
         // A message I just sent should always bring the bottom into view,
         // regardless of where I was scrolled — sending is an explicit
         // action that implies wanting to see it land (Step 63 polish).
-        if (user && message.sender_id === user.id) {
+        if (userId && message.sender_id === userId) {
           isNearBottomRef.current = true;
         }
         // Already on screen (my optimistic copy, or their live preview):
@@ -376,9 +379,9 @@ export default function ConversationScreen() {
           pendingScrollToEndRef.current = true;
         }
         // If the other person's message arrives while this screen is open, mark it read immediately.
-        if (user && message.sender_id !== user.id) {
+        if (userId && message.sender_id !== userId) {
           if (!isNearBottomRef.current) setUnseenCount((n) => n + 1);
-          markMessagesAsRead(conversationId, user.id).catch(() => {});
+          markMessagesAsRead(conversationId, userId).catch(() => {});
           // The message itself replaces the "typing..." bubble, so clear it right away
           // instead of waiting for the timeout below.
           setOtherTyping(false);
@@ -393,7 +396,7 @@ export default function ConversationScreen() {
     return () => {
       unsubscribe();
     };
-  }, [conversationId, user?.id, loadMessages]);
+  }, [conversationId, userId, loadMessages]);
 
   // Realtime doesn't replay events missed while disconnected (e.g. the app
   // backgrounded for a while and the OS suspended its network activity) — a
@@ -640,12 +643,12 @@ export default function ConversationScreen() {
           });
           setMessages((prev) => prev.filter((m) => m.id !== tempId));
           setText((t) => t || trimmed);
-          showToast(err instanceof Error ? err.message : "Couldn't send — try again");
+          showToast(errorMessage(err, "Couldn't send — try again"));
         }
         return;
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Could not send message.';
+      const message = errorMessage(err, 'Could not send message.');
       warmAlert('Error', message);
     } finally {
       setSending(false);
@@ -692,7 +695,7 @@ export default function ConversationScreen() {
       path = await uploadChatPhoto({ conversationId, senderId: user.id, localUri: asset.uri, mimeType: asset.mimeType ?? undefined });
       await sendMessage({ id: tempId, conversationId, senderId: user.id, content: caption, replyToMessageId: replyId ?? undefined, photoPath: path });
       setMessages((prev) => prev.map((m) => (m.id === tempId && !m.photo_path ? { ...m, photo_path: path } : m)));
-    } catch (err) {
+    } catch {
       removeChatPhoto(path);
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
       if (caption) setText((t) => t || caption);
@@ -815,7 +818,7 @@ export default function ConversationScreen() {
       setReplyTarget(null);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Could not send.';
+      const message = errorMessage(err, 'Could not send.');
       warmAlert('Error', message);
     } finally {
       setSending(false);
@@ -869,7 +872,7 @@ export default function ConversationScreen() {
             removeChatPhoto(message.audio_path);
             if (editingMessage?.id === message.id) handleCancelEdit();
           } catch (err) {
-            const errMessage = err instanceof Error ? err.message : 'Could not delete message.';
+            const errMessage = errorMessage(err, 'Could not delete message.');
             warmAlert('Error', errMessage);
           }
         },

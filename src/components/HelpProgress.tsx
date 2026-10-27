@@ -1,5 +1,5 @@
 import { Fragment, ReactNode, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, Animated, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, Animated, StyleSheet, useAnimatedValue } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Avatar from './Avatar';
 import NSIcon from './NSIcon';
@@ -53,7 +53,7 @@ export default function HelpProgress({
   // When the status moves forward while this is on screen (e.g. "Mark as
   // done" on PostDetail), the newly reached dot pops. Never on first render,
   // so scrolling a list of finished requests stays calm.
-  const pop = useRef(new Animated.Value(1)).current;
+  const pop = useAnimatedValue(1);
   const prevStatusRef = useRef(status);
   useEffect(() => {
     if (prevStatusRef.current === status) return;

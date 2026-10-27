@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Animated, StyleSheet, Text } from 'react-native';
+import { View, Animated, StyleSheet, Text, useAnimatedValue } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import TabGlyph, { TabGlyphName } from '../components/TabGlyph';
 import { MainTabParamList } from '../types';
-import { colors, fontFamily, radius, shadow } from '../constants/theme';
+import { colors, fontFamily, radius } from '../constants/theme';
 import { useAuth } from '../contexts/AuthContext';
 import { fetchProfileById } from '../lib/profile';
 import { fetchOpenHelpCountBySchool, fetchOpenHelpCountBySchoolId } from '../lib/posts';
@@ -34,7 +34,7 @@ const HELP_BADGE_REFRESH_MS = 30_000;
 // The selected tab's icon sits in a soft pill and gives a little hop when
 // it becomes selected — a "step" onto that tab.
 function TabIcon({ name, focused, size }: { name: TabGlyphName; focused: boolean; size: number }) {
-  const hop = useRef(new Animated.Value(focused ? 1 : 0)).current;
+  const hop = useAnimatedValue(focused ? 1 : 0);
   useEffect(() => {
     if (!focused) {
       hop.setValue(0);

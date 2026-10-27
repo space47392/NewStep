@@ -1,9 +1,8 @@
 import { File } from 'expo-file-system';
 import { supabase } from './supabase';
 import { colors } from '../constants/theme';
-import { SkyPalette } from './skyColors';
+import { SkyPalette, mixHex } from './skyColors';
 import { interpretSky } from './skyInterpret';
-import { mixHex } from './skyColors';
 
 // School Sky (supabase/school_sky.sql): one mood star per student, visible
 // to classmates for 24 hours after it was last set.

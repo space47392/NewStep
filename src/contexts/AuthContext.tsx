@@ -30,6 +30,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [username, setUsername] = useState<string | null>(null);
   const [usernameLoading, setUsernameLoading] = useState(true);
+  // Effects key off the id, not the user object, so a token refresh (same
+  // user, new object) doesn't re-run them.
+  const sessionUserId = session?.user?.id;
 
   useEffect(() => {
     // Load the current session when the app starts. The .catch() matters: without
@@ -59,10 +62,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Re-registers on every login (and on app reopen with a persisted session) —
     // harmless if it runs more than once, since it just overwrites the same token.
-    if (session?.user) {
-      registerForPushNotifications(session.user.id).catch((err) => console.warn('Push registration failed', err));
+    if (sessionUserId) {
+      registerForPushNotifications(sessionUserId).catch((err) => console.warn('Push registration failed', err));
     }
-  }, [session?.user?.id]);
+  }, [sessionUserId]);
 
   // Only fetches and returns the value — deliberately does NOT set state
   // itself, so callers control exactly when (and whether) a result still
@@ -74,7 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (!session?.user) {
+    if (!sessionUserId) {
       setUsername(null);
       setUsernameLoading(false);
       return;
@@ -89,7 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // invocation (triggered by session?.user?.id changing) starts (Step 40).
     let cancelled = false;
     setUsernameLoading(true);
-    fetchUsername(session.user.id)
+    fetchUsername(sessionUserId)
       .then((value) => {
         if (!cancelled) setUsername(value);
       })
@@ -103,7 +106,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [session?.user?.id, fetchUsername]);
+  }, [sessionUserId, fetchUsername]);
 
   // Called after the user successfully picks a username, so AppNavigator's gate
   // re-evaluates and lets them into the main app without needing to relog in.
@@ -111,10 +114,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // of the current session's own action, not a background load that could be
   // superseded by an account switch mid-flight.
   const refreshUsername = useCallback(async () => {
-    if (!session?.user) return;
-    const value = await fetchUsername(session.user.id);
+    if (!sessionUserId) return;
+    const value = await fetchUsername(sessionUserId);
     setUsername(value);
-  }, [session?.user, fetchUsername]);
+  }, [sessionUserId, fetchUsername]);
 
   const signOut = useCallback(
     async (options?: SignOutOptions) => {

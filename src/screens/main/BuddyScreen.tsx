@@ -29,6 +29,7 @@ import ErrorState from '../../components/ErrorState';
 import { warmAlert } from '../../components/WarmAlert';
 import { colors, spacing, radius, fontSize, fontFamily, typography } from '../../constants/theme';
 import { MainStackParamList } from '../../types';
+import { errorMessage } from '../../lib/errors';
 
 type Nav = NativeStackNavigationProp<MainStackParamList>;
 
@@ -76,7 +77,7 @@ export default function BuddyScreen() {
       if (done) showToast(done);
       await load();
     } catch (err) {
-      showToast(err instanceof Error ? err.message : "Couldn't do that — try again");
+      showToast(errorMessage(err, "Couldn't do that — try again"));
     } finally {
       setBusy(null);
     }

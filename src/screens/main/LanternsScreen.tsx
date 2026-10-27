@@ -19,7 +19,8 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useToast } from '../../contexts/ToastContext';
-import { fetchLanterns, sendLantern, soundsLikeCrisis, toggleLanternHug, Lantern, LANTERN_MAX, LANTERN_STARTERS } from '../../lib/lanterns';
+import { fetchLanterns, sendLantern, toggleLanternHug, Lantern, LANTERN_MAX, LANTERN_STARTERS } from '../../lib/lanterns';
+import { soundsLikeCrisis } from '../../lib/crisis';
 import { hasBlockedWords, KIND_WORDS_MESSAGE } from '../../lib/contentFilter';
 import { formatRelativeTime } from '../../lib/time';
 import LanternBackdrop from '../../components/LanternBackdrop';
@@ -27,6 +28,7 @@ import PrimaryButton from '../../components/PrimaryButton';
 import SupportLines from '../../components/SupportLines';
 import { colors, spacing, fontSize, fontFamily } from '../../constants/theme';
 import { MainStackParamList } from '../../types';
+import { errorMessage } from '../../lib/errors';
 
 // Lanterns: a quiet, warm place to set a worry down without your name, and
 // to send warm notes to classmates who did. Always one tap from writing.
@@ -106,7 +108,7 @@ export default function LanternsScreen() {
       showToast('Your lantern is up 🏮 Thank you for sharing it.');
       await load();
     } catch (err) {
-      showToast(err instanceof Error ? err.message : "Couldn't send the lantern");
+      showToast(errorMessage(err, "Couldn't send the lantern"));
     } finally {
       setSending(false);
     }
@@ -129,7 +131,7 @@ export default function LanternsScreen() {
       if (now !== next) bump(now);
     } catch (err) {
       bump(!next);
-      showToast(err instanceof Error ? err.message : "Couldn't do that");
+      showToast(errorMessage(err, "Couldn't do that"));
     }
   };
 

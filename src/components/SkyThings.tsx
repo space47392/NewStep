@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef } from 'react';
-import { Animated, Easing, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { useEffect, useMemo } from 'react';
+import { Animated, Easing, StyleSheet, View, useWindowDimensions, useAnimatedValue } from 'react-native';
 import Svg, { Defs, LinearGradient, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { SkyThing } from '../lib/sky';
 
@@ -8,7 +8,7 @@ import { SkyThing } from '../lib/sky';
 // flash. Rain and shooting stars are handled by the mood-weather layer.
 
 function useLoop(duration: number, delay = 0) {
-  const t = useRef(new Animated.Value(0)).current;
+  const t = useAnimatedValue(0);
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([

@@ -1,5 +1,5 @@
-import { ReactNode, useEffect, useMemo, useRef } from 'react';
-import { Animated, Easing, LayoutChangeEvent, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
+import { ReactNode, useEffect, useMemo } from 'react';
+import { Animated, Easing, LayoutChangeEvent, StyleProp, StyleSheet, View, ViewStyle, useAnimatedValue } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { colors, radius } from '../constants/theme';
 import { TodaySky } from '../lib/sky';
@@ -28,7 +28,7 @@ const DUST = [
 const SPARKLE = 'M12 0 C13 8 16 11 24 12 C16 13 13 16 12 24 C11 16 8 13 0 12 C8 11 11 8 12 0 Z';
 
 function Twinkle({ star }: { star: Star }) {
-  const t = useRef(new Animated.Value(0)).current;
+  const t = useAnimatedValue(0);
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
@@ -72,7 +72,7 @@ type Props = {
 
 // A couple of soft clouds for the header when the described sky had them.
 function HeaderCloud({ x, y, w, color }: { x: number; y: number; w: number; color: string }) {
-  const t = useRef(new Animated.Value(0)).current;
+  const t = useAnimatedValue(0);
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
@@ -111,10 +111,10 @@ function HeaderCloud({ x, y, w, color }: { x: number; y: number; w: number; colo
 
 export default function NightSkyCard({ children, style, onLayout, sky }: Props) {
   // Fade the described sky in over the night.
-  const fade = useRef(new Animated.Value(0)).current;
+  const fade = useAnimatedValue(0);
   const skyKey = sky ? sky.colors.join(',') : '';
   useEffect(() => {
-    if (!sky) return;
+    if (!skyKey) return;
     fade.setValue(0);
     Animated.timing(fade, { toValue: 1, duration: 1200, easing: Easing.inOut(Easing.quad), useNativeDriver: true }).start();
   }, [skyKey, fade]);

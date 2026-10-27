@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef } from 'react';
 import { TouchableOpacity, Text, GestureResponderEvent, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
+import { useSyncedState } from '../lib/useSyncedState';
 import { markInterested, unmarkInterested } from '../lib/eventInterests';
 import { colors, spacing, radius, fontSize, fontFamily } from '../constants/theme';
 
@@ -26,14 +27,10 @@ type Props = {
 export default function InterestButton({ postId, initialInterested, onToggle }: Props) {
   const { user } = useAuth();
   const { showToast } = useToast();
-  const [interested, setInterested] = useState(initialInterested);
+  const [interested, setInterested] = useSyncedState(initialInterested);
   // Guards against a fast double-tap firing two overlapping toggle calls
   // before the first resolves.
   const pendingRef = useRef(false);
-
-  useEffect(() => {
-    setInterested(initialInterested);
-  }, [initialInterested]);
 
   const handleToggle = async (e: GestureResponderEvent) => {
     e.stopPropagation();

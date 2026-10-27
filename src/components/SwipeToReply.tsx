@@ -1,5 +1,5 @@
-import { ReactNode, useMemo, useRef } from 'react';
-import { Animated, PanResponder, StyleSheet, View } from 'react-native';
+import { ReactNode, useMemo, useRef, useEffect } from 'react';
+import { Animated, PanResponder, StyleSheet, View, useAnimatedValue } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { colors } from '../constants/theme';
@@ -16,13 +16,18 @@ type Props = {
 };
 
 export default function SwipeToReply({ children, onReply, enabled = true }: Props) {
-  const dx = useRef(new Animated.Value(0)).current;
+  const dx = useAnimatedValue(0);
   const triggeredRef = useRef(false);
+  // Always call the latest onReply without rebuilding the responder.
   const onReplyRef = useRef(onReply);
-  onReplyRef.current = onReply;
+  useEffect(() => {
+    onReplyRef.current = onReply;
+  }, [onReply]);
 
   const responder = useMemo(
     () =>
+      // The handlers read refs on touch, not during render.
+      // eslint-disable-next-line react-hooks/refs
       PanResponder.create({
         onMoveShouldSetPanResponder: (_, g) => g.dx > 12 && Math.abs(g.dx) > Math.abs(g.dy) * 2,
         onPanResponderTerminationRequest: () => false,

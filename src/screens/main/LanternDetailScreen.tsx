@@ -39,6 +39,7 @@ import { useWarmSheet } from '../../components/WarmSheet';
 import { LanternGlyph } from './LanternsScreen';
 import { colors, spacing, fontSize, fontFamily } from '../../constants/theme';
 import { MainStackParamList } from '../../types';
+import { errorMessage } from '../../lib/errors';
 
 // One lantern and the warm notes sent to it. Notes carry the sender's name;
 // there are no replies to replies. The lantern's writer can hide a note.
@@ -88,7 +89,7 @@ export default function LanternDetailScreen() {
       showToast('Your warm note is on its way 💛');
       await load();
     } catch (err) {
-      showToast(err instanceof Error ? err.message : "Couldn't send the note");
+      showToast(errorMessage(err, "Couldn't send the note"));
     } finally {
       setSending(false);
     }
@@ -154,7 +155,7 @@ export default function LanternDetailScreen() {
     } catch (e) {
       setHugged(!next);
       setHugs((h) => h - (next ? 1 : -1));
-      showToast(e instanceof Error ? e.message : "Couldn't do that");
+      showToast(errorMessage(e, "Couldn't do that"));
     }
   };
 
@@ -167,7 +168,7 @@ export default function LanternDetailScreen() {
       showToast(`We let ${n.author_name?.split(' ')[0] ?? 'them'} know it helped 💛`);
     } catch (e) {
       setNotes((all) => all.map((x) => (x.id === n.id ? { ...x, helped: false } : x)));
-      showToast(e instanceof Error ? e.message : "Couldn't do that");
+      showToast(errorMessage(e, "Couldn't do that"));
     }
   };
 

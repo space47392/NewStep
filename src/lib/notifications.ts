@@ -15,10 +15,10 @@ import type { NSIconName } from '../components/NSIcon';
 // way to skip loading the module's code entirely when running in Expo Go.
 const isExpoGo = isRunningInExpoGo();
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 const Notifications: typeof import('expo-notifications') | null = isExpoGo
   ? null
-  : require('expo-notifications');
+  : // eslint-disable-next-line @typescript-eslint/no-require-imports
+    require('expo-notifications');
 
 // Controls how a notification is shown while the app is open in the foreground.
 if (Notifications) {

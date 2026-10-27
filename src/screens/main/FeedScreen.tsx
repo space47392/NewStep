@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, FlatList, RefreshControl, TouchableOpacity, ActivityIndicator, ScrollView, StyleSheet, Animated } from 'react-native';
+import { View, Text, FlatList, RefreshControl, TouchableOpacity, ActivityIndicator, ScrollView, StyleSheet, Animated, useAnimatedValue } from 'react-native';
 import { warmAlert } from '../../components/WarmAlert';
 import { useFocusEffect, useIsFocused, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -59,6 +59,7 @@ import PhotoCarousel from '../../components/PhotoCarousel';
 import { Post, Story, MainStackParamList, ReportTargetType, PostCategory } from '../../types';
 import PressableScale from '../../components/PressableScale';
 import { colors, spacing, radius, fontSize, fontFamily, shadow, typography } from '../../constants/theme';
+import { errorMessage } from '../../lib/errors';
 
 // Shared by both feeds' pagination — same page size, same .range() shape.
 const PAGE_SIZE = 20;
@@ -108,7 +109,7 @@ export default function FeedScreen() {
   const isFocused = useIsFocused();
   const lastScrollY = useRef(0);
   const fabShownRef = useRef(true);
-  const fabAnim = useRef(new Animated.Value(1)).current;
+  const fabAnim = useAnimatedValue(1);
   // Today's School Sky, as classmates described it, fills the header.
   const todaySky = useTodaySky(user?.id);
   const [categoryFilter, setCategoryFilter] = useState<'All' | PostCategory>('All');
@@ -259,7 +260,7 @@ export default function FeedScreen() {
     } catch (err) {
       // Transient/retryable, not destructive — a toast is enough, no need to
       // interrupt with a blocking dialog (Step 30).
-      const message = err instanceof Error ? err.message : 'Could not volunteer to help.';
+      const message = errorMessage(err, 'Could not volunteer to help.');
       showToast(message);
     } finally {
       setVolunteeringPostId(null);
@@ -637,7 +638,7 @@ export default function FeedScreen() {
       await loadStories();
       showToast('Story posted');
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Could not post story.';
+      const message = errorMessage(err, 'Could not post story.');
       warmAlert('Error', message);
     } finally {
       setUploadingStory(false);
@@ -665,7 +666,7 @@ export default function FeedScreen() {
             removePostFromLists(post.id);
             showToast('Post deleted');
           } catch (err) {
-            const message = err instanceof Error ? err.message : 'Could not delete post.';
+            const message = errorMessage(err, 'Could not delete post.');
             warmAlert('Error', message);
           } finally {
             setDeletingPostId(null);

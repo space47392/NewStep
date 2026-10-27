@@ -50,14 +50,6 @@ export const NOTE_STARTERS = [
   'Sending you a hug 🫂',
 ];
 
-// Signs the writer may be in danger (kept in step with
-// sounds_like_crisis() in the SQL). Used to show support lines first.
-const CRISIS = /(kill ?my ?self|\bkms\b|want(ed)? to die|wanna die|end (it all|my life)|suicid|self[- ]?harm|cut(ting)? myself|hurt myself|no reason to live|better off without me|don'?t want to be here|disappear forever|죽고\s?싶|자살|자해|살기\s?싫|사라지고\s?싶|없어지고\s?싶|끝내고\s?싶|손목|뛰어내리)/i;
-
-export function soundsLikeCrisis(text: string): boolean {
-  return CRISIS.test(text);
-}
-
 export async function fetchLanterns(): Promise<Lantern[]> {
   const { data, error } = await supabase.rpc('fetch_lanterns');
   if (error) throw error;

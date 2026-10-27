@@ -1,20 +1,5 @@
 import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  TextInput,
-  Modal,
-  KeyboardAvoidingView,
-  Platform,
-  ActivityIndicator,
-  Animated,
-  Easing,
-  Image,
-  FlatList,
-  ScrollView,
-  StyleSheet,
-} from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, Modal, KeyboardAvoidingView, Platform, ActivityIndicator, Animated, Easing, Image, ScrollView, StyleSheet, useAnimatedValue } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -24,10 +9,11 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import Svg, { Path, Defs, RadialGradient, LinearGradient, Rect, Circle, Stop } from 'react-native-svg';
 import SkyScene, { Horizon, skyPhase, phaseWords, DescribedSkyLook, landColors, PHASE_SKY } from '../../components/SkyScene';
-import { extractSkyPalette, paintSky, mixHex, SkyPalette } from '../../lib/skyColors';
+import { extractSkyPalette, paintSky, SkyPalette } from '../../lib/skyColors';
 import SkyWeather from '../../components/SkyWeather';
 import { hasBlockedWords, KIND_WORDS_MESSAGE } from '../../lib/contentFilter';
 import { fetchLanterns, Lantern } from '../../lib/lanterns';
+import { soundsLikeCrisis } from '../../lib/crisis';
 import { useWarmSheet } from '../../components/WarmSheet';
 import { SkyTile, SkyWindow, skiesFor, currentSlot, FALLBACK_SCENE } from '../../components/SkyCheckSheet';
 import { interpretSky } from '../../lib/skyInterpret';
@@ -72,7 +58,6 @@ import {
   SkyStar,
 } from '../../lib/sky';
 import { fetchBlockedUserIds } from '../../lib/blocks';
-import { soundsLikeCrisis } from '../../lib/lanterns';
 import { getOrCreateConversation, sendMessage } from '../../lib/chat';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import BreatheSheet from '../../components/BreatheSheet';
@@ -83,6 +68,7 @@ import PrimaryButton from '../../components/PrimaryButton';
 import ReportSheet from '../../components/ReportSheet';
 import { colors, spacing, radius, fontSize, fontFamily, dark } from '../../constants/theme';
 import { MainStackParamList, ReportTargetType } from '../../types';
+import { errorMessage } from '../../lib/errors';
 
 
 const SPARKLE = 'M12 0 C13 8 16 11 24 12 C16 13 13 16 12 24 C11 16 8 13 0 12 C8 11 11 8 12 0 Z';
@@ -115,7 +101,7 @@ function SkyStarButton({
   onPress: () => void;
   onLongPress: () => void;
 }) {
-  const burst = useRef(new Animated.Value(1)).current;
+  const burst = useAnimatedValue(1);
   useEffect(() => {
     if (burstKey === 0) return;
     burst.setValue(0);
@@ -124,8 +110,8 @@ function SkyStarButton({
   const mood = skyMood(star.mood);
   const pos = starPosition(star.user_id, index);
   const size = mine ? 38 : 32;
-  const pulse = useRef(new Animated.Value(0)).current;
-  const rise = useRef(new Animated.Value(0)).current;
+  const pulse = useAnimatedValue(0);
+  const rise = useAnimatedValue(0);
   useEffect(() => {
     Animated.spring(rise, { toValue: 1, delay: 150 + index * 140, friction: 6, useNativeDriver: true }).start();
     const loop = Animated.loop(
@@ -139,7 +125,7 @@ function SkyStarButton({
     return () => loop.stop();
   }, [pulse, rise, index]);
 
-  const arrive = useRef(new Animated.Value(1)).current;
+  const arrive = useAnimatedValue(1);
   useEffect(() => {
     if (!justPlaced) return;
     arrive.setValue(0);
@@ -309,7 +295,7 @@ function SkyStarButton({
 // A slower shooting star you can catch (tap) to make a wish. Crosses the
 // sky every so often; more often when the school is excited.
 function CatchableStar({ width, height, frequent, onCatch }: { width: number; height: number; frequent: boolean; onCatch: () => void }) {
-  const t = useRef(new Animated.Value(0)).current;
+  const t = useAnimatedValue(0);
   const [flying, setFlying] = useState(false);
   const [lane] = useState(() => Math.random());
   useEffect(() => {
@@ -367,7 +353,7 @@ function CatchableStar({ width, height, frequent, onCatch }: { width: number; he
 
 // A classmate's lantern, drifting up slowly with a warm glow.
 function FloatingLantern({ lantern, index, width, height, onPress }: { lantern: Lantern; index: number; width: number; height: number; onPress: () => void }) {
-  const drift = useRef(new Animated.Value(0)).current;
+  const drift = useAnimatedValue(0);
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
@@ -412,7 +398,7 @@ function FloatingLantern({ lantern, index, width, height, onPress }: { lantern: 
 
 // Today's wishes, as small warm lights floating just above the horizon.
 function WishLight({ wish, index, width, height, selected, onPress }: { wish: SkyWish; index: number; width: number; height: number; selected: boolean; onPress: () => void }) {
-  const bob = useRef(new Animated.Value(0)).current;
+  const bob = useAnimatedValue(0);
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
@@ -490,7 +476,7 @@ const FOLLOW_UPS: Record<SkyMood, { q: string; placeholder: string }> = {
 // Each composer step slides in from its side, so moving between them feels
 // like turning to the next page.
 function SlideIn({ from, children }: { from: number; children: ReactNode }) {
-  const t = useRef(new Animated.Value(0)).current;
+  const t = useAnimatedValue(0);
   useEffect(() => {
     Animated.timing(t, { toValue: 1, duration: 220, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
   }, [t]);
@@ -503,7 +489,7 @@ function SlideIn({ from, children }: { from: number; children: ReactNode }) {
 
 // A soft four-point star that breathes in the window of the star composer.
 function MoodStar({ color }: { color: string }) {
-  const pulse = useRef(new Animated.Value(0)).current;
+  const pulse = useAnimatedValue(0);
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
@@ -566,7 +552,7 @@ export default function SchoolSkyScreen() {
 
   // Entering: the screen is dark for a breath, then the sky lifts into view —
   // like looking up.
-  const lookUp = useRef(new Animated.Value(0)).current;
+  const lookUp = useAnimatedValue(0);
   useEffect(() => {
     Animated.timing(lookUp, { toValue: 1, duration: 600, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
   }, [lookUp]);
@@ -609,7 +595,7 @@ export default function SchoolSkyScreen() {
   const [wishSaving, setWishSaving] = useState(false);
   // A little light that flies from the bottom of the sky to a star when you
   // send it a twinkle.
-  const fly = useRef(new Animated.Value(0)).current;
+  const fly = useAnimatedValue(0);
   const [flyTo, setFlyTo] = useState<{ x: number; y: number; color: string } | null>(null);
 
   const load = useCallback(async () => {
@@ -668,7 +654,7 @@ export default function SchoolSkyScreen() {
       const first = star.profile?.full_name?.trim().split(/\s+/)[0] ?? 'them';
       showToast(`Twinkle sent to ${first} ✨`);
     } catch (err) {
-      showToast(err instanceof Error ? err.message : "Couldn't send the twinkle");
+      showToast(errorMessage(err, "Couldn't send the twinkle"));
     }
   };
 
@@ -693,7 +679,7 @@ export default function SchoolSkyScreen() {
       showToast('Your wish is floating in the sky 🌠');
       setWishes(await fetchWishes().catch(() => wishes));
     } catch (err) {
-      showToast(err instanceof Error ? err.message : "Couldn't make the wish");
+      showToast(errorMessage(err, "Couldn't make the wish"));
     } finally {
       setWishSaving(false);
     }
@@ -707,7 +693,7 @@ export default function SchoolSkyScreen() {
       await cheerWish(wish.id);
     } catch (err) {
       setWishes((ws) => ws.map((w) => (w.id === wish.id ? { ...w, cheered: false, cheers: w.cheers - 1 } : w)));
-      showToast(err instanceof Error ? err.message : "Couldn't cheer that wish");
+      showToast(errorMessage(err, "Couldn't cheer that wish"));
     }
   };
 
@@ -726,7 +712,7 @@ export default function SchoolSkyScreen() {
               setWishes((ws) => ws.filter((w) => w.id !== wish.id));
               showToast('Reported — thank you 💛');
             } catch (err) {
-              showToast(err instanceof Error ? err.message : "Couldn't report the wish");
+              showToast(errorMessage(err, "Couldn't report the wish"));
             }
           },
         },
@@ -819,7 +805,7 @@ export default function SchoolSkyScreen() {
       setSkyScene(scene);
       setPreviewing(true);
     } catch (err) {
-      setPaintError(err instanceof Error ? err.message : "Couldn't paint the sky right now.");
+      setPaintError(errorMessage(err, "Couldn't paint the sky right now."));
     } finally {
       setPainting(false);
     }
@@ -876,7 +862,7 @@ export default function SchoolSkyScreen() {
       showToast(myStar ? 'Your star is updated ✨' : 'Your star is in the sky ✨');
       await load();
       if (user) setSelectedId(user.id);
-      setPlacedKey(Date.now());
+      setPlacedKey((k) => k + 1);
       if (user && (mood === 'down' || mood === 'nervous')) {
         const savedMood = mood;
         const uid = user.id;
@@ -894,7 +880,7 @@ export default function SchoolSkyScreen() {
         }, 2600);
       }
     } catch (err) {
-      showToast(err instanceof Error ? err.message : "Couldn't save your star");
+      showToast(errorMessage(err, "Couldn't save your star"));
     } finally {
       setSaving(false);
     }

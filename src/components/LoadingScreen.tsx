@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { View, Text, Animated, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, fontSize, fontFamily } from '../constants/theme';
@@ -13,7 +13,7 @@ const STEP_MS = 280;
 // Three footprints lighting up one after another — "taking a step" — instead
 // of a generic spinner, matching the footprints on the login screen.
 export default function LoadingScreen({ message }: Props) {
-  const steps = useRef(Array.from({ length: STEPS }, () => new Animated.Value(0))).current;
+  const [steps] = useState(() => Array.from({ length: STEPS }, () => new Animated.Value(0)));
 
   useEffect(() => {
     const loop = Animated.loop(

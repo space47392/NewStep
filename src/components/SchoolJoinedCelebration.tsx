@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react';
-import { View, Text, Animated, Easing, Modal, TouchableWithoutFeedback, StyleSheet } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { View, Text, Animated, Easing, Modal, TouchableWithoutFeedback, StyleSheet, useAnimatedValue } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import NSIcon from './NSIcon';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../constants/theme';
@@ -17,8 +17,8 @@ const HOLD_MS = 1600;
 // bunting as the school page header, with the flags dropping in one by one
 // and swinging into place. Tap anywhere to move on sooner.
 export default function SchoolJoinedCelebration({ schoolName, onDone }: Props) {
-  const card = useRef(new Animated.Value(0)).current;
-  const flags = useRef(Array.from({ length: FLAGS }, () => new Animated.Value(0))).current;
+  const card = useAnimatedValue(0);
+  const [flags] = useState(() => Array.from({ length: FLAGS }, () => new Animated.Value(0)));
   const doneRef = useRef(false);
 
   const finish = () => {

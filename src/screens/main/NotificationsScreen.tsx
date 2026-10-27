@@ -24,7 +24,7 @@ import EmptyState from '../../components/EmptyState';
 import ErrorState from '../../components/ErrorState';
 import LoadingScreen from '../../components/LoadingScreen';
 import FadeInView from '../../components/FadeInView';
-import { colors, spacing, radius, fontSize, fontFamily, shadow, typography } from '../../constants/theme';
+import { colors, spacing, radius, fontSize, fontFamily, typography } from '../../constants/theme';
 import PressableScale from '../../components/PressableScale';
 import { AppNotification, MainStackParamList } from '../../types';
 

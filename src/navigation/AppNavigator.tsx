@@ -4,19 +4,6 @@ import { warmAlert } from '../components/WarmAlert';
 import { NavigationContainer, DarkTheme } from '@react-navigation/native';
 import { colors, light } from '../constants/theme';
 
-// Native backgrounds (screen transitions, overscroll) match the soft-night
-// palette so nothing flashes white between screens.
-const NAV_THEME = {
-  ...DarkTheme,
-  colors: {
-    ...DarkTheme.colors,
-    primary: colors.primary,
-    background: colors.background,
-    card: colors.tabBar,
-    text: colors.textDark,
-    border: colors.border,
-  },
-};
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { useAuth } from '../contexts/AuthContext';
@@ -38,6 +25,19 @@ import MainNavigator from './MainNavigator';
 import { navigationRef } from './navigationRef';
 import { useScreenContentStyle, NO_TOP_INSET } from './screenInsets';
 
+// Native backgrounds (screen transitions, overscroll) match the soft-night
+// palette so nothing flashes white between screens.
+const NAV_THEME = {
+  ...DarkTheme,
+  colors: {
+    ...DarkTheme.colors,
+    primary: colors.primary,
+    background: colors.background,
+    card: colors.tabBar,
+    text: colors.textDark,
+    border: colors.border,
+  },
+};
 const RootStack = createNativeStackNavigator<RootStackParamList>();
 
 // Reads key=value pairs from a link's #fragment (where Supabase puts tokens)

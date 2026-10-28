@@ -20,6 +20,7 @@ import EditProfileScreen from '../screens/main/EditProfileScreen';
 import SettingsScreen from '../screens/main/SettingsScreen';
 import BuddyScreen from '../screens/main/BuddyScreen';
 import SchoolGuideScreen from '../screens/main/SchoolGuideScreen';
+import FirstWeekScreen from '../screens/main/FirstWeekScreen';
 import ChangePasswordScreen from '../screens/main/ChangePasswordScreen';
 import BlockedAccountsScreen from '../screens/main/BlockedAccountsScreen';
 import LegalScreen from '../screens/main/LegalScreen';
@@ -65,6 +66,7 @@ export default function MainNavigator() {
       <Stack.Screen name="Settings" component={SettingsScreen} />
       <Stack.Screen name="Buddy" component={BuddyScreen} />
       <Stack.Screen name="SchoolGuide" component={SchoolGuideScreen} />
+      <Stack.Screen name="FirstWeek" component={FirstWeekScreen} />
       <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
       <Stack.Screen name="BlockedAccounts" component={BlockedAccountsScreen} />
       <Stack.Screen name="Legal" component={LegalScreen} />

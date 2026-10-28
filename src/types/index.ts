@@ -95,6 +95,7 @@ export type MainStackParamList = {
   Settings: undefined;
   Buddy: undefined;
   SchoolGuide: undefined;
+  FirstWeek: undefined;
   ChangePassword: undefined;
   BlockedAccounts: undefined;
   Legal: { doc: LegalDoc };

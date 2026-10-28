@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState, useEffect } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -14,6 +14,7 @@ import {
   View,
 } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { setFirstWeekStep } from '../../lib/firstWeekApi';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -65,6 +66,11 @@ export default function SchoolGuideScreen() {
       setFailed(true);
     }
   }, [user]);
+
+  // Opening the guide is the "read the school guide" first-week step.
+  useEffect(() => {
+    setFirstWeekStep('guide').catch(() => {});
+  }, []);
 
   useFocusEffect(
     useCallback(() => {

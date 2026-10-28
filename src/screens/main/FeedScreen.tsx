@@ -45,6 +45,7 @@ import HelpStatusPill from '../../components/HelpStatusPill';
 import { offerHelp, fetchMyOfferPostIds } from '../../lib/helpOffers';
 import LanternInvite from '../../components/LanternInvite';
 import BuddyHomeCard from '../../components/BuddyHomeCard';
+import FirstWeekCard from '../../components/FirstWeekCard';
 import SkyPeek from '../../components/SkyPeek';
 import { useTodaySky } from '../../lib/useTodaySky';
 import PrimaryButton from '../../components/PrimaryButton';
@@ -896,22 +897,9 @@ export default function FeedScreen() {
               />
             ) : null}
             </NightSkyCard>
+            {/* New here: the first-week checklist (the school guide is one of its steps). */}
             {isNewStudent && mySchoolName && !welcomeBannerDismissed && (
-              <FadeInView style={styles.welcomeCard}>
-                <Text style={styles.welcomeEmoji}>👋</Text>
-                <TouchableOpacity
-                  style={{ flex: 1 }}
-                  onPress={() => navigation.navigate('SchoolGuide')}
-                  accessibilityRole="button"
-                >
-                  <Text style={styles.welcomeSubtitle} numberOfLines={1}>
-                    New here? <Text style={styles.welcomeButtonText}>Read the school guide ›</Text>
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={handleDismissWelcome} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityLabel="Dismiss">
-                  <Ionicons name="close" size={16} color={colors.textLight} />
-                </TouchableOpacity>
-              </FadeInView>
+              <FirstWeekCard onOpen={() => navigation.navigate('FirstWeek')} onDismiss={handleDismissWelcome} />
             )}
 
             {/* Buddy: someone asked you, your buddy, or (if you're new) find one. */}
@@ -1288,33 +1276,6 @@ const styles = StyleSheet.create({
     // FAB's own offset + size, plus a full extra spacing.xxl of clear gap
     // above it (not just barely touching) — see the comment above.
     paddingBottom: FAB_BOTTOM_OFFSET + FAB_SIZE + spacing.xxl,
-  },
-  welcomeCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    borderRadius: radius.md,
-    backgroundColor: colors.cardBg,
-    borderWidth: 1,
-    borderColor: colors.hairline,
-    paddingVertical: spacing.sm + 2,
-    paddingHorizontal: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  welcomeEmoji: {
-    fontSize: 16,
-  },
-  // Now the banner's first line, so it carries the ✕ clearance the removed
-  // headline used to.
-  welcomeSubtitle: {
-    fontFamily: fontFamily.medium,
-    fontSize: fontSize.sm,
-    color: colors.textDark,
-  },
-  welcomeButtonText: {
-    fontFamily: fontFamily.semibold,
-    fontSize: fontSize.sm,
-    color: colors.primaryDark,
   },
   storyCard: {
     marginTop: spacing.md,

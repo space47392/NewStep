@@ -1,3 +1,5 @@
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { indexReactions, nextReaction, REACTIONS, summarizeReactions } from '../reactionSummary';
 
 const r = (message_id: string, user_id: string, emoji: string | null) => ({ message_id, user_id, emoji });
@@ -38,8 +40,7 @@ describe('nextReaction', () => {
 });
 
 it('matches the emoji list in message_reactions.sql', () => {
-  const fs = require('fs') as typeof import('fs');
-  const sql = fs.readFileSync(require('path').join(__dirname, '../../../supabase/message_reactions.sql'), 'utf8');
+  const sql = readFileSync(join(__dirname, '../../../supabase/message_reactions.sql'), 'utf8');
   const lists = [...sql.matchAll(/in \(('[^)]*')\)/g)].map((m) => m[1]);
   expect(lists.length).toBeGreaterThanOrEqual(2);
   for (const list of lists) expect(list).toBe(REACTIONS.map((e) => `'${e}'`).join(', '));

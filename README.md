@@ -65,6 +65,12 @@ scripts/         one-off Node scripts (school data import)
   a prop uses `useSyncedState()`.
 - **Effects key off ids** (`user?.id`), not objects. The Supabase `user`
   object is replaced on every token refresh.
+- **Long lists:** rows are `memo` components (for example
+  `components/chat/MessageRow`). Pass them handlers from
+  `useStableCallback()`, so typing elsewhere on the screen doesn't
+  re-render every row.
+- **Permissions** (photos, camera, microphone) always go through
+  `askPermission()`. When the system won't ask again, it offers Open Settings.
 - **Copy:** the UI is in English and warm in tone. Errors say what to do next.
 
 ## Before release

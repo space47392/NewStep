@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { askPermission } from '../../components/askPermission';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { fetchSchoolById } from '../../lib/schools';
@@ -168,11 +169,7 @@ export default function EditProfileScreen() {
   // deferred to handleSave() below, so picking a new photo and then choosing
   // "Discard changes?" never touches the existing avatar file (Step 42).
   const handlePickAvatar = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      warmAlert('Permission needed', 'Please allow photo library access to set a profile picture.');
-      return;
-    }
+    if (!(await askPermission(ImagePicker.requestMediaLibraryPermissionsAsync, 'photos', 'to set a profile picture'))) return;
 
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],

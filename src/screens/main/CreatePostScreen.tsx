@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { askPermission } from '../../components/askPermission';
 import * as Crypto from 'expo-crypto';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useAuth } from '../../contexts/AuthContext';
@@ -170,11 +171,7 @@ export default function CreatePostScreen() {
   const handlePickPhotos = async () => {
     if (remainingSlots <= 0) return;
 
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      warmAlert('Permission needed', 'Please allow photo library access to add photos.');
-      return;
-    }
+    if (!(await askPermission(ImagePicker.requestMediaLibraryPermissionsAsync, 'photos', 'to add photos'))) return;
 
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],

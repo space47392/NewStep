@@ -7,6 +7,7 @@ import { StatusBar } from 'expo-status-bar';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { askPermission } from '../../components/askPermission';
 import * as Haptics from 'expo-haptics';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -617,11 +618,7 @@ export default function FeedScreen() {
 
   const handleAddStory = async () => {
     if (!user) return;
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      warmAlert('Permission needed', 'Please allow photo library access to post a story.');
-      return;
-    }
+    if (!(await askPermission(ImagePicker.requestMediaLibraryPermissionsAsync, 'photos', 'to post a story'))) return;
 
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],

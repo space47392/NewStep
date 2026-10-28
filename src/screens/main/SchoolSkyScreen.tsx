@@ -1,6 +1,7 @@
 import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, TextInput, Modal, KeyboardAvoidingView, Platform, ActivityIndicator, Animated, Easing, Image, ScrollView, StyleSheet, useAnimatedValue } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { askPermission } from '../../components/askPermission';
 import { useFocusEffect, useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -768,11 +769,7 @@ export default function SchoolSkyScreen() {
   // Camera only, on purpose: the point is to look up at the real sky right
   // now, not to pick an old photo.
   const handleSnapSky = async () => {
-    const permission = await ImagePicker.requestCameraPermissionsAsync();
-    if (!permission.granted) {
-      showToast('Allow camera access to snap the sky');
-      return;
-    }
+    if (!(await askPermission(ImagePicker.requestCameraPermissionsAsync, 'camera', 'to snap the sky'))) return;
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ['images'],
       allowsEditing: true,

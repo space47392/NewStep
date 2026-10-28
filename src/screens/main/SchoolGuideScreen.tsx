@@ -268,20 +268,23 @@ export default function SchoolGuideScreen() {
                       {mine ? 'You' : item.author?.full_name ?? 'A classmate'} · {formatRelativeTime(item.created_at)}
                     </Text>
                   </TouchableOpacity>
-                  <PressableScale
-                    style={[styles.helped, on && styles.helpedOn]}
-                    pressedScale={0.9}
-                    disabled={mine}
-                    onPress={() => toggleHelped(item)}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: on }}
-                  >
-                    <Ionicons name={on ? 'heart' : 'heart-outline'} size={15} color={on ? colors.error : colors.textMid} />
-                    <Text style={[styles.helpedText, on && styles.helpedTextOn]}>
-                      {item.helpful_count > 0 ? `${item.helpful_count} ` : ''}
-                      {mine ? 'found it helpful' : on ? 'Helped' : 'This helped'}
-                    </Text>
-                  </PressableScale>
+                  {/* You can't mark your own tip; it just shows the count once there is one. */}
+                  {mine && item.helpful_count === 0 ? null : (
+                    <PressableScale
+                      style={[styles.helped, on && styles.helpedOn]}
+                      pressedScale={0.9}
+                      disabled={mine}
+                      onPress={() => toggleHelped(item)}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: on }}
+                    >
+                      <Ionicons name={on ? 'heart' : 'heart-outline'} size={15} color={on ? colors.error : colors.textMid} />
+                      <Text style={[styles.helpedText, on && styles.helpedTextOn]}>
+                        {item.helpful_count > 0 ? `${item.helpful_count} ` : ''}
+                        {mine ? 'found it helpful' : on ? 'Helped' : 'This helped'}
+                      </Text>
+                    </PressableScale>
+                  )}
                 </View>
               </View>
             </FadeInView>

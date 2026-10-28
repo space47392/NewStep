@@ -1,4 +1,3 @@
-
 import {
   Animated,
   Text,
@@ -97,11 +96,14 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     borderWidth: 1.5,
     paddingVertical: spacing.md,
+    // Matters when the button sizes to its label (not stretched full width).
+    paddingHorizontal: spacing.lg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   buttonSm: {
     paddingVertical: spacing.xs + 3,
+    paddingHorizontal: spacing.md,
     borderRadius: radius.full,
   },
   textSm: {

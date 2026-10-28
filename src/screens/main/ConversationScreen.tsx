@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, Image, FlatList, TextInput, TouchableOpacity, KeyboardAvoidingView, Keyboard, Platform, ActivityIndicator, AppState, StyleSheet, NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
+import { View, Text, FlatList, TextInput, TouchableOpacity, KeyboardAvoidingView, Keyboard, Platform, ActivityIndicator, AppState, StyleSheet, NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import { warmAlert } from '../../components/WarmAlert';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -21,93 +21,37 @@ import {
   fetchConversationOriginPostId,
 } from '../../lib/chat';
 import { fetchPostById } from '../../lib/posts';
-import { formatClockTime, formatDayLabel, isSameDay } from '../../lib/time';
 import { resolveSchoolName } from '../../lib/schools';
 import Avatar from '../../components/Avatar';
 import { fetchProfileById } from '../../lib/profile';
 import InterestIcon from '../../components/InterestIcon';
 import ErrorState from '../../components/ErrorState';
 import { MessageSkeleton } from '../../components/Skeleton';
-import TypingIndicator from '../../components/TypingIndicator';
 import NSIcon from '../../components/NSIcon';
 import ActionSheet, { ActionSheetAction } from '../../components/ActionSheet';
 import ReportSheet from '../../components/ReportSheet';
-import LinkifiedText from '../../components/LinkifiedText';
-import SwipeToReply from '../../components/SwipeToReply';
-import MessageEntrance from '../../components/MessageEntrance';
 import FadeInView from '../../components/FadeInView';
 import PressableScale from '../../components/PressableScale';
 import { getChatDraft, saveChatDraft } from '../../lib/chatDrafts';
 import * as ImagePicker from 'expo-image-picker';
-import { removeChatPhoto, uploadChatAudio, uploadChatPhoto, useChatPhotoUrl } from '../../lib/chatPhotos';
-import { RecordingPresets, requestRecordingPermissionsAsync, setAudioModeAsync, useAudioRecorder, useAudioRecorderState } from 'expo-audio';
-import VoiceBubble, { formatVoiceTime } from '../../components/VoiceBubble';
+import { askPermission } from '../../components/askPermission';
+import { removeChatPhoto, uploadChatAudio, uploadChatPhoto } from '../../lib/chatPhotos';
+import { formatVoiceTime } from '../../components/VoiceBubble';
 import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../../constants/theme';
 import { MainStackParamList, Message, Post, ReportTargetType } from '../../types';
 import { errorMessage } from '../../lib/errors';
+import { useStableCallback } from '../../lib/useStableCallback';
+import { useVoiceRecorder } from '../../lib/useVoiceRecorder';
+import { requestRecordingPermissionsAsync } from 'expo-audio';
+import MessageRow, { TypingRow } from '../../components/chat/MessageRow';
 
 const PAGE_SIZE = 50;
 // How close to the bottom (in px) counts as "near the bottom" for auto-scroll
 // purposes — a little slack so a few px of overscroll/momentum doesn't flip
 // this off right as someone reaches the newest message.
 const NEAR_BOTTOM_THRESHOLD = 120;
-
-// Two messages share a timestamp bucket when they land in the same calendar
-// minute — matches formatRelativeTime()'s own "Just now" granularity for the
-// common case, and stays a fixed, absolute comparison (not relative to
-// render time) so a run of messages doesn't regroup on its own just because
-// time passed; it only changes when messages are actually added or removed.
-// Independent of sender — a same-minute run across two different senders is
-// still one bucket (see the timestamp-visibility rule below).
-// 1–3 emoji and nothing else ("👋", "🎉🎉") — shown big and bubble-free,
-// like a sticker, instead of a tiny emoji inside a bubble.
-let EMOJI_ONLY: RegExp | null = null;
-try {
-  EMOJI_ONLY = new RegExp('^(?:\\p{Extended_Pictographic}(?:\\uFE0F|\\u200D\\p{Extended_Pictographic}|\\p{Emoji_Modifier})*\\s*){1,3}$', 'u');
-} catch {
-  // Engine without Unicode property escapes: just never use the big style.
-}
-function ChatPhoto({ path, localUri, onOpen, onLongPress }: { path?: string | null; localUri?: string; onOpen: (url: string) => void; onLongPress?: () => void }) {
-  const signed = useChatPhotoUrl(localUri ? null : path);
-  const uri = localUri ?? signed;
-  return (
-    <TouchableOpacity activeOpacity={0.9} disabled={!uri || !!localUri} onPress={() => uri && onOpen(uri)} onLongPress={onLongPress} delayLongPress={350} accessibilityRole="imagebutton" accessibilityLabel="Open photo">
-      {uri ? <Image source={{ uri }} style={photoStyles.photo} /> : <View style={[photoStyles.photo, photoStyles.loading]}><ActivityIndicator color={colors.textLight} /></View>}
-    </TouchableOpacity>
-  );
-}
-
-const photoStyles = StyleSheet.create({
-  photo: {
-    width: 220,
-    height: 260,
-    borderRadius: 16,
-    backgroundColor: colors.hairline,
-  },
-  loading: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
-
-function isEmojiOnly(text: string): boolean {
-  return !!EMOJI_ONLY && EMOJI_ONLY.test(text.trim());
-}
-
-// A quiet "· 3 hours later ·" between two messages on the same day that
-// are far apart, so a conversation picked back up doesn't read as one
-// continuous back-and-forth.
-const GAP_MARKER_MS = 60 * 60 * 1000;
-function formatGap(fromIso: string, toIso: string): string | null {
-  const ms = new Date(toIso).getTime() - new Date(fromIso).getTime();
-  if (ms < GAP_MARKER_MS) return null;
-  const hours = Math.floor(ms / (60 * 60 * 1000));
-  return hours === 1 ? '1 hour later' : `${hours} hours later`;
-}
-
-function sameTimestampBucket(a: string, b: string): boolean {
-  return Math.floor(new Date(a).getTime() / 60000) === Math.floor(new Date(b).getTime() / 60000);
-}
+// Voice messages stop and send on their own at two minutes.
+const VOICE_MAX_MS = 120000;
 
 export default function ConversationScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
@@ -243,10 +187,8 @@ export default function ConversationScreen() {
   const hasScrolledOnLoadRef = useRef(false);
   const inputRef = useRef<TextInput>(null);
   const [localPhotos, setLocalPhotos] = useState<Record<string, string>>({});
-  // Voice messages: the recorder, whether it's on, and local files still sending.
-  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
-  const recState = useAudioRecorderState(recorder, 250);
-  const [recording, setRecording] = useState(false);
+  // Voice messages: the recorder (sends on its own at two minutes) and local files still sending.
+  const voice = useVoiceRecorder({ maxMs: VOICE_MAX_MS, onMaxReached: () => sendRecording() });
   const [localAudio, setLocalAudio] = useState<Record<string, string>>({});
   const sendingVoiceRef = useRef(false);
   // Reply / Edit put the cursor straight in the message box. Slight delay so
@@ -657,11 +599,7 @@ export default function ConversationScreen() {
 
   const handlePhoto = async () => {
     if (!user || !otherUser || sending) return;
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      warmAlert('Allow photo access', 'NewStep needs access to your photos to send one.');
-      return;
-    }
+    if (!(await askPermission(ImagePicker.requestMediaLibraryPermissionsAsync, 'photos', 'to send one'))) return;
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7 });
     if (result.canceled || !result.assets?.length) return;
     const asset = result.assets[0];
@@ -716,53 +654,29 @@ export default function ConversationScreen() {
     }
   };
 
-  const VOICE_MAX_MS = 120000;
-
   const startRecording = async () => {
-    if (!user || !otherUser || sending || recording) return;
-    const permission = await requestRecordingPermissionsAsync();
-    if (!permission.granted) {
-      warmAlert('Allow the microphone', 'NewStep needs your microphone to record a voice message.');
-      return;
-    }
-    try {
-      Keyboard.dismiss();
-      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
-      await recorder.prepareToRecordAsync();
-      recorder.record();
-      setRecording(true);
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    } catch {
-      showToast("Couldn't start recording — try again");
-    }
-  };
-
-  const stopRecorder = async () => {
-    try {
-      await recorder.stop();
-    } catch {
-      // already stopped
-    }
-    setRecording(false);
-    setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => {});
+    if (!user || !otherUser || sending || voice.recording) return;
+    if (!(await askPermission(requestRecordingPermissionsAsync, 'microphone', 'to record a voice message'))) return;
+    Keyboard.dismiss();
+    if (await voice.start()) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    else showToast("Couldn't start recording — try again");
   };
 
   const cancelRecording = async () => {
-    await stopRecorder();
+    await voice.cancel();
     Haptics.selectionAsync();
   };
 
   const sendRecording = async () => {
     if (!user || !otherUser || sendingVoiceRef.current) return;
     sendingVoiceRef.current = true;
-    const ms = Math.min(VOICE_MAX_MS, recState.durationMillis);
-    await stopRecorder();
-    const uri = recorder.uri;
-    if (!uri || ms < 800) {
+    const clip = await voice.finish();
+    if (!clip) {
       sendingVoiceRef.current = false;
       showToast('Hold on a little longer to record');
       return;
     }
+    const { uri, ms } = clip;
     const tempId = Crypto.randomUUID();
     const replyId = replyTarget?.id ?? null;
     const placeholder = {
@@ -803,12 +717,6 @@ export default function ConversationScreen() {
       });
     }
   };
-
-  // Two minutes at most: then it sends on its own.
-  useEffect(() => {
-    if (recording && recState.durationMillis >= VOICE_MAX_MS) sendRecording();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [recording, recState.durationMillis]);
 
   const handleWave = async () => {
     if (!user || !otherUser || sending) return;
@@ -879,6 +787,15 @@ export default function ConversationScreen() {
       },
     ]);
   };
+
+  // For reply quotes: one lookup per row instead of scanning every message.
+  const messagesById = useMemo(() => new Map(messages.map((m) => [m.id, m])), [messages]);
+  const otherFirstName = otherUser?.full_name?.trim().split(/\s+/)[0] ?? 'Them';
+  // Stable identities, so MessageRow (memoised) skips re-rendering while typing.
+  const onRowLongPress = useStableCallback(handleLongPressMessage);
+  const onRowReply = useStableCallback(handleReplyMessage);
+  const onRowJumpTo = useStableCallback(handleJumpToMessage);
+  const onRowOpenPhoto = useStableCallback((url: string) => navigation.navigate('PhotoViewer', { photoUrls: [url], initialIndex: 0 }));
 
   const isMenuMessageMine = menuMessage?.sender_id === user?.id;
   const menuActions: ActionSheetAction[] = menuMessage
@@ -1110,202 +1027,27 @@ export default function ConversationScreen() {
               )}
             </View>
           }
-          renderItem={({ item, index }) => {
-            const isMine = item.sender_id === user?.id;
-            const isDeleted = !!item.deleted_at;
-            const prevItem = messages[index - 1];
-            const nextItem = messages[index + 1];
-            const showDaySeparator = !prevItem || !isSameDay(prevItem.created_at, item.created_at);
-            // The last bubble in a consecutive run from the same sender (within the same day)
-            // carries the small avatar, Messenger-style — earlier ones in the run leave the
-            // space blank so the bubble column stays aligned.
-            const isLastInGroup =
-              !nextItem || nextItem.sender_id !== item.sender_id || !isSameDay(nextItem.created_at, item.created_at);
-            const showAvatar = !isMine && isLastInGroup;
-            // First bubble of a new run (sender changed, or a new day) gets a
-            // little extra breathing room above it, on top of every row's own
-            // small marginBottom — consecutive messages from the same sender
-            // read as one visual group (tight spacing.xs gap), while a
-            // sender change reads as a clear break (spacing.xs + spacing.xs =
-            // the original spacing.sm gap, unchanged). Skipped when a day
-            // separator is already about to provide that same break, so the
-            // two don't stack.
-            const isFirstInGroup =
-              !prevItem || prevItem.sender_id !== item.sender_id || !isSameDay(prevItem.created_at, item.created_at);
-            // Shows the timestamp only on the last message of a consecutive
-            // same-minute run — independent of the sender grouping above, so
-            // a same-minute run across two different senders still only
-            // shows one timestamp, at the end of that run.
-            const showTimestamp = !nextItem || !sameTimestampBucket(item.created_at, nextItem.created_at);
-            const hasPhoto = !isDeleted && (!!item.photo_path || !!localPhotos[item.id]);
-            const hasAudio = !isDeleted && (!!item.audio_path || !!localAudio[item.id]);
-            const bigEmoji = !isDeleted && !hasPhoto && !hasAudio && !item.reply_to_message_id && isEmojiOnly(item.content);
-
-            return (
-              <View>
-                {showDaySeparator && (
-                  <View style={styles.daySeparator}>
-                    <View style={styles.daySeparatorPill}>
-                      <NSIcon name="steps" size={14} />
-                      <Text style={styles.daySeparatorText}>{formatDayLabel(item.created_at)}</Text>
-                    </View>
-                  </View>
-                )}
-                {!showDaySeparator && prevItem && formatGap(prevItem.created_at, item.created_at) ? (
-                  <Text style={styles.gapMarker}>· {formatGap(prevItem.created_at, item.created_at)} ·</Text>
-                ) : null}
-                <SwipeToReply enabled={!!otherUser && !isDeleted} onReply={() => handleReplyMessage(item)}>
-                <MessageEntrance mine={isMine} createdAt={item.created_at}>
-                <View
-                  style={[
-                    styles.bubbleRow,
-                    isMine ? styles.bubbleRowMine : styles.bubbleRowTheirs,
-                    isFirstInGroup && !showDaySeparator && styles.bubbleRowGroupStart,
-                  ]}
-                >
-                  {!isMine && (
-                    <View
-                      style={[
-                        styles.avatarSlot,
-                        // Lines the avatar up with the bubble itself, not with
-                        // the time/edited line underneath it.
-                        (showTimestamp || (!!item.edited_at && !isDeleted)) && styles.avatarSlotAboveFooter,
-                      ]}
-                    >
-                      {/* A 1:1 conversation only ever has two possible senders — "not
-                          mine" always means otherUser, whether or not THIS specific
-                          message's own sender_id happens to be null (Step 56); Avatar
-                          already renders its placeholder icon for a null uri. */}
-                      {showAvatar ? <Avatar uri={otherUser?.avatar_url ?? null} size={24} /> : null}
-                    </View>
-                  )}
-                  <View style={[styles.bubbleCol, isMine ? styles.bubbleColMine : styles.bubbleColTheirs]}>
-                    <TouchableOpacity
-                      activeOpacity={0.85}
-                      disabled={isDeleted || pendingIds.has(item.id)}
-                      onLongPress={() => handleLongPressMessage(item)}
-                      style={[
-                        styles.bubble,
-                        isMine ? styles.bubbleMine : styles.bubbleTheirs,
-                        // The last bubble of a run gets a little "tail" corner
-                        // pointing at whoever said it.
-                        isLastInGroup && (isMine ? styles.bubbleTailMine : styles.bubbleTailTheirs),
-                        // Consecutive bubbles from the same person read as one
-                        // stack: the corners facing each other tuck in.
-                        !isFirstInGroup && (isMine ? styles.bubbleJoinTopMine : styles.bubbleJoinTopTheirs),
-                        !isLastInGroup && (isMine ? styles.bubbleJoinBottomMine : styles.bubbleJoinBottomTheirs),
-                        isDeleted && styles.bubbleDeleted,
-                        bigEmoji && styles.bubbleEmojiOnly,
-                        hasPhoto && styles.bubblePhoto,
-                        pendingIds.has(item.id) && styles.bubblePending,
-                      ]}
-                    >
-                      {isDeleted ? (
-                        <Text style={styles.deletedText}>
-                          {isMine ? 'You deleted this message' : 'This message was deleted'}
-                        </Text>
-                      ) : (
-                        <>
-                          {item.reply_to_message_id &&
-                            (() => {
-                              const repliedTo = messages.find((m) => m.id === item.reply_to_message_id);
-                              // Not currently loaded (e.g. an older page that hasn't been
-                              // fetched yet) — omit rather than show a broken reference.
-                              if (!repliedTo) return null;
-                              return (
-                                <TouchableOpacity
-                                  style={[styles.replyQuote, isMine ? styles.replyQuoteMine : styles.replyQuoteTheirs]}
-                                  accessibilityLabel="Jump to the replied message"
-                                  onPress={(e) => {
-                                    e.stopPropagation();
-                                    handleJumpToMessage(repliedTo.id);
-                                  }}
-                                >
-                                  <Text
-                                    style={[styles.replyQuoteName, isMine ? styles.replyQuoteNameMine : styles.replyQuoteNameTheirs]}
-                                    numberOfLines={1}
-                                  >
-                                    {repliedTo.sender_id === user?.id
-                                      ? 'You'
-                                      : (otherUser?.full_name?.trim().split(/\s+/)[0] ?? 'Them')}
-                                  </Text>
-                                  <Text
-                                    style={[
-                                      styles.replyQuoteText,
-                                      isMine ? styles.replyQuoteTextMine : styles.replyQuoteTextTheirs,
-                                    ]}
-                                    numberOfLines={2}
-                                  >
-                                    {repliedTo.deleted_at
-                                      ? 'Original message deleted'
-                                      : repliedTo.content || (repliedTo.audio_path ? '🎤 Voice message' : repliedTo.photo_path ? '📷 Photo' : '')}
-                                  </Text>
-                                </TouchableOpacity>
-                              );
-                            })()}
-                          {hasPhoto ? (
-                            <ChatPhoto
-                              path={item.photo_path}
-                              localUri={localPhotos[item.id]}
-                              onOpen={(url) => navigation.navigate('PhotoViewer', { photoUrls: [url], initialIndex: 0 })}
-                              onLongPress={() => handleLongPressMessage(item)}
-                            />
-                          ) : null}
-                          {hasAudio ? (
-                            <VoiceBubble
-                              id={item.id}
-                              path={item.audio_path}
-                              localUri={localAudio[item.id]}
-                              ms={item.audio_ms ?? 0}
-                              mine={isMine}
-                              onLongPress={() => handleLongPressMessage(item)}
-                            />
-                          ) : null}
-                          {item.content ? (
-                            <LinkifiedText
-                              style={[
-                                isMine ? styles.bubbleTextMine : styles.bubbleTextTheirs,
-                                bigEmoji && [styles.emojiOnlyText, { transform: [{ rotate: isMine ? '6deg' : '-6deg' }] }],
-                                hasPhoto && styles.photoCaption,
-                              ]}
-                            >
-                              {item.content}
-                            </LinkifiedText>
-                          ) : null}
-                        </>
-                      )}
-                    </TouchableOpacity>
-                    <View style={styles.messageFooter}>
-                      {showTimestamp ? (
-                        <Text style={styles.messageTimestamp}>{formatClockTime(item.created_at)}</Text>
-                      ) : null}
-                      {item.edited_at && !isDeleted ? <Text style={styles.editedLabel}>(edited)</Text> : null}
-                    </View>
-                    {isMine && item.id === lastMineMessageId && item.read_at && !isDeleted ? (
-                      <View style={styles.readReceiptRow}>
-                        <NSIcon name="steps" size={12} />
-                        <Text style={styles.readReceipt}>Seen</Text>
-                      </View>
-                    ) : null}
-                  </View>
-                </View>
-                </MessageEntrance>
-                </SwipeToReply>
-              </View>
-            );
-          }}
-          ListFooterComponent={
-            otherTyping ? (
-              <View style={[styles.bubbleRow, styles.bubbleRowTheirs]}>
-                <View style={styles.avatarSlot}>
-                  <Avatar uri={otherUser?.avatar_url ?? null} size={24} />
-                </View>
-                <View style={[styles.bubble, styles.bubbleTheirs]}>
-                  <TypingIndicator />
-                </View>
-              </View>
-            ) : null
-          }
+          renderItem={({ item, index }) => (
+            <MessageRow
+              message={item}
+              prev={messages[index - 1]}
+              next={messages[index + 1]}
+              myUserId={userId}
+              otherName={otherFirstName}
+              otherAvatarUrl={otherUser?.avatar_url ?? null}
+              repliedTo={item.reply_to_message_id ? messagesById.get(item.reply_to_message_id) : undefined}
+              localPhotoUri={localPhotos[item.id]}
+              localAudioUri={localAudio[item.id]}
+              pending={pendingIds.has(item.id)}
+              showSeen={item.sender_id === userId && item.id === lastMineMessageId && !!item.read_at && !item.deleted_at}
+              canReply={!!otherUser}
+              onLongPress={onRowLongPress}
+              onReply={onRowReply}
+              onJumpTo={onRowJumpTo}
+              onOpenPhoto={onRowOpenPhoto}
+            />
+          )}
+          ListFooterComponent={otherTyping ? <TypingRow avatarUrl={otherUser?.avatar_url ?? null} /> : null}
         />
       )}
 
@@ -1357,14 +1099,14 @@ export default function ConversationScreen() {
           )}
 
           <View style={[styles.inputRow, { paddingBottom: spacing.md + insets.bottom }]}>
-            {recording ? (
+            {voice.recording ? (
               <>
                 <TouchableOpacity style={styles.recCancel} onPress={cancelRecording} accessibilityRole="button" accessibilityLabel="Cancel recording">
                   <Ionicons name="trash-outline" size={20} color={colors.error} />
                 </TouchableOpacity>
                 <View style={styles.recPill}>
-                  <View style={[styles.recDot, { opacity: Math.floor(recState.durationMillis / 500) % 2 ? 0.35 : 1 }]} />
-                  <Text style={styles.recTime}>{formatVoiceTime(recState.durationMillis)}</Text>
+                  <View style={[styles.recDot, { opacity: Math.floor(voice.durationMs / 500) % 2 ? 0.35 : 1 }]} />
+                  <Text style={styles.recTime}>{formatVoiceTime(voice.durationMs)}</Text>
                   <Text style={styles.recHint} numberOfLines={1}>
                     Recording… tap send when done
                   </Text>
@@ -1553,39 +1295,6 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.primaryDark,
   },
-  // A small inset card inside the bubble — who said it, then what.
-  replyQuote: {
-    borderLeftWidth: 3,
-    borderRadius: radius.sm,
-    paddingVertical: 4,
-    paddingHorizontal: spacing.sm,
-    marginBottom: 6,
-  },
-  replyQuoteMine: {
-    borderLeftColor: colors.onPrimary,
-    backgroundColor: 'rgba(42,29,18,0.1)',
-  },
-  replyQuoteTheirs: {
-    borderLeftColor: colors.primary,
-    backgroundColor: colors.primaryLight,
-  },
-  replyQuoteName: {
-    fontFamily: fontFamily.bold,
-    fontSize: fontSize.xs,
-  },
-  replyQuoteNameMine: {
-    color: colors.onPrimary,
-  },
-  replyQuoteNameTheirs: {
-    color: colors.primaryDark,
-  },
-  gapMarker: {
-    alignSelf: 'center',
-    fontFamily: fontFamily.medium,
-    fontSize: fontSize.xs,
-    color: colors.textLight,
-    marginVertical: spacing.sm,
-  },
   originCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1611,159 +1320,6 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     fontSize: fontSize.sm,
     color: colors.textDark,
-    marginTop: 1,
-  },
-  replyQuoteText: {
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.xs,
-  },
-  replyQuoteTextMine: {
-    color: 'rgba(42,29,18,0.75)',
-  },
-  replyQuoteTextTheirs: {
-    color: colors.textMid,
-  },
-  daySeparator: {
-    alignItems: 'center',
-    marginVertical: spacing.md,
-  },
-  daySeparatorPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: colors.border,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: radius.full,
-  },
-  daySeparatorText: {
-    fontFamily: fontFamily.semibold,
-    fontSize: fontSize.xs,
-    color: colors.textLight,
-  },
-  bubbleRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    marginBottom: spacing.xs,
-  },
-  // Extra top margin for the first bubble in a new run — combined with every
-  // row's own spacing.xs marginBottom, a sender change reads with the same
-  // total gap (spacing.xs + spacing.xs) the whole list used to have
-  // uniformly; consecutive same-sender bubbles now sit closer together
-  // (spacing.xs alone) instead.
-  bubbleRowGroupStart: {
-    marginTop: spacing.xs,
-  },
-  bubbleRowMine: {
-    justifyContent: 'flex-end',
-  },
-  bubbleRowTheirs: {
-    justifyContent: 'flex-start',
-  },
-  avatarSlot: {
-    width: 24,
-    height: 24,
-    marginRight: spacing.xs,
-  },
-  // = messageFooter's marginTop (2) + one 16px text line.
-  avatarSlotAboveFooter: {
-    marginBottom: 18,
-  },
-  bubbleJoinTopMine: {
-    borderTopRightRadius: 6,
-  },
-  bubbleJoinBottomMine: {
-    borderBottomRightRadius: 6,
-  },
-  bubbleJoinTopTheirs: {
-    borderTopLeftRadius: 6,
-  },
-  bubbleJoinBottomTheirs: {
-    borderBottomLeftRadius: 6,
-  },
-  bubbleCol: {
-    maxWidth: '76%',
-  },
-  bubbleColMine: {
-    alignItems: 'flex-end',
-  },
-  bubbleColTheirs: {
-    alignItems: 'flex-start',
-  },
-  bubble: {
-    borderRadius: 20,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 9,
-  },
-  bubbleMine: {
-    backgroundColor: colors.primary,
-  },
-  bubbleTailMine: {
-    borderBottomRightRadius: 4,
-  },
-  bubbleTailTheirs: {
-    borderBottomLeftRadius: 4,
-  },
-  bubblePending: {
-    opacity: 0.6,
-  },
-  bubbleTheirs: {
-    backgroundColor: colors.cardBg,
-    borderWidth: 1,
-    borderColor: colors.hairline,
-  },
-  bubbleDeleted: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  bubbleTextMine: {
-    fontFamily: fontFamily.regular,
-    color: colors.onPrimary,
-    fontSize: fontSize.md,
-    lineHeight: 21,
-  },
-  bubbleTextTheirs: {
-    fontFamily: fontFamily.regular,
-    color: colors.textDark,
-    fontSize: fontSize.md,
-    lineHeight: 21,
-  },
-  deletedText: {
-    fontFamily: fontFamily.regular,
-    fontStyle: 'italic',
-    color: colors.textLight,
-    fontSize: fontSize.sm,
-  },
-  messageFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 2,
-  },
-  messageTimestamp: {
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.xs,
-    lineHeight: 16,
-    color: colors.textLight,
-  },
-  editedLabel: {
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.xs,
-    color: colors.textLight,
-    fontStyle: 'italic',
-  },
-  readReceiptRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-end',
-    gap: 3,
-    marginTop: 1,
-  },
-  readReceipt: {
-    fontFamily: fontFamily.semibold,
-    fontSize: fontSize.xs,
-    color: colors.primaryDark,
     marginTop: 1,
   },
   editingBanner: {
@@ -1842,14 +1398,6 @@ const styles = StyleSheet.create({
   waveButtonText: {
     fontSize: 20,
   },
-  bubblePhoto: {
-    padding: 4,
-  },
-  photoCaption: {
-    paddingHorizontal: spacing.sm,
-    paddingTop: 6,
-    paddingBottom: 4,
-  },
   recCancel: {
     width: 44,
     height: 44,
@@ -1892,18 +1440,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 2,
-  },
-  bubbleEmojiOnly: {
-    backgroundColor: 'transparent',
-    borderWidth: 0,
-    paddingHorizontal: 2,
-    paddingVertical: 0,
-    shadowOpacity: 0,
-    elevation: 0,
-  },
-  emojiOnlyText: {
-    fontSize: 36,
-    lineHeight: 44,
   },
   introCard: {
     alignItems: 'center',

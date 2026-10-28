@@ -94,6 +94,7 @@ production; later files depend on tables and functions from earlier ones.
 | 70 | `buddies.sql` | buddy matching |
 | 71 | `school_tips.sql` | school guide |
 | 72 | `crisis_check_v2.sql` | crisis check (mirrored in `src/lib/crisis.ts`) |
+| 73 | `message_reactions.sql` | chat reactions (replaces `delete_message`) |
 
 **Skip:**
 - `chat_deleted_participant_schema.sql`. It was replaced by files 50 and 51.
@@ -110,6 +111,7 @@ unit tests in `src/lib/__tests__/` pin the app side.
 | `src/lib/crisis.ts` | `sounds_like_crisis()`, `crisis_check_v2.sql` |
 | `src/lib/contentFilter.ts` | `school_sky_safety.sql` |
 | `src/lib/usernameValidation.ts` | `profiles_add_username.sql` |
+| `REACTIONS` in `src/lib/reactionSummary.ts` | the emoji list in `message_reactions.sql` (a test checks they match) |
 
 ## Edge Functions
 

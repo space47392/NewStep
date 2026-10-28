@@ -44,6 +44,9 @@ import { useStableCallback } from '../../lib/useStableCallback';
 import { useVoiceRecorder } from '../../lib/useVoiceRecorder';
 import { requestRecordingPermissionsAsync } from 'expo-audio';
 import MessageRow, { TypingRow } from '../../components/chat/MessageRow';
+import { ReactionBar } from '../../components/chat/Reactions';
+import { fetchReactions, reactToMessage, subscribeToReactions } from '../../lib/reactions';
+import { indexReactions, nextReaction, type MessageReaction } from '../../lib/reactionSummary';
 
 const PAGE_SIZE = 50;
 // How close to the bottom (in px) counts as "near the bottom" for auto-scroll
@@ -190,6 +193,29 @@ export default function ConversationScreen() {
   // Voice messages: the recorder (sends on its own at two minutes) and local files still sending.
   const voice = useVoiceRecorder({ maxMs: VOICE_MAX_MS, onMaxReached: () => sendRecording() });
   const [localAudio, setLocalAudio] = useState<Record<string, string>>({});
+  // Reactions by message id (one row per person).
+  const [reactions, setReactions] = useState<Record<string, MessageReaction[]>>({});
+  const applyReaction = useCallback((r: MessageReaction) => {
+    setReactions((prev) => {
+      const list = (prev[r.message_id] ?? []).filter((x) => x.user_id !== r.user_id);
+      return { ...prev, [r.message_id]: r.emoji ? [...list, r] : list };
+    });
+  }, []);
+  useEffect(() => {
+    let cancelled = false;
+    fetchReactions(conversationId)
+      .then((rows) => {
+        if (!cancelled) setReactions(indexReactions(rows));
+      })
+      .catch(() => {
+        // Reactions are extra: the chat works without them.
+      });
+    const unsubscribe = subscribeToReactions(conversationId, applyReaction);
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, [conversationId, applyReaction]);
   const sendingVoiceRef = useRef(false);
   // Reply / Edit put the cursor straight in the message box. Slight delay so
   // the action sheet has finished closing and doesn't steal focus back.
@@ -788,6 +814,21 @@ export default function ConversationScreen() {
     ]);
   };
 
+  const myReactionOn = (messageId: string) => reactions[messageId]?.find((r) => r.user_id === userId)?.emoji ?? null;
+
+  const handleReact = async (message: Message, emoji: string) => {
+    if (!userId || !otherUser || message.deleted_at) return;
+    const before = myReactionOn(message.id);
+    applyReaction({ message_id: message.id, user_id: userId, emoji: nextReaction(before, emoji) });
+    try {
+      const now = await reactToMessage(message.id, emoji);
+      applyReaction({ message_id: message.id, user_id: userId, emoji: now });
+    } catch (err) {
+      applyReaction({ message_id: message.id, user_id: userId, emoji: before });
+      showToast(errorMessage(err, "Couldn't add that reaction"));
+    }
+  };
+
   // For reply quotes: one lookup per row instead of scanning every message.
   const messagesById = useMemo(() => new Map(messages.map((m) => [m.id, m])), [messages]);
   const otherFirstName = otherUser?.full_name?.trim().split(/\s+/)[0] ?? 'Them';
@@ -795,6 +836,7 @@ export default function ConversationScreen() {
   const onRowLongPress = useStableCallback(handleLongPressMessage);
   const onRowReply = useStableCallback(handleReplyMessage);
   const onRowJumpTo = useStableCallback(handleJumpToMessage);
+  const onRowReact = useStableCallback(handleReact);
   const onRowOpenPhoto = useStableCallback((url: string) => navigation.navigate('PhotoViewer', { photoUrls: [url], initialIndex: 0 }));
 
   const isMenuMessageMine = menuMessage?.sender_id === user?.id;
@@ -1039,12 +1081,14 @@ export default function ConversationScreen() {
               localPhotoUri={localPhotos[item.id]}
               localAudioUri={localAudio[item.id]}
               pending={pendingIds.has(item.id)}
+              reactions={reactions[item.id]}
               showSeen={item.sender_id === userId && item.id === lastMineMessageId && !!item.read_at && !item.deleted_at}
               canReply={!!otherUser}
               onLongPress={onRowLongPress}
               onReply={onRowReply}
               onJumpTo={onRowJumpTo}
               onOpenPhoto={onRowOpenPhoto}
+              onToggleReaction={otherUser ? onRowReact : undefined}
             />
           )}
           ListFooterComponent={otherTyping ? <TypingRow avatarUrl={otherUser?.avatar_url ?? null} /> : null}
@@ -1200,7 +1244,23 @@ export default function ConversationScreen() {
         </View>
       )}
 
-      <ActionSheet visible={menuMessage !== null} onClose={() => setMenuMessage(null)} actions={menuActions} />
+      <ActionSheet
+        visible={menuMessage !== null}
+        onClose={() => setMenuMessage(null)}
+        actions={menuActions}
+        header={
+          menuMessage && otherUser ? (
+            <ReactionBar
+              mine={myReactionOn(menuMessage.id)}
+              onPick={(emoji) => {
+                const target = menuMessage;
+                setMenuMessage(null);
+                handleReact(target, emoji);
+              }}
+            />
+          ) : null
+        }
+      />
       <ReportSheet target={reportTarget} reporterId={user?.id} onClose={() => setReportTarget(null)} />
     </KeyboardAvoidingView>
   );

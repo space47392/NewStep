@@ -8,6 +8,8 @@ import MessageEntrance from '../MessageEntrance';
 import TypingIndicator from '../TypingIndicator';
 import VoiceBubble from '../VoiceBubble';
 import ChatPhoto from './ChatPhoto';
+import { ReactionPills } from './Reactions';
+import { summarizeReactions, type MessageReaction } from '../../lib/reactionSummary';
 import { isEmojiOnly, layoutMessage, messagePreview } from '../../lib/chatFormat';
 import { formatClockTime, formatDayLabel } from '../../lib/time';
 import { colors, spacing, radius, fontSize, fontFamily } from '../../constants/theme';
@@ -27,6 +29,8 @@ type Props = {
   localPhotoUri?: string;
   localAudioUri?: string;
   pending: boolean;
+  // This message's reactions (one row per person); undefined = none.
+  reactions?: MessageReaction[];
   showSeen: boolean;
   canReply: boolean;
   // Pass stable functions (useStableCallback): the row is memoised.
@@ -34,6 +38,8 @@ type Props = {
   onReply: (message: Message) => void;
   onJumpTo: (messageId: string) => void;
   onOpenPhoto: (url: string) => void;
+  // Tapping a reaction pill; omitted when you can't react (e.g. they left).
+  onToggleReaction?: (message: Message, emoji: string) => void;
 };
 
 // One message in a 1:1 chat. Memoised so typing in the composer doesn't
@@ -49,12 +55,14 @@ function MessageRow({
   localPhotoUri,
   localAudioUri,
   pending,
+  reactions,
   showSeen,
   canReply,
   onLongPress,
   onReply,
   onJumpTo,
   onOpenPhoto,
+  onToggleReaction,
 }: Props) {
   const isMine = item.sender_id === myUserId;
   const isDeleted = !!item.deleted_at;
@@ -66,6 +74,7 @@ function MessageRow({
   const hasAudio = !isDeleted && (!!item.audio_path || !!localAudioUri);
   const bigEmoji = !isDeleted && !hasPhoto && !hasAudio && !item.reply_to_message_id && isEmojiOnly(item.content);
   const longPress = () => onLongPress(item);
+  const reactionCounts = isDeleted ? [] : summarizeReactions(reactions, myUserId);
 
   return (
     <View>
@@ -160,6 +169,11 @@ function MessageRow({
                   </>
                 )}
               </TouchableOpacity>
+              <ReactionPills
+                counts={reactionCounts}
+                alignEnd={isMine}
+                onToggle={onToggleReaction && !pending ? (emoji) => onToggleReaction(item, emoji) : undefined}
+              />
               <View style={styles.messageFooter}>
                 {showTimestamp ? <Text style={styles.messageTimestamp}>{formatClockTime(item.created_at)}</Text> : null}
                 {item.edited_at && !isDeleted ? <Text style={styles.editedLabel}>(edited)</Text> : null}

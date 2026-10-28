@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { Modal, View, Text, TouchableOpacity, Animated, StyleSheet, useAnimatedValue } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,11 +16,13 @@ type Props = {
   visible: boolean;
   onClose: () => void;
   actions: ActionSheetAction[];
+  // Optional content above the actions (e.g. the chat's reaction bar).
+  header?: ReactNode;
 };
 
 const SHEET_OFFSET = 320;
 
-export default function ActionSheet({ visible, onClose, actions }: Props) {
+export default function ActionSheet({ visible, onClose, actions, header }: Props) {
   // Modal renders full-screen/edge-to-edge on Android — without this, the
   // Cancel button (the bottom-most, most-reached-for action) can sit under
   // the system gesture/nav area.
@@ -59,6 +61,7 @@ export default function ActionSheet({ visible, onClose, actions }: Props) {
         <Animated.View
           style={[styles.sheet, { paddingBottom: spacing.xl + insets.bottom, transform: [{ translateY }] }]}
         >
+          {header}
           {actions.map((action, index) => (
             <TouchableOpacity
               key={action.label}

@@ -71,4 +71,3 @@ scripts/         one-off Node scripts (school data import)
 
 - [ ] Turn **Confirm email** back on (Supabase → Auth → Providers → Email).
 - [ ] Fill in the contact email in `src/constants/legal.ts`, and get the terms reviewed.
-- [ ] Run `crisis_check_v2.sql` in production.

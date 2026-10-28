@@ -381,11 +381,6 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     marginBottom: spacing.md,
   },
-  backText: {
-    fontFamily: fontFamily.semibold,
-    color: colors.textDark,
-    fontSize: fontSize.md,
-  },
   title: {
     ...typography.largeTitle,
     color: colors.textDark,
@@ -398,16 +393,6 @@ const styles = StyleSheet.create({
   },
   avatarWrapper: {
     marginBottom: spacing.lg,
-  },
-  avatar: {
-    width: 96,
-    height: 96,
-    borderRadius: radius.full,
-  },
-  avatarPlaceholder: {
-    backgroundColor: colors.primaryLight,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   cameraBadge: {
     position: 'absolute',
@@ -454,9 +439,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
     marginBottom: spacing.sm,
-  },
-  schoolCardIcon: {
-    fontSize: 22,
   },
   schoolCardText: {
     flex: 1,

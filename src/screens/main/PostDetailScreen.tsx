@@ -731,11 +731,6 @@ const styles = StyleSheet.create({
     gap: 4,
     alignSelf: 'flex-start',
   },
-  backText: {
-    fontFamily: fontFamily.semibold,
-    color: colors.textDark,
-    fontSize: fontSize.md,
-  },
   menuButton: {
     padding: spacing.xs,
   },

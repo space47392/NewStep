@@ -379,16 +379,6 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xl,
     paddingHorizontal: spacing.lg,
   },
-  avatar: {
-    width: 96,
-    height: 96,
-    borderRadius: radius.full,
-  },
-  avatarPlaceholder: {
-    backgroundColor: colors.primaryLight,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   name: {
     fontFamily: fontFamily.bold,
     fontSize: fontSize.xl,
@@ -642,35 +632,5 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.medium,
     fontSize: fontSize.md,
     color: colors.textDark,
-  },
-  emailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginBottom: spacing.lg,
-  },
-  email: {
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.sm,
-    color: colors.textMid,
-  },
-  logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  logoutText: {
-    fontFamily: fontFamily.semibold,
-    fontSize: fontSize.md,
-    color: colors.error,
-  },
-  logoutEverywhereButton: {
-    marginTop: spacing.md,
-  },
-  logoutEverywhereText: {
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.xs,
-    color: colors.textLight,
-    textDecorationLine: 'underline',
   },
 });

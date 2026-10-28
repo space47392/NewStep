@@ -569,11 +569,6 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     marginBottom: spacing.md,
   },
-  backText: {
-    fontFamily: fontFamily.semibold,
-    color: colors.textDark,
-    fontSize: fontSize.md,
-  },
   header: {
     backgroundColor: colors.cardBg,
     borderRadius: radius.lg,
@@ -654,12 +649,6 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.xs,
     color: colors.textDark,
-  },
-  studentCount: {
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.sm,
-    color: colors.textMid,
-    marginTop: spacing.xs,
   },
   disclaimer: {
     fontFamily: fontFamily.regular,

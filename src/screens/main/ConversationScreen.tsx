@@ -1395,9 +1395,6 @@ const styles = StyleSheet.create({
   waveButton: {
     backgroundColor: colors.warning,
   },
-  waveButtonText: {
-    fontSize: 20,
-  },
   recCancel: {
     width: 44,
     height: 44,
@@ -1509,10 +1506,6 @@ const styles = StyleSheet.create({
   },
   helloSticker: {
     transform: [{ rotate: '-10deg' }],
-  },
-  helloEmoji: {
-    fontSize: 42,
-    transform: [{ rotate: '-12deg' }],
   },
   helloTitle: {
     fontFamily: fontFamily.bold,

@@ -72,9 +72,6 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: radius.full,
   },
-  icon: {
-    fontSize: fontSize.md,
-  },
   text: {
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.sm,

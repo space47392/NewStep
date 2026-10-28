@@ -160,9 +160,6 @@ const styles = StyleSheet.create({
   choiceDimmed: {
     opacity: 0.5,
   },
-  choiceEmoji: {
-    fontSize: 34,
-  },
   choiceText: {
     flex: 1,
   },

@@ -336,19 +336,6 @@ const styles = StyleSheet.create({
     ...typography.largeTitle,
     color: colors.textDark,
   },
-  // Secondary/help-red, matching the same category color Notifications
-  // already uses for this exact type (getNotificationCategoryColor).
-  countBadge: {
-    backgroundColor: colors.secondaryLight,
-    borderRadius: radius.full,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 3,
-  },
-  countBadgeText: {
-    fontFamily: fontFamily.bold,
-    fontSize: fontSize.xs,
-    color: colors.secondaryDark,
-  },
   subtitle: {
     fontFamily: fontFamily.regular,
     fontSize: fontSize.sm,
@@ -358,27 +345,6 @@ const styles = StyleSheet.create({
   list: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xl,
-  },
-  sectionLabel: {
-    fontFamily: fontFamily.bold,
-    fontSize: fontSize.sm,
-    color: colors.textMid,
-    marginTop: spacing.lg,
-    marginBottom: spacing.sm,
-  },
-  sectionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: spacing.lg,
-    marginBottom: spacing.sm,
-  },
-  sectionLabelInline: {
-    marginTop: 0,
-    marginBottom: 0,
-  },
-  inProgressSection: {
-    marginTop: spacing.sm,
   },
   emptyActionButton: {
     marginTop: spacing.lg,

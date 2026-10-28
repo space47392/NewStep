@@ -136,9 +136,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
-  actionIcon: {
-    fontSize: 20,
-  },
   actionText: {
     flex: 1,
     fontFamily: fontFamily.medium,

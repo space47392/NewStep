@@ -1015,47 +1015,6 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
     color: colors.textMid,
   },
-  personCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.sm,
-  },
-  personCardMain: {
-    flex: 1,
-  },
-  personReason: {
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.xs,
-    color: colors.textLight,
-    marginTop: 2,
-  },
-  sharedRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 4,
-    marginTop: 4,
-  },
-  sharedChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    borderRadius: radius.full,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    maxWidth: 140,
-  },
-  sharedChipText: {
-    fontFamily: fontFamily.semibold,
-    fontSize: fontSize.xs,
-    color: colors.textDark,
-  },
-  // Same PrimaryButton every other Follow action in the app uses (see
-  // UserProfileScreen) — just narrower, so it fits inline in a person row
-  // instead of stretching full-width.
-  followButton: {
-    width: 96,
-  },
   statInline: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1076,8 +1035,5 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     marginBottom: spacing.sm,
     ...shadow.subtle,
-  },
-  schoolEmoji: {
-    fontSize: 24,
   },
 });

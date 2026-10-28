@@ -134,7 +134,4 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.md,
   },
-  interestEmoji: {
-    fontSize: 22,
-  },
 });

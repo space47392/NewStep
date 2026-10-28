@@ -183,9 +183,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primaryLight,
     borderColor: colors.primary,
   },
-  optionEmoji: {
-    fontSize: fontSize.md,
-  },
   checkDot: {
     width: 16,
     height: 16,

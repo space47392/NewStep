@@ -199,13 +199,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(10,8,30,0.45)',
     overflow: 'hidden',
   },
-  dot: {
-    position: 'absolute',
-    width: 3,
-    height: 3,
-    borderRadius: 1.5,
-    backgroundColor: 'rgba(255,255,255,0.35)',
-  },
   title: {
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.sm,
@@ -239,8 +232,5 @@ const styles = StyleSheet.create({
   },
   starButtonMine: {
     backgroundColor: 'rgba(255,255,255,0.14)',
-  },
-  mineEmoji: {
-    fontSize: 18,
   },
 });

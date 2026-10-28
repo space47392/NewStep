@@ -332,9 +332,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  journeyEmoji: {
-    fontSize: 20,
-  },
   journeyDot: {
     width: 10,
     height: 2,
@@ -407,10 +404,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-  },
-  cellEmoji: {
-    fontSize: 16,
-    alignSelf: 'center',
   },
   cellCamera: {
     position: 'absolute',

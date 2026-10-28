@@ -279,11 +279,6 @@ const styles = StyleSheet.create({
     marginLeft: spacing.lg,
     marginTop: spacing.lg,
   },
-  backText: {
-    fontFamily: fontFamily.semibold,
-    color: colors.textDark,
-    fontSize: fontSize.md,
-  },
   list: {
     padding: spacing.lg,
   },

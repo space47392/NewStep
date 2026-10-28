@@ -1304,13 +1304,6 @@ const styles = StyleSheet.create({
   welcomeEmoji: {
     fontSize: 16,
   },
-  welcomeDismiss: {
-    position: 'absolute',
-    top: spacing.sm,
-    right: spacing.sm,
-    padding: spacing.xs,
-    zIndex: 1,
-  },
   // Now the banner's first line, so it carries the ✕ clearance the removed
   // headline used to.
   welcomeSubtitle: {
@@ -1318,28 +1311,7 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.textDark,
   },
-  // flexWrap kept — larger font scales or narrower phones still wrap
-  // safely to a second row instead of clipping.
-  welcomeActions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.md,
-    marginTop: 6,
-  },
-  welcomeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
   welcomeButtonText: {
-    fontFamily: fontFamily.semibold,
-    fontSize: fontSize.sm,
-    color: colors.primaryDark,
-  },
-  welcomeButtonSecondary: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  welcomeButtonSecondaryText: {
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.sm,
     color: colors.primaryDark,
@@ -1350,32 +1322,12 @@ const styles = StyleSheet.create({
   storyNameOnSky: {
     color: 'rgba(255,255,255,0.88)',
   },
-  storyRailLabel: {
-    fontFamily: fontFamily.bold,
-    fontSize: fontSize.xs,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-    color: colors.textLight,
-    marginBottom: spacing.sm,
-  },
   storyRail: {
     gap: spacing.md,
   },
   storyItem: {
     alignItems: 'center',
     width: 60,
-  },
-  // Further tightened from Step 31's 60/56 — a real screenshot still showed
-  // the rail taking up too much vertical space with only a few stories
-  // (Step 31.5). Deliberately smaller than SchoolScreen's own story rail now
-  // (out of scope for this Home-only pass) rather than left unfixed here.
-  storyAvatarWrap: {
-    width: 52,
-    height: 52,
-    borderRadius: radius.full,
-    borderWidth: 2,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   addStoryAvatarWrap: {
     width: 52,
@@ -1608,12 +1560,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     ...shadow.floating,
   },
-  badgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    marginBottom: 6,
-  },
   card: {
     paddingVertical: spacing.md - 2,
     borderBottomWidth: 1,
@@ -1647,27 +1593,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
     marginTop: spacing.sm,
-  },
-  helpStatus: {
-    flexShrink: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: colors.primaryLight,
-    borderRadius: radius.full,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  helpStatusDone: {
-    backgroundColor: colors.accentLight,
-  },
-  helpStatusText: {
-    fontFamily: fontFamily.semibold,
-    fontSize: fontSize.xs,
-    color: colors.primaryDark,
-  },
-  helpStatusTextDone: {
-    color: colors.accentDark,
   },
   photoWrap: {
     marginTop: spacing.sm,

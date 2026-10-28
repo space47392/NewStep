@@ -416,9 +416,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  howToEmoji: {
-    fontSize: 22,
-  },
   howToText: {
     fontFamily: fontFamily.medium,
     fontSize: fontSize.xs,

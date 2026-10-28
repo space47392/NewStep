@@ -189,9 +189,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  pairLinkEmoji: {
-    fontSize: 12,
-  },
   pairText: {
     flex: 1,
     fontFamily: fontFamily.regular,

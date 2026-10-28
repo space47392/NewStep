@@ -72,7 +72,7 @@ export const FALLBACK_SCENE: SkyScene = { colors: ['#9FC9F0', '#C8E2F7', '#F3F0E
 // The painted scene for every choice in a time slot. Only a handful of
 // (slot, phase) pairs exist, so each is worked out once and kept.
 const sceneCache = new Map<string, Record<string, SkyScene>>();
-function scenesFor(slot: Slot, phase: SkyPhase): Record<string, SkyScene> {
+export function scenesFor(slot: Slot, phase: SkyPhase): Record<string, SkyScene> {
   const key = slot + ':' + phase;
   let out = sceneCache.get(key);
   if (!out) {
@@ -575,9 +575,6 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
     borderWidth: 2,
     backgroundColor: colors.primaryLight,
-  },
-  moodEmoji: {
-    fontSize: 22,
   },
   hero: {
     marginHorizontal: -spacing.lg,

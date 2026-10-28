@@ -1,14 +1,11 @@
-import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, TextInput, Modal, KeyboardAvoidingView, Platform, ActivityIndicator, Animated, Easing, Image, ScrollView, StyleSheet, useAnimatedValue } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
-import { askPermission } from '../../components/askPermission';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { View, Text, TouchableOpacity, ActivityIndicator, Animated, Easing, Image, StyleSheet, useAnimatedValue } from 'react-native';
 import { useFocusEffect, useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import Svg, { Path, Defs, RadialGradient, LinearGradient, Rect, Circle, Stop } from 'react-native-svg';
 import SkyScene, { Horizon, skyPhase, phaseWords, DescribedSkyLook, landColors, PHASE_SKY } from '../../components/SkyScene';
 import { extractSkyPalette, paintSky, SkyPalette } from '../../lib/skyColors';
 import SkyWeather from '../../components/SkyWeather';
@@ -16,48 +13,12 @@ import { hasBlockedWords, KIND_WORDS_MESSAGE } from '../../lib/contentFilter';
 import { fetchLanterns, Lantern } from '../../lib/lanterns';
 import { soundsLikeCrisis } from '../../lib/crisis';
 import { useWarmSheet } from '../../components/WarmSheet';
-import { SkyTile, SkyWindow, skiesFor, currentSlot, FALLBACK_SCENE } from '../../components/SkyCheckSheet';
-import { interpretSky } from '../../lib/skyInterpret';
 import MoodFace from '../../components/MoodFace';
-import SupportLines from '../../components/SupportLines';
 import { warmAlert } from '../../components/WarmAlert';
-import FadeInView from '../../components/FadeInView';
-import { useTilt, tiltTransform, Tilt } from '../../lib/useTilt';
+import { useTilt } from '../../lib/useTilt';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
-import {
-  fetchSchoolSky,
-  setMyStar,
-  removeMyStar,
-  fetchSkyDiary,
-  uploadSkyPhoto,
-  removeSkyPhoto,
-  describeSky,
-  sharedSky,
-  blendDescribedSky,
-  THING_EMOJI,
-  SkyScene as DescribedSky,
-  fetchTodayTwinkles,
-  sendTwinkle,
-  fetchWishes,
-  makeWish,
-  cheerWish,
-  deleteWish,
-  reportWish,
-  dominantMoods,
-  moodWeather,
-  weatherLine,
-  constellationName,
-  WISH_MAX,
-  TwinkleSummary,
-  SkyWish,
-  starPosition,
-  skyMood,
-  SKY_MOODS,
-  SKY_NOTE_MAX,
-  SkyMood,
-  SkyStar,
-} from '../../lib/sky';
+import { fetchSchoolSky, setMyStar, removeMyStar, fetchSkyDiary, uploadSkyPhoto, removeSkyPhoto, sharedSky, blendDescribedSky, THING_EMOJI, fetchTodayTwinkles, sendTwinkle, fetchWishes, makeWish, cheerWish, deleteWish, reportWish, dominantMoods, moodWeather, weatherLine, constellationName, TwinkleSummary, SkyWish, starPosition, skyMood, SkyMood, SkyStar } from '../../lib/sky';
 import { fetchBlockedUserIds } from '../../lib/blocks';
 import { getOrCreateConversation, sendMessage } from '../../lib/chat';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -70,388 +31,13 @@ import ReportSheet from '../../components/ReportSheet';
 import { colors, spacing, radius, fontSize, fontFamily, dark } from '../../constants/theme';
 import { MainStackParamList, ReportTargetType } from '../../types';
 import { errorMessage } from '../../lib/errors';
+import SkyGallery from '../../components/sky/SkyGallery';
+import WishSheet from '../../components/sky/WishSheet';
+import StarComposer from '../../components/sky/StarComposer';
+import { useStarDraft } from '../../lib/useStarDraft';
+import { CatchableStar, Constellation, FloatingLantern, WishLight } from '../../components/sky/SkyFloaters';
+import SkyStarButton from '../../components/sky/SkyStarButton';
 
-
-const SPARKLE = 'M12 0 C13 8 16 11 24 12 C16 13 13 16 12 24 C11 16 8 13 0 12 C8 11 11 8 12 0 Z';
-
-// One classmate's star: a four-point sparkle in their mood colour with a
-// soft halo, rising into place when the sky opens. The mood emoji only
-// shows once the star is tapped.
-function SkyStarButton({
-  star,
-  index,
-  mine,
-  selected,
-  twinkles,
-  burstKey,
-  onPress,
-  onLongPress,
-  tilt,
-  justPlaced = 0,
-}: {
-  tilt?: Tilt;
-  // Changes when this star was just put up → it rises from the school.
-  justPlaced?: number;
-  star: SkyStar;
-  index: number;
-  mine: boolean;
-  selected: boolean;
-  twinkles: number;
-  // Changes whenever this star just received a twinkle → plays a burst.
-  burstKey: number;
-  onPress: () => void;
-  onLongPress: () => void;
-}) {
-  const burst = useAnimatedValue(1);
-  useEffect(() => {
-    if (burstKey === 0) return;
-    burst.setValue(0);
-    Animated.timing(burst, { toValue: 1, duration: 900, easing: Easing.out(Easing.quad), useNativeDriver: true }).start();
-  }, [burstKey, burst]);
-  const mood = skyMood(star.mood);
-  const pos = starPosition(star.user_id, index);
-  const size = mine ? 38 : 32;
-  const pulse = useAnimatedValue(0);
-  const rise = useAnimatedValue(0);
-  useEffect(() => {
-    Animated.spring(rise, { toValue: 1, delay: 150 + index * 140, friction: 6, useNativeDriver: true }).start();
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.delay((index * 370) % 1800),
-        Animated.timing(pulse, { toValue: 1, duration: 1800, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 0, duration: 1800, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      ])
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [pulse, rise, index]);
-
-  const arrive = useAnimatedValue(1);
-  useEffect(() => {
-    if (!justPlaced) return;
-    arrive.setValue(0);
-    Animated.timing(arrive, { toValue: 1, duration: 1700, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start(({ finished }) => {
-      if (!finished) return;
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-      burst.setValue(0);
-      Animated.timing(burst, { toValue: 1, duration: 1100, easing: Easing.out(Easing.quad), useNativeDriver: true }).start();
-    });
-  }, [justPlaced, arrive, burst]);
-
-  // The first few words of their note, shown in the thought bubble.
-  const snippet = star.note?.trim() ? (star.note.trim().length > 22 ? star.note.trim().slice(0, 21).trimEnd() + '…' : star.note.trim()) : '';
-  const first = star.profile?.full_name?.trim().split(/\s+/)[0] ?? 'Student';
-  return (
-    <Animated.View
-      style={[
-        styles.starWrap,
-        { left: `${pos.x * 100}%`, top: `${pos.y * 100}%`, marginTop: -size / 2 },
-        {
-          opacity: rise,
-          transform: [
-            // Classmates' stars sit at a middle depth when the phone tilts.
-            ...tiltTransform(tilt, 9),
-            { translateY: rise.interpolate({ inputRange: [0, 1], outputRange: [40, 0] }) },
-            { translateY: arrive.interpolate({ inputRange: [0, 1], outputRange: [340, 0] }) },
-            { scale: rise.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) },
-            { scale: arrive.interpolate({ inputRange: [0, 0.7, 1], outputRange: [0.45, 0.9, 1] }) },
-          ],
-        },
-      ]}
-    >
-      {/* While rising: a soft streak of its own light trailing below. */}
-      <Animated.View
-        pointerEvents="none"
-        style={[styles.trail, { top: size / 2, opacity: arrive.interpolate({ inputRange: [0, 0.1, 0.8, 1], outputRange: [0, 0.9, 0.35, 0] }) }]}
-      >
-        <Svg width="100%" height="100%" viewBox="0 0 10 100" preserveAspectRatio="none">
-          <Defs>
-            <LinearGradient id={`trail-${star.user_id}`} x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0" stopColor={mood.color} stopOpacity={0.9} />
-              <Stop offset="1" stopColor={mood.color} stopOpacity={0} />
-            </LinearGradient>
-          </Defs>
-          <Rect x="3.5" y="0" width="3" height="100" rx="1.5" fill={`url(#trail-${star.user_id})`} />
-        </Svg>
-      </Animated.View>
-
-      {/* Tapped: a little thought floating over the star — the feeling,
-          and the first words of what they wrote. */}
-      {selected ? (
-        <Animated.View
-          pointerEvents="none"
-          style={[
-            styles.thought,
-            {
-              opacity: arrive.interpolate({ inputRange: [0, 0.85, 1], outputRange: [0, 0, 1] }),
-              transform: [{ translateY: pulse.interpolate({ inputRange: [0, 1], outputRange: [0, -3] }) }],
-            },
-          ]}
-        >
-          <View style={[styles.thoughtBubble, { borderColor: mood.color }]}>
-            <MoodFace mood={mood.key} size={20} />
-            {snippet ? (
-              <Text style={styles.thoughtText} numberOfLines={1}>
-                {snippet}
-              </Text>
-            ) : null}
-          </View>
-          <View style={[styles.thoughtDot, { borderColor: mood.color }]} />
-          <View style={[styles.thoughtDotSmall, { borderColor: mood.color }]} />
-        </Animated.View>
-      ) : null}
-      {/* Twinkle burst: a ring of light that expands and fades. */}
-      <Animated.View
-        pointerEvents="none"
-        style={[
-          styles.burst,
-          {
-            borderColor: mood.color,
-            opacity: burst.interpolate({ inputRange: [0, 0.2, 1], outputRange: [0, 1, 0] }),
-            transform: [{ scale: burst.interpolate({ inputRange: [0, 1], outputRange: [0.4, 2.6] }) }],
-          },
-        ]}
-      />
-      <TouchableOpacity
-        onPress={onPress}
-        onLongPress={onLongPress}
-        delayLongPress={350}
-        activeOpacity={0.8}
-        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-        accessibilityRole="button"
-        accessibilityLabel={`${mine ? 'Your star' : first}: feeling ${mood.label}${star.note ? `, ${star.note}` : ''}`}
-        style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}
-      >
-        <Animated.View
-          style={[
-            styles.halo,
-            {
-              width: size * 2.6,
-              height: size * 2.6,
-              opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: selected ? [0.8, 1] : [0.45, 0.85] }),
-              transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.85, 1.12] }) }],
-            },
-          ]}
-        >
-          <Svg width="100%" height="100%" viewBox="0 0 100 100">
-            <Defs>
-              <RadialGradient id={`halo-${star.user_id}`} cx="50%" cy="50%" r="50%">
-                <Stop offset="0" stopColor={mood.color} stopOpacity={0.55} />
-                <Stop offset="0.45" stopColor={mood.color} stopOpacity={0.18} />
-                <Stop offset="1" stopColor={mood.color} stopOpacity={0} />
-              </RadialGradient>
-            </Defs>
-            <Circle cx="50" cy="50" r="50" fill={`url(#halo-${star.user_id})`} />
-          </Svg>
-        </Animated.View>
-        <Animated.View
-          pointerEvents="none"
-          style={[
-            styles.rays,
-            {
-              width: size * 2.2,
-              height: size * 2.2,
-              opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.25, 0.7] }),
-              transform: [{ rotate: '8deg' }, { scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.85, 1.1] }) }],
-            },
-          ]}
-        >
-          <Svg width="100%" height="100%" viewBox="0 0 100 100">
-            <Defs>
-              <LinearGradient id={`rayH-${star.user_id}`} x1="0" y1="0" x2="1" y2="0">
-                <Stop offset="0" stopColor="#fff" stopOpacity={0} />
-                <Stop offset="0.5" stopColor="#fff" stopOpacity={0.9} />
-                <Stop offset="1" stopColor="#fff" stopOpacity={0} />
-              </LinearGradient>
-              <LinearGradient id={`rayV-${star.user_id}`} x1="0" y1="0" x2="0" y2="1">
-                <Stop offset="0" stopColor="#fff" stopOpacity={0} />
-                <Stop offset="0.5" stopColor="#fff" stopOpacity={0.9} />
-                <Stop offset="1" stopColor="#fff" stopOpacity={0} />
-              </LinearGradient>
-            </Defs>
-            <Rect x="0" y="49.3" width="100" height="1.4" fill={`url(#rayH-${star.user_id})`} />
-            <Rect x="49.3" y="0" width="1.4" height="100" fill={`url(#rayV-${star.user_id})`} />
-          </Svg>
-        </Animated.View>
-        <Animated.View style={{ transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1.06] }) }] }}>
-          <Svg width={size} height={size} viewBox="0 0 24 24">
-            <Path d={SPARKLE} fill={mood.color} />
-            <Path d={SPARKLE} fill="#fff" opacity={0.45} transform="translate(6 6) scale(0.5)" />
-          </Svg>
-        </Animated.View>
-        {star.photo_url ? (
-          <View style={styles.starPhotoBadge}>
-            <Ionicons name="camera" size={9} color={colors.ink} />
-          </View>
-        ) : null}
-      </TouchableOpacity>
-      <Text style={[styles.starName, mine && styles.starNameMine, selected && styles.starNameSelected]} numberOfLines={1}>
-        {mine ? 'You' : first}
-        {twinkles > 0 ? <Text style={styles.twinkleCount}>{`  ✨${twinkles}`}</Text> : null}
-      </Text>
-    </Animated.View>
-  );
-}
-
-// A slower shooting star you can catch (tap) to make a wish. Crosses the
-// sky every so often; more often when the school is excited.
-function CatchableStar({ width, height, frequent, onCatch }: { width: number; height: number; frequent: boolean; onCatch: () => void }) {
-  const t = useAnimatedValue(0);
-  const [flying, setFlying] = useState(false);
-  const [lane] = useState(() => Math.random());
-  useEffect(() => {
-    let cancelled = false;
-    let timer: ReturnType<typeof setTimeout>;
-    const fly = () => {
-      if (cancelled) return;
-      t.setValue(0);
-      setFlying(true);
-      Animated.timing(t, { toValue: 1, duration: 2600, easing: Easing.inOut(Easing.quad), useNativeDriver: true }).start(() => {
-        if (cancelled) return;
-        setFlying(false);
-        timer = setTimeout(fly, (frequent ? 5000 : 11000) + Math.random() * 5000);
-      });
-    };
-    timer = setTimeout(fly, 2500);
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-      t.stopAnimation();
-    };
-  }, [t, frequent]);
-  if (!flying || width === 0) return null;
-  const startY = height * (0.08 + lane * 0.25);
-  return (
-    <Animated.View
-      style={{
-        position: 'absolute',
-        left: width * 0.9,
-        top: startY,
-        opacity: t.interpolate({ inputRange: [0, 0.1, 0.85, 1], outputRange: [0, 1, 1, 0] }),
-        transform: [
-          { translateX: t.interpolate({ inputRange: [0, 1], outputRange: [0, -width * 0.75] }) },
-          { translateY: t.interpolate({ inputRange: [0, 1], outputRange: [0, height * 0.22] }) },
-        ],
-      }}
-    >
-      <TouchableOpacity
-        onPress={() => {
-          t.stopAnimation();
-          setFlying(false);
-          onCatch();
-        }}
-        hitSlop={{ top: 30, bottom: 30, left: 30, right: 30 }}
-        accessibilityRole="button"
-        accessibilityLabel="Catch the shooting star to make a wish"
-        style={styles.catchStar}
-      >
-        <View style={styles.catchHead} />
-        <View style={styles.catchTail} />
-      </TouchableOpacity>
-    </Animated.View>
-  );
-}
-
-// A classmate's lantern, drifting up slowly with a warm glow.
-function FloatingLantern({ lantern, index, width, height, onPress }: { lantern: Lantern; index: number; width: number; height: number; onPress: () => void }) {
-  const drift = useAnimatedValue(0);
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(drift, { toValue: 1, duration: 5200 + (index % 3) * 900, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-        Animated.timing(drift, { toValue: 0, duration: 5200 + (index % 3) * 900, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      ])
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [drift, index]);
-  let h = 7;
-  for (let i = 0; i < lantern.id.length; i++) h = (h * 33 + lantern.id.charCodeAt(i)) >>> 0;
-  const x = 0.08 + ((h % 1000) / 1000) * 0.84;
-  // Below the empty-sky message, above the wish lights on the horizon.
-  const y = Math.min(0.5 + (((h >> 10) % 1000) / 1000) * 0.14, (height - 240) / height);
-  return (
-    <Animated.View
-      style={{
-        position: 'absolute',
-        left: x * width - 14,
-        top: y * height,
-        transform: [
-          { translateY: drift.interpolate({ inputRange: [0, 1], outputRange: [0, -14] }) },
-          { rotate: drift.interpolate({ inputRange: [0, 1], outputRange: ['-4deg', '4deg'] }) },
-        ],
-      }}
-    >
-      <TouchableOpacity
-        onPress={onPress}
-        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-        accessibilityRole="button"
-        accessibilityLabel={`A lantern: ${lantern.text}`}
-        style={styles.lanternWrap}
-      >
-        <View style={styles.lanternGlow} />
-        <View style={styles.lanternTop} />
-        <View style={[styles.lanternBody, lantern.mine && styles.lanternBodyMine]} />
-      </TouchableOpacity>
-    </Animated.View>
-  );
-}
-
-// Today's wishes, as small warm lights floating just above the horizon.
-function WishLight({ wish, index, width, height, selected, onPress }: { wish: SkyWish; index: number; width: number; height: number; selected: boolean; onPress: () => void }) {
-  const bob = useAnimatedValue(0);
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(bob, { toValue: 1, duration: 2200 + (index % 4) * 400, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-        Animated.timing(bob, { toValue: 0, duration: 2200 + (index % 4) * 400, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      ])
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [bob, index]);
-  let h = 0;
-  for (let i = 0; i < wish.id.length; i++) h = (h * 31 + wish.id.charCodeAt(i)) >>> 0;
-  const x = 0.06 + ((h % 1000) / 1000) * 0.88;
-  const y = height - 150 - ((h >> 10) % 70);
-  return (
-    <Animated.View
-      style={{
-        position: 'absolute',
-        left: x * width - 14,
-        top: y,
-        transform: [{ translateY: bob.interpolate({ inputRange: [0, 1], outputRange: [0, -8] }) }],
-      }}
-    >
-      <TouchableOpacity
-        onPress={onPress}
-        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        accessibilityRole="button"
-        accessibilityLabel={`A wish: ${wish.text}`}
-        style={styles.wishWrap}
-      >
-        <View style={[styles.wishGlow, selected && styles.wishGlowSelected]} />
-        <View style={[styles.wishCore, wish.mine && styles.wishCoreMine]} />
-      </TouchableOpacity>
-    </Animated.View>
-  );
-}
-
-// Faint dotted lines joining today's stars, left to right: the school's
-// constellation for the day.
-function Constellation({ stars, width, height }: { stars: SkyStar[]; width: number; height: number }) {
-  if (stars.length < 2 || width === 0) return null;
-  const pts = stars
-    .map((st, i) => starPosition(st.user_id, i))
-    .map((p) => ({ x: p.x * width, y: p.y * height }))
-    .sort((a, b) => a.x - b.x);
-  const d = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
-  return (
-    <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
-      <Path d={d} stroke="#fff" strokeOpacity={0.22} strokeWidth={1} strokeDasharray="2 5" fill="none" />
-    </Svg>
-  );
-}
 
 // One-tap warm words for a classmate's star, fitting how they feel.
 const WARM_WORDS: Record<SkyMood, string[]> = {
@@ -462,60 +48,6 @@ const WARM_WORDS: Record<SkyMood, string[]> = {
   tired: ['Rest well 🌙', 'Proud of you today'],
   down: ['Here for you 💛', 'Sending a hug 🫂'],
 };
-
-// After a face is picked, the composer asks a question that fits it.
-// Answering is always optional — a star can go up without words.
-const FOLLOW_UPS: Record<SkyMood, { q: string; placeholder: string }> = {
-  happy: { q: 'Nice! What made today good?', placeholder: 'Even something small counts…' },
-  excited: { q: "Ooh, what's got you excited?", placeholder: 'Tell your school about it…' },
-  chill: { q: "Love that. What's keeping it calm?", placeholder: 'A quiet moment, a good song…' },
-  nervous: { q: "What's making you nervous?", placeholder: 'A test, a new class, meeting people…' },
-  tired: { q: 'Long day? What wore you out?', placeholder: "It's okay to just rest…" },
-  down: { q: "I'm sorry it's heavy. Want to say what happened?", placeholder: 'Only if you want to…' },
-};
-
-// Each composer step slides in from its side, so moving between them feels
-// like turning to the next page.
-function SlideIn({ from, children }: { from: number; children: ReactNode }) {
-  const t = useAnimatedValue(0);
-  useEffect(() => {
-    Animated.timing(t, { toValue: 1, duration: 220, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
-  }, [t]);
-  return (
-    <Animated.View style={{ opacity: t, transform: [{ translateX: t.interpolate({ inputRange: [0, 1], outputRange: [from, 0] }) }] }}>
-      {children}
-    </Animated.View>
-  );
-}
-
-// A soft four-point star that breathes in the window of the star composer.
-function MoodStar({ color }: { color: string }) {
-  const pulse = useAnimatedValue(0);
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulse, { toValue: 1, duration: 1400, useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 0, duration: 1400, useNativeDriver: true }),
-      ])
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [pulse]);
-  return (
-    <Animated.View
-      pointerEvents="none"
-      style={[
-        styles.cMoodStar,
-        { transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.9, 1.12] }) }], opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.85, 1] }) },
-      ]}
-    >
-      <Svg width={34} height={34} viewBox="0 0 24 24">
-        <Circle cx="12" cy="12" r="10" fill={color} opacity={0.35} />
-        <Path d="M12 2.5 C12.8 8.6 15.4 11.2 21.5 12 C15.4 12.8 12.8 15.4 12 21.5 C11.2 15.4 8.6 12.8 2.5 12 C8.6 11.2 11.2 8.6 12 2.5 Z" fill="#FFFDF5" stroke={color} strokeWidth={1.2} />
-      </Svg>
-    </Animated.View>
-  );
-}
 
 export default function SchoolSkyScreen() {
   const { ask, sheet } = useWarmSheet();
@@ -533,15 +65,8 @@ export default function SchoolSkyScreen() {
   const [skySize, setSkySize] = useState({ width: 0, height: 0 });
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  // The composer stays simple; the sky bits open only if you want them.
-  const [showSkyExtras, setShowSkyExtras] = useState(false);
-  // Quick sky tiles in the composer, the same as the sky check on Home.
-  const composerSkies = skiesFor(currentSlot());
-  const composerScenes = useMemo(() => {
-    const out: Record<string, NonNullable<ReturnType<typeof interpretSky>>> = {};
-    for (const c of composerSkies) out[c.label] = interpretSky(c.text, phase) ?? FALLBACK_SCENE;
-    return out;
-  }, [composerSkies, phase]);
+  // The star being written in the composer.
+  const draft = useStarDraft(phase);
 
   // Opened with "add my star": the composer rises once the sky has.
   const [composerOpen, setComposerOpen] = useState(false);
@@ -557,12 +82,8 @@ export default function SchoolSkyScreen() {
   useEffect(() => {
     Animated.timing(lookUp, { toValue: 1, duration: 600, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
   }, [lookUp]);
-  const [mood, setMood] = useState<SkyMood>('happy');
-  // False until a face is tapped on a new star: the follow-up waits for it.
-  const [moodPicked, setMoodPicked] = useState(false);
   // Bumped after saving, so my star rises into the sky.
   const [placedKey, setPlacedKey] = useState(0);
-  const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
   const [openingChat, setOpeningChat] = useState(false);
   // A gentle moment after a heavy star (see CareSheet), and the breathing minute.
@@ -570,15 +91,6 @@ export default function SchoolSkyScreen() {
   const [breatheOpen, setBreatheOpen] = useState(false);
   // Warm words already sent to a star today (this visit), by user id.
   const [warmthSent, setWarmthSent] = useState<Record<string, string>>({});
-  // The composer's sky photo: the current one (a URL), a fresh camera shot
-  // (a local file, uploaded on save), or none.
-  const [photoUri, setPhotoUri] = useState<string | null>(null);
-  const [photoIsNew, setPhotoIsNew] = useState(false);
-  // "Look up": the student's own words about the sky, and how the AI read them.
-  const [skyText, setSkyText] = useState('');
-  const [skyScene, setSkyScene] = useState<DescribedSky | null>(null);
-  const [painting, setPainting] = useState(false);
-  const [paintError, setPaintError] = useState<string | null>(null);
   // After "Paint my sky" the sheet steps aside and the whole screen shows
   // the described sky before it's saved.
   const [previewing, setPreviewing] = useState(false);
@@ -592,7 +104,6 @@ export default function SchoolSkyScreen() {
   // "Today's real sky": the photos the sky was painted from, opened from
   // the painted tag rather than hung in the sky itself.
   const [galleryOpen, setGalleryOpen] = useState(false);
-  const [wishText, setWishText] = useState('');
   const [wishSaving, setWishSaving] = useState(false);
   // A little light that flies from the bottom of the sky to a star when you
   // send it a twinkle.
@@ -663,11 +174,10 @@ export default function SchoolSkyScreen() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setSelectedId(null);
     setSelectedWishId(null);
-    setWishText('');
     setWishOpen(true);
   };
 
-  const handleMakeWish = async () => {
+  const handleMakeWish = async (wishText: string) => {
     if (wishSaving || !wishText.trim()) return;
     if (hasBlockedWords(wishText)) {
       showToast(KIND_WORDS_MESSAGE);
@@ -732,87 +242,29 @@ export default function SchoolSkyScreen() {
   };
 
   const openComposer = () => {
-    setShowSkyExtras(false);
-    setMood((myStar?.mood as SkyMood) ?? 'happy');
-    setMoodPicked(!!myStar);
-    setNote(myStar?.note ?? '');
-    setPhotoUri(myStar?.photo_url ?? null);
-    setPhotoIsNew(false);
-    setSkyText(myStar?.sky_desc ?? '');
-    setSkyScene(myStar?.sky_desc && myStar.sky_colors && myStar.sky_title
-      ? { colors: myStar.sky_colors, clouds: myStar.sky_clouds ?? 'few', cloud_color: '#ffffff', things: myStar.sky_things ?? [], title: myStar.sky_title }
-      : null);
-    setPaintError(null);
+    draft.fillFrom(myStar);
     setSelectedId(null);
     setComposerOpen(true);
   };
 
-  // The composer can open straight from Home ("Add your star"); prefill it
+  // The composer can open straight from Home ("Add your star"); fill it in
   // once the current star has loaded.
   const prefilledRef = useRef(false);
+  const fillDraft = draft.fillFrom;
   useEffect(() => {
     if (!composerOpen || prefilledRef.current || loading) return;
     prefilledRef.current = true;
-    if (myStar) {
-      setMood(myStar.mood);
-      setMoodPicked(true);
-      setNote(myStar.note ?? '');
-      setPhotoUri(myStar.photo_url ?? null);
-      setPhotoIsNew(false);
-      setSkyText(myStar.sky_desc ?? '');
-      setSkyScene(myStar?.sky_desc && myStar.sky_colors && myStar.sky_title
-      ? { colors: myStar.sky_colors, clouds: myStar.sky_clouds ?? 'few', cloud_color: '#ffffff', things: myStar.sky_things ?? [], title: myStar.sky_title }
-      : null);
-    }
-  }, [composerOpen, loading, myStar]);
+    if (myStar) fillDraft(myStar);
+  }, [composerOpen, loading, myStar, fillDraft]);
 
-  // Camera only, on purpose: the point is to look up at the real sky right
-  // now, not to pick an old photo.
-  const handleSnapSky = async () => {
-    if (!(await askPermission(ImagePicker.requestCameraPermissionsAsync, 'camera', 'to snap the sky'))) return;
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [3, 4],
-      quality: 0.6,
-    });
-    if (result.canceled || !result.assets?.length) return;
-    setPhotoUri(result.assets[0].uri);
-    setPhotoIsNew(true);
-  };
-
-  // Sends the description to the AI painter (describe-sky Edge Function).
+  // Their own words, painted: the sheet steps aside to preview the sky.
   const handlePaint = async () => {
-    const text = skyText.trim();
-    if (painting || text.length < 2) return;
-    if (hasBlockedWords(text)) {
-      setPaintError(KIND_WORDS_MESSAGE);
-      return;
-    }
-    setPainting(true);
-    setPaintError(null);
-    try {
-      const scene = await describeSky(text, phase);
-      if (!scene) {
-        setSkyScene(null);
-        setPaintError("Let's keep it about the sky ☁️ Try describing what you see.");
-        return;
-      }
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setSkyScene(scene);
-      setPreviewing(true);
-    } catch (err) {
-      setPaintError(errorMessage(err, "Couldn't paint the sky right now."));
-    } finally {
-      setPainting(false);
-    }
+    if (await draft.paint()) setPreviewing(true);
   };
-
-  // Typed words (not a tile) are what the paint button paints.
-  const ownWords = skyText.trim().length >= 2 && !composerSkies.some((c) => c.text === skyText);
 
   const handleSave = async (confirmedCrisis = false) => {
     if (saving || !user) return;
+    const { mood, note, photoUri, photoIsNew, skyText, skyScene } = draft;
     if (hasBlockedWords(note) || hasBlockedWords(skyText)) {
       showToast(KIND_WORDS_MESSAGE);
       return;
@@ -943,8 +395,8 @@ export default function SchoolSkyScreen() {
   // by band, the most common cloudiness, clouds tinted from the horizon.
   const todaysLook: DescribedSkyLook | null = blendDescribedSky(stars);
   const previewLook: DescribedSkyLook | null =
-    previewing && skyScene ? { colors: skyScene.colors, clouds: skyScene.clouds, cloudColor: skyScene.cloud_color } : null;
-  const shownThings = previewing && skyScene ? skyScene.things : shared.things;
+    previewing && draft.skyScene ? { colors: draft.skyScene.colors, clouds: draft.skyScene.clouds, cloudColor: draft.skyScene.cloud_color } : null;
+  const shownThings = previewing && draft.skyScene ? draft.skyScene.things : shared.things;
   // The ground below takes its colours from whatever sky is showing.
   const land = landColors((previewLook ?? todaysLook)?.colors ?? PHASE_SKY[phase]);
   const moodW = moods[0] ? moodWeather(moods[0]) : null;
@@ -1308,14 +760,14 @@ export default function SchoolSkyScreen() {
         )}
       </View>
 
-      {previewing && skyScene ? (
+      {previewing && draft.skyScene ? (
         <View style={[styles.previewBar, { paddingBottom: insets.bottom + spacing.md, backgroundColor: land.ground }]}>
           <Text style={styles.previewEyebrow}>✨ This is the sky you described</Text>
           <Text style={styles.previewTitle}>
-            {skyScene.title} {skyScene.things.map((t) => THING_EMOJI[t]).join('')}
+            {draft.skyScene.title} {draft.skyScene.things.map((t) => THING_EMOJI[t]).join('')}
           </Text>
           <Text style={styles.previewDesc} numberOfLines={2}>
-            “{skyText.trim()}”
+            “{draft.skyText.trim()}”
           </Text>
           <View style={styles.cardActions}>
             <PrimaryButton title="Edit" size="sm" variant="warmGhost" onPress={() => setPreviewing(false)} style={styles.cardButton} />
@@ -1332,285 +784,33 @@ export default function SchoolSkyScreen() {
         </View>
       ) : null}
 
-      <Modal
+      <StarComposer
         visible={composerOpen && !previewing}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setComposerOpen(false)}
-      >
-        <KeyboardAvoidingView style={styles.modalBackdrop} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setComposerOpen(false)} />
-          <View style={[styles.cSheet, { paddingBottom: insets.bottom + spacing.lg }]}>
-            {/* Today's sky through NewStep's window — your star waits in it,
-                glowing in your mood's colour. */}
-            <View style={styles.cHero}>
-              <Svg width="100%" height="100%" style={StyleSheet.absoluteFill}>
-                <Defs>
-                  <LinearGradient id="composerHero" x1="0" y1="0" x2="0" y2="1">
-                    <Stop offset="0" stopColor={(composerScenes[composerSkies[0].label] ?? FALLBACK_SCENE).colors[0]} stopOpacity={0.55} />
-                    <Stop offset="0.55" stopColor={(composerScenes[composerSkies[0].label] ?? FALLBACK_SCENE).colors[2]} stopOpacity={0.35} />
-                    <Stop offset="1" stopColor={colors.background} stopOpacity={1} />
-                  </LinearGradient>
-                </Defs>
-                <Rect x="0" y="0" width="100%" height="100%" fill="url(#composerHero)" />
-              </Svg>
-              <View style={[styles.cHandle, styles.cHandleOnSky]} />
-              <View>
-                <SkyWindow scene={skyScene ?? composerScenes[composerSkies[0].label] ?? FALLBACK_SCENE} width={112} />
-                <MoodStar color={moodPicked ? SKY_MOODS.find((m) => m.key === mood)?.color ?? colors.primary : colors.primary} />
-              </View>
-            </View>
-            <ScrollView style={styles.sheetScroll} contentContainerStyle={styles.cContent} keyboardShouldPersistTaps="handled">
-            {!moodPicked ? (
-              // Step 1: just the feeling.
-              <SlideIn key="mood" from={-36}>
-                <Text style={styles.cTitle}>How are you, really?</Text>
-                <Text style={styles.cSub}>Tap the one that feels closest.</Text>
-                <View style={styles.cMoodGrid}>
-                  {SKY_MOODS.map((m) => (
-                    <TouchableOpacity
-                      key={m.key}
-                      style={styles.cMoodTile}
-                      activeOpacity={0.8}
-                      onPress={() => {
-                        Haptics.selectionAsync();
-                        setMood(m.key);
-                        setMoodPicked(true);
-                      }}
-                      accessibilityRole="button"
-                      accessibilityLabel={m.label}
-                    >
-                      <View style={[styles.cMoodTileFace, { backgroundColor: m.color + '33' }]}>
-                        <MoodFace mood={m.key} size={46} />
-                      </View>
-                      <Text style={styles.cMoodTileLabel}>{m.label}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </SlideIn>
-            ) : (
-              // Step 2: a question made for that feeling. Answering is up to them.
-              <SlideIn key="share" from={36}>
-                <View style={styles.cStepBar}>
-                  <TouchableOpacity
-                    style={styles.cBack}
-                    onPress={() => setMoodPicked(false)}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    accessibilityRole="button"
-                    accessibilityLabel="Pick a different feeling"
-                  >
-                    <Ionicons name="chevron-back" size={18} color={colors.textMid} />
-                  </TouchableOpacity>
-                  <TouchableOpacity style={[styles.cMoodChip, { backgroundColor: skyMood(mood).color + '40' }]} onPress={() => setMoodPicked(false)} activeOpacity={0.8}>
-                    <MoodFace mood={mood} size={22} />
-                    <Text style={styles.cMoodChipText}>Feeling {skyMood(mood).label.toLowerCase()}</Text>
-                  </TouchableOpacity>
-                  <View style={styles.cBack} />
-                </View>
-
-                <Text style={[styles.cTitle, styles.cQuestion]}>{FOLLOW_UPS[mood].q}</Text>
-                <TextInput
-                  style={[styles.cInput, styles.cHeart]}
-                  placeholder={FOLLOW_UPS[mood].placeholder}
-                  placeholderTextColor={colors.textLight}
-                  value={note}
-                  onChangeText={setNote}
-                  maxLength={SKY_NOTE_MAX}
-                  multiline
-                />
-                <Text style={styles.cOptional}>Only if you want to · classmates see it with your star</Text>
-                {soundsLikeCrisis(note) ? (
-                  <FadeInView style={styles.cSupport}>
-                    <SupportLines tone="light" />
-                  </FadeInView>
-                ) : null}
-
-                {/* A heavier day gets a gentle way to say it with no name. */}
-                {mood === 'down' || mood === 'nervous' || mood === 'tired' ? (
-                  <TouchableOpacity
-                    style={styles.cHeavy}
-                    activeOpacity={0.85}
-                    onPress={() => {
-                      setComposerOpen(false);
-                      navigation.navigate('Lanterns', { compose: true });
-                    }}
-                    accessibilityRole="button"
-                  >
-                    <Text style={styles.cHeavyText}>
-                      Rather say it with no name? <Text style={styles.cHeavyLink}>Send a lantern ›</Text>
-                    </Text>
-                  </TouchableOpacity>
-                ) : null}
-                {mood === 'down' || mood === 'nervous' || mood === 'tired' ? (
-                  <TouchableOpacity style={styles.cBreathe} onPress={() => setBreatheOpen(true)} accessibilityRole="button">
-                    <Ionicons name="leaf-outline" size={14} color={colors.primaryDark} />
-                    <Text style={styles.cHeavyLink}>Take a 1-minute breath first</Text>
-                  </TouchableOpacity>
-                ) : null}
-              </SlideIn>
-            )}
-            {moodPicked ? (
-            <>
-
-            {/* Everything else is optional and tucked away. */}
-            {showSkyExtras ? (
-              <View style={styles.cExtras}>
-                <Text style={styles.cSection}>👀 What's the sky like?</Text>
-              <View style={styles.cTiles}>
-                {composerSkies.map((c) => (
-                  <SkyTile
-                    key={c.label}
-                    choice={c}
-                    scene={composerScenes[c.label]}
-                    selected={skyText === c.text}
-                    onPress={() => {
-                      Haptics.selectionAsync();
-                      setSkyText(c.text);
-                      setPaintError(null);
-                      setSkyScene(composerScenes[c.label]);
-                    }}
-                  />
-                ))}
-              </View>
-              <View style={styles.cFieldRow}>
-                <TextInput
-                  style={[styles.cInput, { flex: 1 }]}
-                  placeholder="Or in your own words…"
-                  placeholderTextColor={colors.textLight}
-                  value={composerSkies.some((c) => c.text === skyText) ? '' : skyText}
-                  onChangeText={(t) => {
-                    setSkyText(t);
-                    setPaintError(null);
-                  }}
-                  maxLength={200}
-                />
-                <TouchableOpacity
-                  style={[styles.cIconButton, styles.cIconButtonFilled, !ownWords && { opacity: 0.4 }]}
-                  onPress={handlePaint}
-                  disabled={painting || !ownWords}
-                  accessibilityRole="button"
-                  accessibilityLabel={skyScene ? 'Paint it again' : 'Paint my sky'}
-                >
-                  {painting ? (
-                    <ActivityIndicator size="small" color={colors.onPrimary} />
-                  ) : (
-                    <Ionicons name="color-palette" size={18} color={colors.onPrimary} />
-                  )}
-                </TouchableOpacity>
-              </View>
-              {paintError ? <Text style={styles.paintError}>{paintError}</Text> : null}
-                  <View style={[styles.cFieldRow, { justifyContent: 'flex-end' }]}>
-                  <Text style={styles.cPhotoLabel}>Add a photo of the sky</Text>
-                {photoUri ? (
-                  <TouchableOpacity onPress={handleSnapSky} onLongPress={() => setPhotoUri(null)} accessibilityLabel="Retake the sky photo. Hold to remove.">
-                    <Image source={{ uri: photoUri }} style={styles.notePhoto} />
-                    <TouchableOpacity style={styles.photoRemove} onPress={() => setPhotoUri(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityLabel="Remove photo">
-                      <Ionicons name="close" size={11} color={colors.warm.honeyInk} />
-                    </TouchableOpacity>
-                  </TouchableOpacity>
-                ) : (
-                  <TouchableOpacity style={styles.cIconButton} onPress={handleSnapSky} accessibilityLabel="Add a photo of the sky">
-                    <Ionicons name="camera-outline" size={18} color={colors.textMid} />
-                  </TouchableOpacity>
-                )}
-                  </View>
-              </View>
-            ) : (
-              <TouchableOpacity style={styles.cMore} onPress={() => setShowSkyExtras(true)} accessibilityRole="button">
-                <Ionicons name="add" size={16} color={colors.textMid} />
-                <Text style={styles.cMoreText}>Add today's sky</Text>
-              </TouchableOpacity>
-            )}
-            {note.length > SKY_NOTE_MAX - 20 ? (
-              <Text style={styles.cCount}>
-                {note.length}/{SKY_NOTE_MAX}
-              </Text>
-            ) : null}
-
-            <PrimaryButton
-              title={myStar ? 'Update my star' : 'Put it in the sky'}
-              icon="sparkles"
-              loading={saving}
-              onPress={() => handleSave()}
-              style={styles.sheetSave}
-            />
-            </>
-            ) : null}
-            </ScrollView>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-      <Modal visible={wishOpen} transparent animationType="fade" onRequestClose={() => setWishOpen(false)}>
-        <KeyboardAvoidingView style={styles.wishBackdrop} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setWishOpen(false)} />
-          <View style={styles.wishSheet}>
-            <Text style={styles.wishEmoji}>🌠</Text>
-            <Text style={styles.sheetTitle}>You caught a shooting star!</Text>
-            <Text style={styles.wishSub}>Make a wish. It floats in your school's sky for a day — nobody sees who made it.</Text>
-            <TextInput
-              style={styles.noteInput}
-              placeholder="I wish…"
-              placeholderTextColor={colors.warm.creamFaint}
-              value={wishText}
-              onChangeText={setWishText}
-              maxLength={WISH_MAX}
-              autoFocus
-            />
-            <Text style={styles.noteCount}>
-              {wishText.length}/{WISH_MAX}
-            </Text>
-            <PrimaryButton
-              variant="warm" title="Send it to the sky" icon="sparkles" loading={wishSaving} disabled={!wishText.trim()} onPress={handleMakeWish} />
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-      <Modal visible={galleryOpen} transparent animationType="fade" onRequestClose={() => setGalleryOpen(false)}>
-        <View style={styles.galleryBackdrop}>
-          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setGalleryOpen(false)} />
-          <Text style={styles.galleryTitle}>Today's real sky</Text>
-          <Text style={styles.gallerySub}>The photos tonight's sky was painted from</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.galleryRail}
-            style={styles.galleryScroll}
-          >
-            {stars
-              .filter((st) => st.photo_url)
-              .map((st, i) => (
-                <TouchableOpacity
-                  key={st.user_id}
-                  activeOpacity={0.9}
-                  onPress={() => {
-                    Haptics.selectionAsync();
-                    setGalleryOpen(false);
-                    setSelectedWishId(null);
-                    setSelectedId(st.user_id);
-                  }}
-                  style={[styles.galleryCard, { transform: [{ rotate: i % 2 === 0 ? '-3deg' : '2.5deg' }] }]}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Sky photo from ${st.user_id === user?.id ? 'you' : st.profile?.full_name ?? 'a classmate'}`}
-                >
-                  <Image source={{ uri: st.photo_url! }} style={styles.galleryPhoto} />
-                  <View style={[styles.moodLine, styles.moodLineCenter]}>
-                    <MoodFace mood={st.mood} size={20} />
-                    <Text style={[styles.galleryCaption, styles.galleryCaptionInline]} numberOfLines={1}>
-                      {st.user_id === user?.id ? 'You' : st.profile?.full_name?.trim().split(/\s+/)[0] ?? ''}
-                    </Text>
-                  </View>
-                  {st.sky_colors ? (
-                    <View style={styles.galleryPalette}>
-                      {st.sky_colors.map((c, j) => (
-                        <View key={j} style={{ flex: 1, backgroundColor: c }} />
-                      ))}
-                    </View>
-                  ) : null}
-                </TouchableOpacity>
-              ))}
-          </ScrollView>
-          <Text style={styles.galleryHint}>Tap a photo to find their star</Text>
-        </View>
-      </Modal>
+        draft={draft}
+        isUpdate={!!myStar}
+        saving={saving}
+        onClose={() => setComposerOpen(false)}
+        onSave={() => handleSave()}
+        onPaint={handlePaint}
+        onLantern={() => {
+          setComposerOpen(false);
+          navigation.navigate('Lanterns', { compose: true });
+        }}
+        onBreathe={() => setBreatheOpen(true)}
+      />
+      {/* Mounted only while open, so every caught star starts a blank wish. */}
+      {wishOpen ? <WishSheet saving={wishSaving} onClose={() => setWishOpen(false)} onSubmit={handleMakeWish} /> : null}
+      <SkyGallery
+        visible={galleryOpen}
+        stars={stars}
+        myUserId={user?.id}
+        onClose={() => setGalleryOpen(false)}
+        onPick={(userId) => {
+          setGalleryOpen(false);
+          setSelectedWishId(null);
+          setSelectedId(userId);
+        }}
+      />
       <ReportSheet target={reportTarget} reporterId={user?.id} onClose={() => setReportTarget(null)} />
       <CareSheet
         care={care}
@@ -1635,281 +835,6 @@ export default function SchoolSkyScreen() {
 }
 
 const styles = StyleSheet.create({
-  // The star composer: a bright sheet like the rest of the app.
-  cSheet: {
-    backgroundColor: colors.background,
-    borderTopLeftRadius: radius.xl,
-    borderTopRightRadius: radius.xl,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
-    maxHeight: '92%',
-  },
-  cHandle: {
-    alignSelf: 'center',
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.border,
-    marginBottom: spacing.sm,
-  },
-  cContent: {
-    paddingBottom: spacing.sm,
-  },
-  cWindow: {
-    alignSelf: 'center',
-    marginTop: spacing.xs,
-  },
-  cHero: {
-    marginHorizontal: -spacing.lg,
-    marginTop: -spacing.sm,
-    height: 136,
-    borderTopLeftRadius: radius.xl,
-    borderTopRightRadius: radius.xl,
-    overflow: 'hidden',
-    alignItems: 'center',
-    paddingTop: spacing.sm,
-  },
-  cHandleOnSky: {
-    backgroundColor: 'rgba(255,255,255,0.7)',
-    marginBottom: spacing.sm,
-  },
-  cMoodStar: {
-    position: 'absolute',
-    top: 34,
-    alignSelf: 'center',
-  },
-  cTitle: {
-    fontFamily: fontFamily.brand,
-    fontSize: 26,
-    color: colors.textDark,
-    textAlign: 'center',
-    marginTop: spacing.xs,
-  },
-  cSub: {
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.sm,
-    color: colors.textMid,
-    textAlign: 'center',
-    marginTop: 2,
-  },
-  cMoodRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: spacing.lg,
-    paddingHorizontal: 3,
-    paddingVertical: 3,
-  },
-  cMood: {
-    width: 50,
-    height: 50,
-    borderRadius: 24,
-    backgroundColor: colors.cardBg,
-    borderWidth: 1,
-    borderColor: colors.hairline,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cMoodOn: {
-    borderWidth: 2,
-    borderColor: colors.primary,
-    backgroundColor: colors.primaryLight,
-    transform: [{ scale: 1.08 }],
-  },
-  cMoodEmoji: {
-    fontSize: 24,
-  },
-  cQuestion: {
-    fontSize: 22,
-    lineHeight: 28,
-    marginTop: spacing.md,
-  },
-  cMoodGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    rowGap: spacing.md,
-    marginTop: spacing.lg,
-    marginBottom: spacing.md,
-  },
-  cMoodTile: {
-    width: '31%',
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
-    borderRadius: radius.lg,
-    backgroundColor: colors.cardBg,
-    borderWidth: 1,
-    borderColor: colors.hairline,
-  },
-  cMoodTileFace: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cMoodTileLabel: {
-    fontFamily: fontFamily.semibold,
-    fontSize: fontSize.sm,
-    color: colors.textDark,
-    marginTop: 6,
-  },
-  cStepBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: spacing.xs,
-  },
-  cBack: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cMoodChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    borderRadius: radius.full,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 6,
-  },
-  cMoodChipText: {
-    fontFamily: fontFamily.semibold,
-    fontSize: fontSize.sm,
-    color: colors.textDark,
-  },
-  cFollowQ: {
-    fontFamily: fontFamily.semibold,
-    fontSize: fontSize.md,
-    color: colors.textDark,
-    textAlign: 'center',
-    marginTop: spacing.lg,
-  },
-  cBreathe: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'center',
-    gap: 6,
-    marginTop: spacing.sm,
-    paddingVertical: 4,
-  },
-  cSupport: {
-    marginTop: spacing.md,
-  },
-  cOptional: {
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.xs,
-    color: colors.textLight,
-    textAlign: 'center',
-    marginTop: 6,
-  },
-  cHeart: {
-    marginTop: spacing.sm,
-    minHeight: 92,
-    textAlignVertical: 'top',
-  },
-  cExtras: {
-    marginTop: spacing.sm,
-  },
-  cMore: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'center',
-    gap: 4,
-    marginTop: spacing.md,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: radius.full,
-    backgroundColor: colors.hairline,
-  },
-  cMoreText: {
-    fontFamily: fontFamily.medium,
-    fontSize: fontSize.sm,
-    color: colors.textMid,
-  },
-  cPhotoLabel: {
-    flex: 1,
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.sm,
-    color: colors.textMid,
-  },
-  cMoodLabel: {
-    fontFamily: fontFamily.semibold,
-    fontSize: fontSize.sm,
-    color: colors.primaryDark,
-    textAlign: 'center',
-    marginTop: spacing.sm,
-  },
-  cHeavy: {
-    alignSelf: 'center',
-    backgroundColor: '#FFF6E6',
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    marginTop: spacing.sm,
-  },
-  cHeavyText: {
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.sm,
-    color: colors.textMid,
-    textAlign: 'center',
-  },
-  cHeavyLink: {
-    fontFamily: fontFamily.semibold,
-    color: colors.primaryDark,
-  },
-  cSection: {
-    fontFamily: fontFamily.semibold,
-    fontSize: fontSize.sm,
-    color: colors.textDark,
-    marginTop: spacing.lg,
-    marginBottom: spacing.sm,
-  },
-  cTiles: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    rowGap: spacing.sm,
-  },
-  cFieldRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginTop: spacing.sm,
-  },
-  cInput: {
-    backgroundColor: colors.cardBg,
-    borderWidth: 1,
-    borderColor: colors.hairline,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 12,
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.md,
-    color: colors.textDark,
-  },
-  cIconButton: {
-    width: 46,
-    height: 46,
-    borderRadius: radius.md,
-    backgroundColor: colors.cardBg,
-    borderWidth: 1,
-    borderColor: colors.hairline,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cIconButtonFilled: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  cCount: {
-    alignSelf: 'flex-end',
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.xs,
-    color: colors.textLight,
-    marginTop: 4,
-  },
   screen: {
     flex: 1,
     backgroundColor: dark.background,
@@ -1949,27 +874,6 @@ const styles = StyleSheet.create({
   loading: {
     marginTop: spacing.xxl,
   },
-  starWrap: {
-    position: 'absolute',
-    width: 84,
-    marginLeft: -42,
-    alignItems: 'center',
-  },
-  halo: {
-    position: 'absolute',
-  },
-  burst: {
-    position: 'absolute',
-    top: 0,
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    borderWidth: 2,
-  },
-  twinkleCount: {
-    color: colors.sticker.yellow,
-    fontFamily: fontFamily.semibold,
-  },
   twinkleReceived: {
     fontFamily: fontFamily.medium,
     fontSize: fontSize.sm,
@@ -1995,54 +899,6 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
     color: 'rgba(255,255,255,0.85)',
   },
-  catchStar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  catchHead: {
-    width: 9,
-    height: 9,
-    borderRadius: 4.5,
-    backgroundColor: '#FFF7D6',
-    shadowColor: '#FFF7D6',
-    shadowOpacity: 1,
-    shadowRadius: 8,
-  },
-  catchTail: {
-    width: 70,
-    height: 2,
-    marginLeft: -2,
-    borderRadius: 1,
-    backgroundColor: 'rgba(255,247,214,0.55)',
-    // Trails up and to the right, behind a star falling down-left.
-    transform: [{ rotate: '-16deg' }, { translateY: -9 }],
-  },
-  wishWrap: {
-    width: 28,
-    height: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  wishGlow: {
-    position: 'absolute',
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: 'rgba(255,196,120,0.22)',
-  },
-  wishGlowSelected: {
-    backgroundColor: 'rgba(255,196,120,0.5)',
-  },
-  wishCore: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#FFC478',
-  },
-  wishCoreMine: {
-    borderWidth: 1.5,
-    borderColor: '#fff',
-  },
   flyLight: {
     position: 'absolute',
     left: -6,
@@ -2057,136 +913,6 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.sm,
     color: '#FFC478',
-  },
-  wishBackdrop: {
-    flex: 1,
-    justifyContent: 'center',
-    padding: spacing.lg,
-    backgroundColor: 'rgba(10,9,26,0.7)',
-  },
-  wishSheet: {
-    backgroundColor: '#1E1928',
-    borderRadius: 26,
-    padding: spacing.lg,
-    gap: spacing.sm,
-    borderWidth: 1,
-    borderColor: 'rgba(255,196,120,0.3)',
-  },
-  wishEmoji: {
-    fontSize: 40,
-    textAlign: 'center',
-  },
-  wishSub: {
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.sm,
-    color: dark.textMid,
-  },
-  trail: {
-    position: 'absolute',
-    width: 10,
-    height: 150,
-  },
-  rays: {
-    position: 'absolute',
-  },
-  thought: {
-    position: 'absolute',
-    bottom: '100%',
-    left: -60,
-    right: -60,
-    alignItems: 'center',
-    marginBottom: 2,
-  },
-  thoughtBubble: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    maxWidth: 190,
-    backgroundColor: '#FFFDF7',
-    borderRadius: 16,
-    borderWidth: 1.5,
-    paddingLeft: 5,
-    paddingRight: 10,
-    paddingVertical: 4,
-    shadowColor: '#000',
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 3,
-  },
-  thoughtText: {
-    flexShrink: 1,
-    fontFamily: fontFamily.medium,
-    fontSize: 12,
-    color: '#3B3557',
-  },
-  thoughtDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    borderWidth: 1.2,
-    backgroundColor: '#FFFDF7',
-    marginTop: 3,
-    marginLeft: -10,
-  },
-  thoughtDotSmall: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-    borderWidth: 1,
-    backgroundColor: '#FFFDF7',
-    marginTop: 2,
-    marginLeft: -2,
-  },
-  moodBubble: {
-    position: 'absolute',
-    bottom: '100%',
-    marginBottom: 4,
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    borderWidth: 1.5,
-    backgroundColor: 'rgba(22,21,43,0.9)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  moodBubbleEmoji: {
-    fontSize: 18,
-  },
-  starName: {
-    marginTop: 6,
-    fontFamily: fontFamily.medium,
-    fontSize: 11,
-    color: colors.warm.creamMuted,
-    maxWidth: 84,
-  },
-  starNameMine: {
-    color: colors.sticker.yellow,
-  },
-  starNameSelected: {
-    color: '#fff',
-    fontFamily: fontFamily.semibold,
-  },
-  starPhotoBadge: {
-    position: 'absolute',
-    right: -4,
-    bottom: -4,
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: colors.sticker.yellow,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  photoStrip: {
-    marginTop: -spacing.xs,
-  },
-  photoStripHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingRight: spacing.lg,
-    gap: spacing.sm,
   },
   paintedTag: {
     alignSelf: 'flex-start',
@@ -2231,37 +957,6 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.warm.creamMuted,
   },
-  lanternWrap: {
-    width: 28,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  lanternGlow: {
-    position: 'absolute',
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: 'rgba(255,170,90,0.2)',
-  },
-  lanternTop: {
-    width: 10,
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: '#8A4B2A',
-    marginBottom: 1,
-  },
-  lanternBody: {
-    width: 18,
-    height: 22,
-    borderRadius: 6,
-    backgroundColor: '#FFB46E',
-    borderWidth: 1.5,
-    borderColor: '#FFD9A8',
-  },
-  lanternBodyMine: {
-    borderColor: '#fff',
-  },
   lanternLink: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2286,187 +981,9 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
     color: colors.warm.creamFaint,
   },
-  sheetStar: {
-    alignSelf: 'center',
-    marginTop: -spacing.xs,
-  },
-  moodRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 6,
-    paddingVertical: 4,
-    marginTop: spacing.sm,
-  },
-  moodPick: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: colors.warm.glassSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: 'transparent',
-  },
-  moodPickOn: {
-    borderColor: colors.warm.honey,
-    backgroundColor: 'rgba(245,194,122,0.16)',
-    transform: [{ scale: 1.12 }],
-  },
-  moodEmojiOn: {
-    fontSize: 26,
-  },
-  moodPicked: {
-    fontFamily: fontFamily.semibold,
-    fontSize: fontSize.sm,
-    color: colors.warm.honey,
-    textAlign: 'center',
-  },
-  sheetDivider: {
-    height: 1,
-    backgroundColor: colors.warm.line,
-    marginVertical: spacing.sm,
-  },
-  fieldRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  // A round button that sits inside or beside a field.
-  fieldButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.warm.honey,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'absolute',
-    right: 6,
-    bottom: 6,
-  },
-  fieldButtonOff: {
-    opacity: 0.4,
-  },
-  fieldButtonGhost: {
-    position: 'relative',
-    right: 0,
-    bottom: 0,
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-    backgroundColor: colors.warm.glassSoft,
-  },
-  noteField: {
-    flex: 1,
-  },
-  notePhoto: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-  },
-  photoRemove: {
-    position: 'absolute',
-    top: -5,
-    right: -5,
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: colors.warm.honey,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  postcard: {
-    height: 74,
-    borderRadius: 16,
-    overflow: 'hidden',
-    justifyContent: 'center',
-    paddingHorizontal: spacing.md,
-    gap: 2,
-  },
-  postcardTitle: {
-    fontFamily: fontFamily.brand,
-    fontSize: fontSize.lg,
-    color: '#fff',
-  },
-  postcardThings: {
-    fontFamily: fontFamily.medium,
-    fontSize: fontSize.sm,
-    color: 'rgba(255,255,255,0.88)',
-  },
-  sheetSave: {
-    marginTop: spacing.sm,
-  },
-  sheetScroll: {
-    flexGrow: 0,
-  },
-  sheetContent: {
-    gap: spacing.sm,
-  },
-  lookUp: {
-    gap: spacing.sm,
-    padding: spacing.md,
-    borderRadius: 20,
-    backgroundColor: 'rgba(245,194,122,0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(245,194,122,0.18)',
-  },
-  lookUpTitle: {
-    fontFamily: fontFamily.brand,
-    fontSize: fontSize.md,
-    color: colors.warm.cream,
-  },
-  lookUpSub: {
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.sm,
-    color: colors.warm.creamFaint,
-    marginTop: -6,
-  },
-  lookUpRow: {
-    flexDirection: 'row',
-  },
-  lookUpInput: {
-    flex: 1,
-    minHeight: 52,
-    textAlignVertical: 'top',
-    paddingRight: 56,
-  },
-  paintError: {
-    fontFamily: fontFamily.medium,
-    fontSize: fontSize.sm,
-    color: colors.secondaryDark,
-  },
-  scenePreview: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    backgroundColor: colors.warm.glassSoft,
-    borderRadius: 16,
-    padding: spacing.sm,
-  },
-  sceneSwatch: {
-    width: 44,
-    height: 56,
-    borderRadius: radius.sm,
-    overflow: 'hidden',
-  },
   sceneText: {
     flex: 1,
     gap: 2,
-  },
-  sceneTitle: {
-    fontFamily: fontFamily.brand,
-    fontSize: fontSize.md,
-    color: colors.warm.cream,
-  },
-  sceneThings: {
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.sm,
-    color: colors.warm.creamMuted,
-  },
-  photoLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 4,
   },
   cardSky: {
     flexDirection: 'row',
@@ -2489,75 +1006,6 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: dark.textMid,
   },
-  galleryBackdrop: {
-    flex: 1,
-    justifyContent: 'center',
-    backgroundColor: 'rgba(10,9,26,0.88)',
-    paddingVertical: spacing.xl,
-  },
-  galleryTitle: {
-    fontFamily: fontFamily.brand,
-    fontSize: fontSize.xl,
-    color: '#fff',
-    textAlign: 'center',
-  },
-  gallerySub: {
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.sm,
-    color: colors.sticker.lilac,
-    textAlign: 'center',
-    marginTop: 2,
-  },
-  galleryScroll: {
-    flexGrow: 0,
-    marginVertical: spacing.lg,
-  },
-  galleryRail: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.md,
-    gap: spacing.lg,
-  },
-  galleryCard: {
-    width: 210,
-    backgroundColor: '#FBF8F1',
-    borderRadius: 4,
-    padding: 10,
-    paddingBottom: 8,
-    shadowColor: '#000',
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 6,
-  },
-  galleryPhoto: {
-    width: '100%',
-    height: 250,
-    borderRadius: 2,
-    backgroundColor: '#ddd',
-  },
-  galleryCaption: {
-    fontFamily: fontFamily.brand,
-    fontSize: fontSize.md,
-    color: '#3B3557',
-    textAlign: 'center',
-    marginTop: 8,
-  },
-  // The three colours read from this photo, as a little paint strip.
-  galleryPalette: {
-    flexDirection: 'row',
-    height: 8,
-    borderRadius: 4,
-    overflow: 'hidden',
-    marginTop: 6,
-  },
-  galleryHint: {
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.sm,
-    color: dark.textLight,
-    textAlign: 'center',
-  },
   paintedText: {
     fontFamily: fontFamily.medium,
     fontSize: 11,
@@ -2576,45 +1024,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.5)',
   },
-  photoStripLabel: {
-    fontFamily: fontFamily.semibold,
-    fontSize: fontSize.sm,
-    color: colors.sticker.lilac,
-  },
-  photoRail: {
-    gap: spacing.sm,
-    paddingRight: spacing.lg,
-  },
-  photoThumb: {
-    width: 78,
-    height: 104,
-    borderRadius: radius.md,
-    overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.15)',
-  },
-  photoThumbSelected: {
-    borderColor: colors.sticker.yellow,
-  },
-  photoThumbImage: {
-    width: '100%',
-    height: '100%',
-  },
-  photoThumbTag: {
-    position: 'absolute',
-    left: 4,
-    right: 4,
-    bottom: 4,
-    backgroundColor: 'rgba(22,21,43,0.75)',
-    borderRadius: radius.full,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  photoThumbTagText: {
-    fontFamily: fontFamily.semibold,
-    fontSize: 10,
-    color: '#fff',
-  },
   cardPhoto: {
     width: '100%',
     height: 180,
@@ -2623,62 +1032,6 @@ const styles = StyleSheet.create({
   reportButton: {
     justifyContent: 'center',
     paddingHorizontal: 4,
-  },
-  snapButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    padding: spacing.md,
-    borderRadius: radius.md,
-    borderWidth: 1.5,
-    borderStyle: 'dashed',
-    borderColor: colors.primary,
-    backgroundColor: dark.primaryLight,
-  },
-  snapEmoji: {
-    fontSize: 26,
-  },
-  snapText: {
-    flex: 1,
-  },
-  snapTitle: {
-    fontFamily: fontFamily.semibold,
-    fontSize: fontSize.md,
-    color: dark.textDark,
-  },
-  snapSub: {
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.xs,
-    color: dark.textMid,
-  },
-  composerPhotoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  composerPhoto: {
-    width: 72,
-    height: 96,
-    borderRadius: radius.md,
-  },
-  composerPhotoActions: {
-    flex: 1,
-    gap: 6,
-  },
-  composerPhotoTitle: {
-    fontFamily: fontFamily.semibold,
-    fontSize: fontSize.md,
-    color: dark.textDark,
-  },
-  composerLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  composerLinkText: {
-    fontFamily: fontFamily.semibold,
-    fontSize: fontSize.sm,
-    color: colors.warm.honey,
   },
   empty: {
     alignItems: 'center',
@@ -2735,14 +1088,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
   },
-  moodLineCenter: {
-    justifyContent: 'center',
-    marginTop: 8,
-  },
-  galleryCaptionInline: {
-    marginTop: 0,
-    flexShrink: 1,
-  },
   cardMeta: {
     fontFamily: fontFamily.regular,
     fontSize: fontSize.sm,
@@ -2784,82 +1129,5 @@ const styles = StyleSheet.create({
   },
   cardButton: {
     flex: 1,
-  },
-  modalBackdrop: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(12,9,20,0.45)',
-  },
-  sheet: {
-    backgroundColor: '#1E1928',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    borderTopWidth: 1,
-    borderColor: colors.warm.line,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
-    gap: spacing.sm,
-  },
-  sheetHandle: {
-    alignSelf: 'center',
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.warm.line,
-    marginBottom: spacing.sm,
-  },
-  sheetTitle: {
-    fontFamily: fontFamily.brand,
-    fontSize: fontSize.xl,
-    color: colors.warm.cream,
-    textAlign: 'center',
-  },
-  sheetSub: {
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.sm,
-    color: colors.warm.creamFaint,
-    textAlign: 'center',
-    marginTop: -spacing.xs,
-  },
-  moodGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-    marginVertical: spacing.sm,
-  },
-  moodChip: {
-    width: '31%',
-    flexGrow: 1,
-    alignItems: 'center',
-    paddingVertical: spacing.sm + 2,
-    borderRadius: 16,
-    backgroundColor: colors.warm.glassSoft,
-    borderWidth: 1.5,
-    borderColor: 'transparent',
-    gap: 2,
-  },
-  moodEmoji: {
-    fontSize: 24,
-  },
-  moodLabel: {
-    fontFamily: fontFamily.semibold,
-    fontSize: fontSize.sm,
-    color: colors.warm.creamMuted,
-  },
-  noteInput: {
-    backgroundColor: colors.warm.glassSoft,
-    borderRadius: 16,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 12,
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.md,
-    color: colors.warm.cream,
-  },
-  noteCount: {
-    alignSelf: 'flex-end',
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.xs,
-    color: colors.warm.creamFaint,
-    marginTop: -spacing.xs,
   },
 });

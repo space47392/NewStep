@@ -100,6 +100,7 @@ production; later files depend on tables and functions from earlier ones.
 | 74 | `first_week.sql` | first-week checklist |
 | 75 | `notification_prefs.sql` | notification settings (replaces `send_push_notification`) |
 | 76 | `function_privileges_hardening.sql` | closes security definer functions to signed-out callers |
+| 77 | `moderation.sql` | report review for moderators |
 
 **Skip:**
 - `chat_deleted_participant_schema.sql`. It was replaced by files 50 and 51.
@@ -129,5 +130,13 @@ before turning it on.
 
 ## Reviewing reports
 
-For now, reports are reviewed from the SQL editor. `report_school_tip()` in
-`school_tips.sql` has an example query.
+Moderators review reports in the app (Settings → Review reports). Only
+accounts with `profiles.role` set to `moderator` or `admin` see the row,
+and the server checks the role on every call. To make someone a moderator,
+run this in the SQL editor (the app can't call it):
+
+```sql
+select public.set_user_role('their-email@example.com', 'moderator');
+```
+
+Every action is logged in `moderation_actions`.

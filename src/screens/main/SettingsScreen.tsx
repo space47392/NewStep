@@ -1,4 +1,4 @@
-import { ReactNode, useState } from 'react';
+import { ReactNode, useState, useEffect } from 'react';
 import { ActivityIndicator, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -15,6 +15,8 @@ import { CONTACT_EMAIL } from '../../constants/legal';
 import { colors, spacing, radius, fontSize, fontFamily, typography } from '../../constants/theme';
 import { MainStackParamList } from '../../types';
 import { errorMessage } from '../../lib/errors';
+import { fetchMyRole } from '../../lib/moderationApi';
+import { isModeratorRole } from '../../lib/moderation';
 
 type Nav = NativeStackNavigationProp<MainStackParamList>;
 
@@ -72,6 +74,18 @@ export default function SettingsScreen() {
   const { user, signOut } = useAuth();
   const { showToast } = useToast();
   const [loggingOut, setLoggingOut] = useState(false);
+  // Moderators get a "Review reports" row. The server checks the role again
+  // on every moderation call; this only decides whether to show the row.
+  const [isModerator, setIsModerator] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    fetchMyRole()
+      .then((role) => alive && setIsModerator(isModeratorRole(role)))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
   const [deletingAccount, setDeletingAccount] = useState(false);
   const version = Constants.expoConfig?.version ?? '1.0.0';
 
@@ -179,6 +193,11 @@ export default function SettingsScreen() {
           <Row icon="bookmark-outline" label="Saved posts" onPress={() => navigation.navigate('SavedPosts')} last />
         </Group>
 
+        {isModerator ? (
+          <Group label="Moderation">
+            <Row icon="flag-outline" label="Review reports" onPress={() => navigation.navigate('Moderation')} last />
+          </Group>
+        ) : null}
         <Group label="Privacy & safety">
           <Row icon="hand-left-outline" label="Blocked accounts" onPress={() => navigation.navigate('BlockedAccounts')} />
           <Row icon="heart-outline" label="Community Guidelines" onPress={() => navigation.navigate('Legal', { doc: 'guidelines' })} last />

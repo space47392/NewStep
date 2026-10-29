@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Linking } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Linking, ScrollView } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { warmAlert } from '../../components/WarmAlert';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
@@ -86,11 +87,20 @@ export default function LoginScreen({ navigation }: Props) {
     // automatically redirects to the main app — no manual navigation needed.
   };
 
+  // This screen opts out of the shared top inset (the intro paints behind
+  // the status bar), so the form reserves it here. Scrolls when the keyboard
+  // leaves too little room, instead of sliding under the clock.
+  const insets = useSafeAreaInsets();
+
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       {/* Dark clock/battery on the bright page (the intro sets its own). */}
       {!showIntro && <StatusBar style="dark" />}
-      <View style={styles.inner}>
+      <ScrollView
+        contentContainerStyle={[styles.inner, { paddingTop: insets.top + spacing.md, paddingBottom: insets.bottom + spacing.lg }]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
         {/* One column, left-aligned; honey only on the mark and the button. */}
         <FadeInView style={styles.header}>
           <View style={styles.brandRow}>
@@ -137,7 +147,7 @@ export default function LoginScreen({ navigation }: Props) {
             <Text style={styles.footerLink}>Create an account</Text>
           </TouchableOpacity>
         </FadeInView>
-      </View>
+      </ScrollView>
       {showIntro && (
         <FootstepsIntro
           onDone={() => setShowIntro(false)}
@@ -153,7 +163,7 @@ const styles = StyleSheet.create({
     backgroundColor: light.background,
   },
   inner: {
-    flex: 1,
+    flexGrow: 1,
     justifyContent: 'center',
     paddingHorizontal: spacing.lg,
   },

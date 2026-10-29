@@ -94,7 +94,7 @@ export default function LoginScreen({ navigation }: Props) {
         {/* One column, left-aligned; honey only on the mark and the button. */}
         <FadeInView style={styles.header}>
           <View style={styles.brandRow}>
-            <AppLogo size={40} variant="mark" tone="light" />
+            <AppLogo size={40} tone="light" />
             <Text style={styles.brand}>NewStep</Text>
           </View>
           <Text style={styles.title}>Welcome back</Text>

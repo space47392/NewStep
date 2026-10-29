@@ -111,7 +111,7 @@ export default function RegisterScreen({ navigation }: Props) {
       <StatusBar style="dark" />
       <ScrollView contentContainerStyle={styles.inner} keyboardShouldPersistTaps="handled">
         <FadeInView style={styles.header}>
-          <AppLogo size={76} variant="mark" tone="light" style={styles.logoBadge} />
+          <AppLogo size={76} tone="light" style={styles.logoBadge} />
           <Text style={styles.logo}>NewStep</Text>
           <Text style={styles.tagline}>
             Connect with your school. Discover people, what's happening, and ways to help.

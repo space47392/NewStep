@@ -22,7 +22,7 @@ export default function StudentCard({ name, avatarUri, schoolName, grade, intere
     <View style={[styles.card, style]}>
       <View style={styles.strip}>
         <Text style={styles.stripText}>NEWSTEP STUDENT</Text>
-        <AppLogo size={24} variant="mark" />
+        <AppLogo size={24} />
       </View>
       <View style={styles.body}>
         <View style={styles.avatar}>

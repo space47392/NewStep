@@ -7,6 +7,8 @@ import { colors, spacing, radius, fontSize, fontFamily, shadow } from '../consta
 type Props = {
   schoolName: string;
   onDone: () => void;
+  // Picked, but not verified yet: says what's left instead of "you're in".
+  pending?: boolean;
 };
 
 const FLAGS = 12;
@@ -16,7 +18,7 @@ const HOLD_MS = 1600;
 // Shown for a moment right after picking a school — the same pennant +
 // bunting as the school page header, with the flags dropping in one by one
 // and swinging into place. Tap anywhere to move on sooner.
-export default function SchoolJoinedCelebration({ schoolName, onDone }: Props) {
+export default function SchoolJoinedCelebration({ schoolName, onDone, pending = false }: Props) {
   const card = useAnimatedValue(0);
   const [flags] = useState(() => Array.from({ length: FLAGS }, () => new Animated.Value(0)));
   const doneRef = useRef(false);
@@ -45,7 +47,7 @@ export default function SchoolJoinedCelebration({ schoolName, onDone }: Props) {
     // A Modal (not an in-screen overlay) so the dim covers the whole screen,
     // status bar strip included.
     <Modal visible transparent animationType="fade" statusBarTranslucent onRequestClose={finish}>
-    <TouchableWithoutFeedback onPress={finish} accessibilityRole="button" accessibilityLabel={`You joined ${schoolName}. Tap to continue.`}>
+    <TouchableWithoutFeedback onPress={finish} accessibilityRole="button" accessibilityLabel={pending ? `${schoolName} picked. Verify you go here next. Tap to continue.` : `You joined ${schoolName}. Tap to continue.`}>
       <View style={[styles.backdrop, styles.fill]}>
         <Animated.View
           style={[
@@ -60,7 +62,7 @@ export default function SchoolJoinedCelebration({ schoolName, onDone }: Props) {
           ]}
         >
           <View style={styles.pennant}>
-            <Text style={styles.kicker}>YOU'RE IN!</Text>
+            <Text style={styles.kicker}>{pending ? 'ALMOST THERE' : "YOU'RE IN!"}</Text>
             <View style={styles.schoolRow}>
               <View style={styles.schoolIcon}>
                 <NSIcon name="school" size={30} />
@@ -94,7 +96,7 @@ export default function SchoolJoinedCelebration({ schoolName, onDone }: Props) {
               />
             ))}
           </View>
-          <Text style={styles.body}>Welcome to your school 👋</Text>
+          <Text style={styles.body}>{pending ? 'One last step: show you go here 🎒' : 'Welcome to your school 👋'}</Text>
         </Animated.View>
       </View>
     </TouchableWithoutFeedback>

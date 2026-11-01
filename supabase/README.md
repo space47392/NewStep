@@ -101,6 +101,7 @@ production; later files depend on tables and functions from earlier ones.
 | 75 | `notification_prefs.sql` | notification settings (replaces `send_push_notification`) |
 | 76 | `function_privileges_hardening.sql` | closes security definer functions to signed-out callers |
 | 77 | `moderation.sql` | report review for moderators |
+| 78 | `school_verification.sql` | school email or student ID before joining a school |
 
 **Skip:**
 - `chat_deleted_participant_schema.sql`. It was replaced by files 50 and 51.

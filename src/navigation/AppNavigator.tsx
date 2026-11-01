@@ -194,7 +194,7 @@ export default function AppNavigator() {
             {() => (
               <ChooseSchoolScreen
                 title="Where's your school?"
-                subtitle="Choose your school to see your school community, stories, and people. Selecting a school does not verify enrollment."
+                subtitle="Choose your school. Next you'll show you go there (a school email or student ID), so only real classmates can see your school's space."
                 showSkip
                 onDone={() => setSchoolOnboardingDone(true)}
               />

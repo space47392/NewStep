@@ -46,6 +46,7 @@ import { offerHelp, fetchMyOfferPostIds } from '../../lib/helpOffers';
 import LanternInvite from '../../components/LanternInvite';
 import BuddyHomeCard from '../../components/BuddyHomeCard';
 import FirstWeekCard from '../../components/FirstWeekCard';
+import VerifySchoolCard from '../../components/VerifySchoolCard';
 import SkyPeek from '../../components/SkyPeek';
 import { useTodaySky } from '../../lib/useTodaySky';
 import PrimaryButton from '../../components/PrimaryButton';
@@ -897,6 +898,9 @@ export default function FeedScreen() {
               />
             ) : null}
             </NightSkyCard>
+            {/* Picked a school but not verified yet: comes before everything else. */}
+            {user ? <VerifySchoolCard onOpen={() => navigation.navigate('VerifySchool')} /> : null}
+
             {/* New here: the first-week checklist (the school guide is one of its steps). */}
             {isNewStudent && mySchoolName && !welcomeBannerDismissed && (
               <FirstWeekCard onOpen={() => navigation.navigate('FirstWeek')} onDismiss={handleDismissWelcome} />

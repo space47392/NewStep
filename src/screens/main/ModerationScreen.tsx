@@ -8,6 +8,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { warmAlert } from '../../components/WarmAlert';
 import ErrorState from '../../components/ErrorState';
 import EmptyState from '../../components/EmptyState';
+import StudentIdReview from '../../components/StudentIdReview';
 import { ACTION_LABEL, actionsFor, kindInfo, reasonLabel, type ModerationAction, type QueueItem } from '../../lib/moderation';
 import { fetchModerationQueue, moderate } from '../../lib/moderationApi';
 import { formatRelativeTime } from '../../lib/time';
@@ -92,6 +93,7 @@ export default function ModerationScreen() {
             </TouchableOpacity>
             <Text style={styles.title}>Reports</Text>
             <Text style={styles.intro}>Most-reported first. Messages show only the reported message, never the rest of the chat.</Text>
+            <StudentIdReview />
             {!items ? <ActivityIndicator color={colors.primaryDark} style={{ marginTop: spacing.xl }} /> : null}
           </View>
         }

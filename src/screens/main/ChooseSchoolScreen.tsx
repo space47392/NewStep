@@ -5,7 +5,8 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
-import { fetchSchoolStates, fetchSchoolCities, searchSchoolsDirectory, setMySchool } from '../../lib/schools';
+import { fetchSchoolStates, fetchSchoolCities, searchSchoolsDirectory } from '../../lib/schools';
+import { chooseSchool } from '../../lib/schoolVerificationApi';
 import EmptyState from '../../components/EmptyState';
 import LoadingScreen from '../../components/LoadingScreen';
 import SchoolJoinedCelebration from '../../components/SchoolJoinedCelebration';
@@ -61,6 +62,8 @@ export default function ChooseSchoolScreen({ onDone, showSkip, title, subtitle }
   // Set once the school is saved — shows the pennant moment, which then
   // calls finish() itself.
   const [joinedSchool, setJoinedSchool] = useState<School | null>(null);
+  // Picking a school only asks to join it; verifying comes next (school_verification.sql).
+  const [joinPending, setJoinPending] = useState(false);
   // Guards against a slower, earlier request overwriting a faster, later
   // one's results — e.g. typing "sunny" then quickly "sunny hills" before the
   // first request resolves. The debounce below only prevents firing a new
@@ -134,7 +137,8 @@ export default function ChooseSchoolScreen({ onDone, showSkip, title, subtitle }
     if (!user || savingId) return;
     setSavingId(school.id);
     try {
-      await setMySchool(user.id, school.id);
+      const result = await chooseSchool(school.id);
+      setJoinPending(result === 'pending');
       setJoinedSchool(school);
     } catch (err) {
       const message = errorMessage(err, 'Could not save your school.');
@@ -316,7 +320,7 @@ export default function ChooseSchoolScreen({ onDone, showSkip, title, subtitle }
           )}
         </>
       )}
-      {joinedSchool && <SchoolJoinedCelebration schoolName={joinedSchool.name} onDone={finish} />}
+      {joinedSchool && <SchoolJoinedCelebration schoolName={joinedSchool.name} pending={joinPending} onDone={finish} />}
     </View>
   );
 }

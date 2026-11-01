@@ -227,13 +227,6 @@ export async function fetchSchoolById(schoolId: string): Promise<School | null> 
   return data as School | null;
 }
 
-// Self-reported, same as school_name always has been — this is a community
-// label, never a claim that the student actually attends that school.
-export async function setMySchool(userId: string, schoolId: string): Promise<void> {
-  const { error } = await supabase.from('profiles').update({ school_id: schoolId }).eq('id', userId);
-  if (error) throw error;
-}
-
 // =============================================================================
 // "Community Contributors" (Step 17) — ranked by thanks_received_count only:
 // a real, hard-to-fake signal (only created by thank_helper(), see

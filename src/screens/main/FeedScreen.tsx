@@ -47,6 +47,7 @@ import LanternInvite from '../../components/LanternInvite';
 import BuddyHomeCard from '../../components/BuddyHomeCard';
 import FirstWeekCard from '../../components/FirstWeekCard';
 import VerifySchoolCard from '../../components/VerifySchoolCard';
+import type { VerificationStage } from '../../lib/schoolVerification';
 import SkyPeek from '../../components/SkyPeek';
 import { useTodaySky } from '../../lib/useTodaySky';
 import PrimaryButton from '../../components/PrimaryButton';
@@ -153,6 +154,9 @@ export default function FeedScreen() {
   const [seenStoryIds, setSeenStoryIds] = useState<Set<string>>(new Set());
   const [uploadingStory, setUploadingStory] = useState(false);
   const [mySchoolName, setMySchoolName] = useState<string | null>(null);
+  // From VerifySchoolCard: a school picked and waiting on verification.
+  const [verifyStage, setVerifyStage] = useState<VerificationStage>('no_school');
+  const schoolPicked = verifyStage === 'needs_verifying' || verifyStage === 'id_pending' || verifyStage === 'id_rejected';
   // First name for the "Hi, <name> 👋" greeting — null until the profile
   // loads (or if no name is set), in which case the plain brand title shows.
   const [myFirstName, setMyFirstName] = useState<string | null>(null);
@@ -899,7 +903,7 @@ export default function FeedScreen() {
             ) : null}
             </NightSkyCard>
             {/* Picked a school but not verified yet: comes before everything else. */}
-            {user ? <VerifySchoolCard onOpen={() => navigation.navigate('VerifySchool')} /> : null}
+            {user ? <VerifySchoolCard onOpen={() => navigation.navigate('VerifySchool')} onStage={setVerifyStage} /> : null}
 
             {/* New here: the first-week checklist (the school guide is one of its steps). */}
             {isNewStudent && mySchoolName && !welcomeBannerDismissed && (
@@ -920,7 +924,8 @@ export default function FeedScreen() {
               />
             ) : null}
 
-            {!mySchoolName && (
+            {/* No school yet. (Picked but not verified shows the card above instead.) */}
+            {!mySchoolName && !schoolPicked && (
               <View style={styles.chooseSchoolCard}>
                 <View style={styles.brandRow}>
                   <NSIcon name="school" size={24} />

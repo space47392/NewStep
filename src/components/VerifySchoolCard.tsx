@@ -4,25 +4,36 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import FadeInView from './FadeInView';
 import PressableScale from './PressableScale';
-import { verificationStage, type SchoolVerification } from '../lib/schoolVerification';
+import { verificationStage, type SchoolVerification, type VerificationStage } from '../lib/schoolVerification';
 import { fetchMySchoolVerification } from '../lib/schoolVerificationApi';
 import { colors, spacing, radius, fontSize, fontFamily } from '../constants/theme';
 
 // Home's nudge for a student who picked a school but hasn't shown they go
 // there yet. Hidden once verified (or before school_verification.sql runs).
-export default function VerifySchoolCard({ onOpen }: { onOpen: () => void }) {
+type Props = {
+  onOpen: () => void;
+  // Lets Home hide its "Choose your school" card while a school is picked
+  // but not verified yet.
+  onStage?: (stage: VerificationStage) => void;
+};
+
+export default function VerifySchoolCard({ onOpen, onStage }: Props) {
   const [status, setStatus] = useState<SchoolVerification | null>(null);
 
   useFocusEffect(
     useCallback(() => {
       let alive = true;
       fetchMySchoolVerification()
-        .then((s) => alive && setStatus(s))
+        .then((s) => {
+          if (!alive) return;
+          setStatus(s);
+          onStage?.(verificationStage(s));
+        })
         .catch(() => {});
       return () => {
         alive = false;
       };
-    }, [])
+    }, [onStage])
   );
 
   const stage = verificationStage(status);

@@ -82,7 +82,7 @@ export default function VouchForClassmate() {
       ) : (
         <>
           <IconInput
-            placeholder="Their 6-letter code"
+            placeholder="Their 6-character code"
             value={code}
             onChangeText={(t) => {
               setCode(cleanVouchCode(t));

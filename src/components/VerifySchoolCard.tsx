@@ -41,9 +41,9 @@ export default function VerifySchoolCard({ onOpen, onStage }: Props) {
   const school = status?.pending_school_name ?? 'your school';
   const copy =
     stage === 'id_pending'
-      ? { emoji: '⏳', title: 'Checking your student ID', sub: `A moderator is confirming you go to ${school}.` }
+      ? { emoji: '⏳', title: 'Checking your photo', sub: `A moderator is confirming you go to ${school}.` }
       : stage === 'id_rejected'
-        ? { emoji: '🎒', title: 'Let\'s try verifying again', sub: 'Your student ID photo didn\'t work. Tap to try again.' }
+        ? { emoji: '🎒', title: 'Let\'s try verifying again', sub: 'Your photo didn\'t work. Tap to try again.' }
         : { emoji: '🎒', title: `Show you go to ${school}`, sub: 'One quick step and your school space opens up.' };
 
   return (

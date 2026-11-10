@@ -21,6 +21,8 @@ import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
+import { fetchMySchoolVerification } from '../../lib/schoolVerificationApi';
+import { verificationStage } from '../../lib/schoolVerification';
 import { addSchoolTip, deleteSchoolTip, fetchSchoolTips, reportSchoolTip, SchoolTip, TIP_CATEGORIES, TipCategory, tipCategory, toggleTipHelpful } from '../../lib/tips';
 import { fetchBlockedUserIds } from '../../lib/blocks';
 import { hasBlockedWords, KIND_WORDS_MESSAGE } from '../../lib/contentFilter';
@@ -54,11 +56,19 @@ export default function SchoolGuideScreen() {
   const [draftTitle, setDraftTitle] = useState('');
   const [draftBody, setDraftBody] = useState('');
   const [saving, setSaving] = useState(false);
+  // Picked this school but not verified yet: can read, not share or react.
+  // Classmates stay anonymous to them too (school_access_pending.sql).
+  const [readOnly, setReadOnly] = useState(false);
 
   const load = useCallback(async () => {
     if (!user) return;
     try {
-      const [{ tips: t, helped: h }, blocked] = await Promise.all([fetchSchoolTips(user.id), fetchBlockedUserIds(user.id).catch(() => new Set<string>())]);
+      const [{ tips: t, helped: h }, blocked, verification] = await Promise.all([
+        fetchSchoolTips(user.id),
+        fetchBlockedUserIds(user.id).catch(() => new Set<string>()),
+        fetchMySchoolVerification().catch(() => null),
+      ]);
+      setReadOnly(verificationStage(verification) !== 'verified');
       setTips(t.filter((x) => !x.author_id || !blocked.has(x.author_id)));
       setHelped(h);
       setFailed(false);
@@ -188,6 +198,13 @@ export default function SchoolGuideScreen() {
         </TouchableOpacity>
         <Text style={styles.title}>School guide</Text>
         <Text style={styles.intro}>Tips from classmates — the stuff nobody tells you on day one.</Text>
+        {readOnly ? (
+          <TouchableOpacity style={styles.visitor} onPress={() => navigation.navigate('VerifySchool')} accessibilityRole="button">
+            <Text style={styles.visitorText}>
+              You're reading as a new arrival. <Text style={styles.visitorLink}>Verify your school</Text> to share tips and say thanks.
+            </Text>
+          </TouchableOpacity>
+        ) : null}
       </FadeInView>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips} style={styles.chipsBleed}>
@@ -241,8 +258,8 @@ export default function SchoolGuideScreen() {
             <View style={styles.empty}>
               <NSIcon name="backpack" size={44} />
               <Text style={styles.emptyTitle}>{filter === 'all' ? 'No tips yet' : `No ${tipCategory(filter).label.toLowerCase()} tips yet`}</Text>
-              <Text style={styles.emptySub}>Be the first to share what you wish you'd known.</Text>
-              <PrimaryButton title="Share a tip" icon="add" onPress={openCompose} style={{ marginTop: spacing.md }} />
+              <Text style={styles.emptySub}>{readOnly ? 'Classmates will add tips here.' : "Be the first to share what you wish you'd known."}</Text>
+              {readOnly ? null : <PrimaryButton title="Share a tip" icon="add" onPress={openCompose} style={{ marginTop: spacing.md }} />}
             </View>
           )
         }
@@ -257,29 +274,31 @@ export default function SchoolGuideScreen() {
                   <Text style={styles.cardCat}>
                     {cat.emoji} {cat.label}
                   </Text>
-                  <TouchableOpacity onPress={() => openMenu(item)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityLabel="Tip options">
-                    <Ionicons name="ellipsis-horizontal" size={18} color={colors.textLight} />
-                  </TouchableOpacity>
+                  {readOnly ? null : (
+                    <TouchableOpacity onPress={() => openMenu(item)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityLabel="Tip options">
+                      <Ionicons name="ellipsis-horizontal" size={18} color={colors.textLight} />
+                    </TouchableOpacity>
+                  )}
                 </View>
                 <Text style={styles.cardTitle}>{item.title}</Text>
                 {item.body ? <Text style={styles.cardBody}>{item.body}</Text> : null}
                 <View style={styles.cardFoot}>
                   <TouchableOpacity
                     style={styles.author}
-                    disabled={!item.author}
+                    disabled={!item.author || readOnly}
                     onPress={() => item.author && navigation.navigate('UserProfile', { userId: item.author.id })}
                   >
-                    <Avatar uri={item.author?.avatar_url ?? null} size={22} />
+                    <Avatar uri={readOnly ? null : item.author?.avatar_url ?? null} size={22} />
                     <Text style={styles.authorText} numberOfLines={1}>
-                      {mine ? 'You' : item.author?.full_name ?? 'A classmate'} · {formatRelativeTime(item.created_at)}
+                      {mine ? 'You' : readOnly ? 'A classmate' : item.author?.full_name ?? 'A classmate'} · {formatRelativeTime(item.created_at)}
                     </Text>
                   </TouchableOpacity>
                   {/* You can't mark your own tip; it just shows the count once there is one. */}
-                  {mine && item.helpful_count === 0 ? null : (
+                  {(mine || readOnly) && item.helpful_count === 0 ? null : (
                     <PressableScale
                       style={[styles.helped, on && styles.helpedOn]}
                       pressedScale={0.9}
-                      disabled={mine}
+                      disabled={mine || readOnly}
                       onPress={() => toggleHelped(item)}
                       accessibilityRole="button"
                       accessibilityState={{ selected: on }}
@@ -287,7 +306,7 @@ export default function SchoolGuideScreen() {
                       <Ionicons name={on ? 'heart' : 'heart-outline'} size={15} color={on ? colors.error : colors.textMid} />
                       <Text style={[styles.helpedText, on && styles.helpedTextOn]}>
                         {item.helpful_count > 0 ? `${item.helpful_count} ` : ''}
-                        {mine ? 'found it helpful' : on ? 'Helped' : 'This helped'}
+                        {mine || readOnly ? 'found it helpful' : on ? 'Helped' : 'This helped'}
                       </Text>
                     </PressableScale>
                   )}
@@ -298,7 +317,7 @@ export default function SchoolGuideScreen() {
         }}
       />
 
-      {tips && tips.length > 0 ? (
+      {tips && tips.length > 0 && !readOnly ? (
         <PressableScale style={[styles.fab, { bottom: spacing.lg + insets.bottom }]} onPress={openCompose} accessibilityRole="button" accessibilityLabel="Share a tip">
           <Ionicons name="add" size={20} color={colors.onPrimary} />
           <Text style={styles.fabText}>Share a tip</Text>
@@ -406,6 +425,22 @@ const styles = StyleSheet.create({
   },
   chipTextOn: {
     color: '#FFFFFF',
+  },
+  visitor: {
+    marginTop: spacing.md,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    backgroundColor: colors.primaryLight,
+  },
+  visitorText: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    lineHeight: 20,
+    color: colors.textMid,
+  },
+  visitorLink: {
+    fontFamily: fontFamily.semibold,
+    color: colors.primaryDark,
   },
   sortRow: {
     flexDirection: 'row',

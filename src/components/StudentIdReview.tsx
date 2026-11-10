@@ -12,7 +12,7 @@ import { colors, spacing, radius, fontSize, fontFamily } from '../constants/them
 // Why a photo can't confirm the school, shown to the student.
 const REJECT_REASONS = [
   "We couldn't see your school's name on it.",
-  "It doesn't look like a student ID.",
+  "It doesn't look like a student ID, schedule or school letter.",
   'The photo was too blurry to read.',
 ];
 
@@ -26,7 +26,7 @@ function IdPhoto({ path }: { path: string }) {
     };
   }, [path]);
   return url ? (
-    <Image source={{ uri: url }} style={styles.photo} resizeMode="contain" accessibilityLabel="Student ID photo" />
+    <Image source={{ uri: url }} style={styles.photo} resizeMode="contain" accessibilityLabel="School verification photo" />
   ) : (
     <View style={[styles.photo, styles.photoLoading]}>
       <ActivityIndicator color={colors.textLight} />
@@ -73,7 +73,7 @@ export default function StudentIdReview() {
 
   return (
     <View style={styles.section}>
-      <Text style={styles.heading}>Student IDs to check · {items.length}</Text>
+      <Text style={styles.heading}>School photos to check · {items.length}</Text>
       {items.map((item) => (
         <View key={item.id} style={styles.card}>
           <Text style={styles.who}>

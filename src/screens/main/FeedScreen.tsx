@@ -906,7 +906,7 @@ export default function FeedScreen() {
             {user ? <VerifySchoolCard onOpen={() => navigation.navigate('VerifySchool')} onStage={setVerifyStage} /> : null}
 
             {/* New here: the first-week checklist (the school guide is one of its steps). */}
-            {isNewStudent && mySchoolName && !welcomeBannerDismissed && (
+            {isNewStudent && (mySchoolName || schoolPicked) && !welcomeBannerDismissed && (
               <FirstWeekCard onOpen={() => navigation.navigate('FirstWeek')} onDismiss={handleDismissWelcome} />
             )}
 

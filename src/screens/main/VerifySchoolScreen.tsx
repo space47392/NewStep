@@ -108,8 +108,8 @@ export default function VerifySchoolScreen() {
     if (!user) return;
     const ok =
       from === 'camera'
-        ? await askPermission(ImagePicker.requestCameraPermissionsAsync, 'camera', 'to take a photo of your student ID')
-        : await askPermission(ImagePicker.requestMediaLibraryPermissionsAsync, 'photos', 'to choose a photo of your student ID');
+        ? await askPermission(ImagePicker.requestCameraPermissionsAsync, 'camera', 'to take a photo of your student ID or schedule')
+        : await askPermission(ImagePicker.requestMediaLibraryPermissionsAsync, 'photos', 'to choose a photo of your student ID or schedule');
     if (!ok) return;
     const options: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 0.6 };
     const result = from === 'camera' ? await ImagePicker.launchCameraAsync(options) : await ImagePicker.launchImageLibraryAsync(options);
@@ -141,7 +141,7 @@ export default function VerifySchoolScreen() {
           <Text style={styles.intro}>
             {stage === 'verified'
               ? 'Your school space is open. Thanks for helping keep it just for classmates 💛'
-              : "So only real classmates can see your school's guide, sky, lanterns and buddies. It keeps everyone safer."}
+              : "You can already read your school guide. Verifying opens buddies, classmates, School Sky and lanterns, so only real classmates reach each other."}
           </Text>
         </FadeInView>
 
@@ -161,7 +161,7 @@ export default function VerifySchoolScreen() {
 
         {loaded && stage === 'id_pending' ? (
           <View style={[styles.card, styles.noticeCard]}>
-            <Text style={styles.cardTitle}>⏳ Your student ID is with a moderator</Text>
+            <Text style={styles.cardTitle}>⏳ Your photo is with a moderator</Text>
             <Text style={styles.cardBody}>Usually within a day. You can also use a school email below if you have one.</Text>
           </View>
         ) : null}
@@ -221,10 +221,10 @@ export default function VerifySchoolScreen() {
             </FadeInView>
 
             <FadeInView delay={80}>
-              <Text style={styles.sectionLabel}>No school email? Use your student ID</Text>
+              <Text style={styles.sectionLabel}>No school email? Use a photo</Text>
               <View style={styles.card}>
                 <Text style={styles.cardBody}>
-                  A moderator checks that it shows {school}, then the photo is <Text style={styles.strong}>deleted right away</Text>. Only the moderator sees it. Feel free to cover your ID number.
+                  Your <Text style={styles.strong}>student ID, class schedule or enrollment letter</Text> works. Just new? Your schedule is fine. A moderator checks that it shows {school}, then the photo is <Text style={styles.strong}>deleted right away</Text>. Only the moderator sees it. Feel free to cover ID numbers.
                 </Text>
                 {busy === 'photo' ? (
                   <ActivityIndicator color={colors.primaryDark} style={{ marginVertical: spacing.md }} />

@@ -45,6 +45,7 @@ import { useVoiceRecorder } from '../../lib/useVoiceRecorder';
 import { requestRecordingPermissionsAsync } from 'expo-audio';
 import MessageRow, { TypingRow } from '../../components/chat/MessageRow';
 import { ReactionBar } from '../../components/chat/Reactions';
+import CallButton from '../../components/call/CallButton';
 import { fetchReactions, reactToMessage, subscribeToReactions } from '../../lib/reactions';
 import { indexReactions, nextReaction, type MessageReaction } from '../../lib/reactionSummary';
 
@@ -915,6 +916,7 @@ export default function ConversationScreen() {
             ) : null}
           </View>
         </TouchableOpacity>
+        <CallButton other={otherUser} />
       </View>
 
       <View style={styles.listArea}>
@@ -1288,6 +1290,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+    flexShrink: 1,
   },
   headerText: {
     flexShrink: 1,

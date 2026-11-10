@@ -13,6 +13,7 @@ import {
 import { Fredoka_700Bold } from '@expo-google-fonts/fredoka';
 import { AuthProvider } from './src/contexts/AuthContext';
 import { ToastProvider } from './src/contexts/ToastContext';
+import { CallProvider } from './src/contexts/CallContext';
 import AppNavigator from './src/navigation/AppNavigator';
 import { WarmAlertHost } from './src/components/WarmAlert';
 import OfflineBanner from './src/components/OfflineBanner';
@@ -150,7 +151,9 @@ export default function App() {
       <AuthProvider>
         <ToastProvider>
           <StatusBar style="dark" />
-          <AppNavigator />
+          <CallProvider>
+            <AppNavigator />
+          </CallProvider>
           <WarmAlertHost />
           <OfflineBanner />
         </ToastProvider>

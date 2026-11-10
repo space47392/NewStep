@@ -12,7 +12,7 @@ export type NotificationCategory = {
 };
 
 export const NOTIFICATION_CATEGORIES: NotificationCategory[] = [
-  { key: 'messages', label: 'Messages', hint: 'When a classmate writes to you', types: ['message'] },
+  { key: 'messages', label: 'Messages & calls', hint: 'When a classmate writes or calls', types: ['message', 'call'] },
   { key: 'buddies', label: 'Buddies', hint: 'Buddy requests and answers', types: ['buddy_request', 'buddy_accepted'] },
   {
     key: 'help',

@@ -2,7 +2,14 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { categoryOf, isPaused, NOTIFICATION_CATEGORIES, pausedLabel, pauseUntil, toggleMuted, DEFAULT_PREFS } from '../notificationPrefs';
 
-const sql = readFileSync(join(__dirname, '../../../supabase/notification_prefs.sql'), 'utf8');
+const SUPABASE = join(__dirname, '../../../supabase');
+const runOrder = [...readFileSync(join(SUPABASE, 'README.md'), 'utf8').matchAll(/^\| (\d+) \| `([^`]+\.sql)` \|/gm)]
+  .sort((a, b) => Number(a[1]) - Number(b[1]))
+  .map((m) => readFileSync(join(SUPABASE, m[2]), 'utf8'));
+// The definition that wins is the one in the last file to run.
+const latest = (needle: string) => [...runOrder].reverse().find((f) => f.includes(needle))!;
+const sql = latest('function public.notification_category');
+const prefsSql = readFileSync(join(SUPABASE, 'notification_prefs.sql'), 'utf8');
 
 describe('categories', () => {
   it('match notification_category() in the SQL, type by type', () => {
@@ -16,14 +23,13 @@ describe('categories', () => {
   });
 
   it('cover every notification type the database allows', () => {
-    const buddies = readFileSync(join(__dirname, '../../../supabase/buddies.sql'), 'utf8');
-    const list = buddies.match(/notifications_type_check\s+check \(type in \(([\s\S]*?)\)\)/)![1];
+    const list = latest('add constraint notifications_type_check').match(/notifications_type_check\s+check \(type in \(([\s\S]*?)\)\)/)![1];
     const allowed = list.split(',').map((x) => x.trim().replace(/'/g, '')).filter(Boolean);
     for (const t of allowed) expect(categoryOf(t)).not.toBeNull();
   });
 
   it('use the same keys the SQL accepts', () => {
-    const list = sql.match(/where m not in \(([^)]*)\)/)![1].split(',').map((x) => x.trim().replace(/'/g, ''));
+    const list = prefsSql.match(/where m not in \(([^)]*)\)/)![1].split(',').map((x) => x.trim().replace(/'/g, ''));
     expect(NOTIFICATION_CATEGORIES.map((c) => c.key)).toEqual(list);
   });
 

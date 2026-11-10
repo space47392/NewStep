@@ -237,7 +237,8 @@ export function resolveNotificationTarget(fields: {
   if (POST_TYPES.has(type)) {
     return post_id ? { screen: 'PostDetail', postId: post_id } : null;
   }
-  if (type === 'message') {
+  // A call opens the chat with that person (the call itself rings in-app).
+  if (type === 'message' || type === 'call') {
     // Only conversation_id is required now (Step 56E) — actor_id being null
     // no longer means "there's nowhere to go." conversation_id itself is
     // `on delete cascade` (notifications_schema.sql) — if the conversation
@@ -383,6 +384,7 @@ const CATEGORY_BY_TYPE: Record<NotificationType, NotificationCategory> = {
   points_earned: 'achievement',
   achievement_earned: 'achievement',
   message: 'message',
+  call: 'message',
 };
 
 export function getNotificationCategoryColor(type: NotificationType): string {
@@ -428,6 +430,8 @@ export function formatNotificationMessage(
       return `You earned "${notification.achievement?.name ?? 'an achievement'}"`;
     case 'message':
       return `${actorName} sent you a message`;
+    case 'call':
+      return `${actorName} called you 📞`;
     case 'follow':
       return `${actorName} started following you`;
     case 'story_wave':
@@ -534,6 +538,8 @@ export function getNotificationIcon(type: NotificationType): string {
       return '🏆';
     case 'message':
       return '💬';
+    case 'call':
+      return '📞';
     case 'follow':
       return '👋';
     case 'story_wave':

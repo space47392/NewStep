@@ -18,6 +18,7 @@ import {
   type PauseLength,
 } from '../../lib/notificationPrefs';
 import { fetchNotificationPrefs, saveNotificationPrefs } from '../../lib/notificationPrefsApi';
+import { fetchCallsOff, setCallsOff } from '../../lib/callsApi';
 import { errorMessage } from '../../lib/errors';
 import { colors, spacing, radius, fontSize, fontFamily, typography } from '../../constants/theme';
 
@@ -31,6 +32,8 @@ export default function NotificationSettingsScreen() {
   const { showToast } = useToast();
   const [prefs, setPrefs] = useState<NotificationPrefs | null>(null);
   const [failed, setFailed] = useState(false);
+  // null until loaded (or if calls aren't set up on the server yet): the row stays hidden.
+  const [callsOff, setCallsOffState] = useState<boolean | null>(null);
 
   const load = useCallback(async () => {
     if (!userId) return;
@@ -40,7 +43,19 @@ export default function NotificationSettingsScreen() {
     } catch {
       setFailed(true);
     }
+    fetchCallsOff(userId).then(setCallsOffState).catch(() => {});
   }, [userId]);
+
+  const toggleCalls = async (allow: boolean) => {
+    setCallsOffState(!allow);
+    Haptics.selectionAsync().catch(() => {});
+    try {
+      await setCallsOff(!allow);
+    } catch (err) {
+      setCallsOffState(allow);
+      showToast(errorMessage(err, "Couldn't save that — try again"));
+    }
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -141,6 +156,27 @@ export default function NotificationSettingsScreen() {
               })}
             </View>
           </FadeInView>
+
+          {callsOff !== null ? (
+            <FadeInView delay={120}>
+              <Text style={[styles.groupLabel, styles.groupGap]}>Calls</Text>
+              <View style={styles.card}>
+                <View style={styles.row}>
+                  <View style={styles.rowText}>
+                    <Text style={styles.rowLabel}>Let classmates call me</Text>
+                    <Text style={styles.rowHint}>Only people you've both messaged can call. Off means nobody can.</Text>
+                  </View>
+                  <Switch
+                    value={!callsOff}
+                    onValueChange={toggleCalls}
+                    trackColor={{ true: colors.primary, false: colors.border }}
+                    thumbColor={colors.cardBg}
+                    accessibilityLabel="Let classmates call me"
+                  />
+                </View>
+              </View>
+            </FadeInView>
+          ) : null}
 
           <TouchableOpacity style={styles.phoneLink} onPress={() => Linking.openSettings().catch(() => {})} accessibilityRole="button">
             <Ionicons name="phone-portrait-outline" size={16} color={colors.textMid} />

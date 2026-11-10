@@ -335,6 +335,7 @@ export type NotificationType =
   | 'points_earned'
   | 'achievement_earned'
   | 'message'
+  | 'call'
   | 'follow'
   | 'story_wave'
   | 'thanks_received'

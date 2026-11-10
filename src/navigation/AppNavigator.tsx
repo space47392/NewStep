@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Linking } from 'react-native';
 import { warmAlert } from '../components/WarmAlert';
 import { NavigationContainer, DarkTheme } from '@react-navigation/native';
@@ -24,6 +24,7 @@ import LegalScreen from '../screens/main/LegalScreen';
 import MainNavigator from './MainNavigator';
 import { navigationRef } from './navigationRef';
 import { useScreenContentStyle, NO_TOP_INSET } from './screenInsets';
+import { OnboardingNavContext } from './onboardingNav';
 
 // Native backgrounds (screen transitions, overscroll) match the soft-night
 // palette so nothing flashes white between screens.
@@ -83,6 +84,8 @@ export default function AppNavigator() {
   const [interestsOnboardingDone, setInterestsOnboardingDone] = useState(false);
   const [newStudentOnboardingDone, setNewStudentOnboardingDone] = useState(false);
   const [welcomeOnboardingDone, setWelcomeOnboardingDone] = useState(false);
+  // Back on the username step after finishing it (tapped in the step trail).
+  const [editingUsername, setEditingUsername] = useState(false);
   // True while a password-reset link is being used — see the effect below.
   const [recoveringPassword, setRecoveringPassword] = useState(false);
   const handledLinksRef = useRef(new Set<string>());
@@ -130,7 +133,23 @@ export default function AppNavigator() {
     setInterestsOnboardingDone(false);
     setNewStudentOnboardingDone(false);
     setWelcomeOnboardingDone(false);
+    setEditingUsername(false);
   }, [session?.user?.id]);
+
+  // Tapping a finished step in the trail goes back to it. Every later step is
+  // walked through again (their answers stay filled in), so nothing is
+  // skipped by accident. Step order matches components/OnboardingSteps.
+  const onboardingNav = useMemo(
+    () => ({
+      goToStep: (index: number) => {
+        if (index <= 1) setEditingUsername(true);
+        if (index <= 2) setSchoolOnboardingDone(false);
+        if (index <= 3) setInterestsOnboardingDone(false);
+        if (index <= 4) setNewStudentOnboardingDone(false);
+      },
+    }),
+    []
+  );
 
   // Show a spinner while Supabase checks for a stored session, and — once
   // logged in — while we check whether this account has a username yet.
@@ -172,6 +191,7 @@ export default function AppNavigator() {
     !welcomeOnboardingDone;
 
   return (
+    <OnboardingNavContext.Provider value={justSignedUp ? onboardingNav : null}>
     <NavigationContainer ref={navigationRef} theme={NAV_THEME}>
       <RootStack.Navigator screenOptions={{ headerShown: false, contentStyle }}>
         {recoveringPassword && session ? (
@@ -181,12 +201,19 @@ export default function AppNavigator() {
         ) : !session ? (
           // Logged out → show auth screens
           <RootStack.Screen name="Auth" component={AuthNavigator as any} options={{ contentStyle: NO_TOP_INSET }} />
-        ) : !username ? (
+        ) : !username || editingUsername ? (
           // Logged in but no username yet — covers both pre-existing accounts
           // from before this feature existed, and brand new signups (a fresh
           // profile row also starts with username = null).
           <RootStack.Screen name="ChooseUsername">
-            {() => <ChooseUsernameScreen onComplete={() => setJustSignedUp(true)} />}
+            {() => (
+              <ChooseUsernameScreen
+                onComplete={() => {
+                  setEditingUsername(false);
+                  setJustSignedUp(true);
+                }}
+              />
+            )}
           </RootStack.Screen>
         ) : showSchoolOnboarding ? (
           // One-time nudge for a brand-new signup only — see showSchoolOnboarding above.
@@ -194,7 +221,7 @@ export default function AppNavigator() {
             {() => (
               <ChooseSchoolScreen
                 title="Where's your school?"
-                subtitle="Choose your school. Next you'll show you go there (a school email or student ID), so only real classmates can see your school's space."
+                subtitle="Choose your school. You can read its guide right away. Two classmates vouching for you opens the rest, so only real classmates reach each other."
                 showSkip
                 onDone={() => setSchoolOnboardingDone(true)}
               />
@@ -219,5 +246,6 @@ export default function AppNavigator() {
         )}
       </RootStack.Navigator>
     </NavigationContainer>
+    </OnboardingNavContext.Provider>
   );
 }

@@ -1,11 +1,15 @@
-import { View, Text, StyleSheet, StyleProp, ViewStyle } from 'react-native';
+import { Fragment } from 'react';
+import { View, Text, StyleSheet, StyleProp, ViewStyle, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
+import { canRevisitStep, useOnboardingNav } from '../navigation/onboardingNav';
 import { colors, light, spacing, radius, fontFamily } from '../constants/theme';
 
 // The real first-run order (see AppNavigator): sign up → username → school
-// → interests → "are you new?" + welcome. Footprints, not the help tracker's
-// dots — those stay reserved for help requests.
-const STEPS = ['Sign up', 'Username', 'School', 'Interests', 'Say hi 👋'] as const;
+// → interests → "are you new?" + welcome. Drawn as a trail: finished steps
+// are ticked (tap one to go back to it), the current step is lit, the rest
+// are waiting.
+const STEPS = ['Sign up', 'Username', 'School', 'Interests', 'Say hi'] as const;
 
 type Props = {
   // Index into STEPS of the screen showing this.
@@ -17,82 +21,162 @@ type Props = {
 
 export default function OnboardingSteps({ current, style, tone = 'dark' }: Props) {
   const isLight = tone === 'light';
+  const nav = useOnboardingNav();
+  const idle = isLight ? light.border : colors.border;
+
   return (
-    <View
-      style={[styles.row, isLight && styles.rowLight, style]}
-      accessible
-      accessibilityLabel={`Step ${current + 1} of ${STEPS.length}: ${STEPS[current]}`}
-    >
-      {STEPS.map((step, i) => {
-        const done = i < current;
-        const now = i === current;
-        return (
-          <View key={step} style={styles.step}>
-            <Ionicons
-              name="footsteps"
-              size={now ? 20 : 16}
-              color={now || done ? colors.primary : isLight ? light.border : colors.tabInactive}
-              style={{ opacity: done ? 0.45 : 1, transform: [{ rotate: i % 2 === 0 ? '-12deg' : '12deg' }] }}
-            />
+    <View style={[styles.card, isLight && styles.cardLight, style]} accessibilityLabel={`Step ${current + 1} of ${STEPS.length}: ${STEPS[current]}`}>
+      <View style={styles.track}>
+        {STEPS.map((step, i) => {
+          const done = i < current;
+          const now = i === current;
+          const tappable = !!nav && canRevisitStep(i, current);
+          const dot = (
+            <View style={[styles.dot, done && styles.dotDone, now && styles.dotNow, !done && !now && { borderColor: idle }]}>
+              {done ? (
+                <Ionicons name="checkmark" size={13} color={colors.onPrimary} />
+              ) : (
+                <Text style={[styles.dotText, now && styles.dotTextNow, !now && { color: isLight ? light.textLight : colors.textLight }]}>{i + 1}</Text>
+              )}
+            </View>
+          );
+          return (
+            <Fragment key={step}>
+              {i > 0 ? <View style={[styles.line, { backgroundColor: i <= current ? colors.primary : idle }]} /> : null}
+              <View style={styles.dotWrap}>
+              {tappable ? (
+                <TouchableOpacity
+                  onPress={() => {
+                    Haptics.selectionAsync().catch(() => {});
+                    nav!.goToStep(i);
+                  }}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Go back to ${step}`}
+                >
+                  {dot}
+                </TouchableOpacity>
+              ) : (
+                dot
+              )}
+              </View>
+            </Fragment>
+          );
+        })}
+      </View>
+      <View style={styles.labels}>
+        {STEPS.map((step, i) => {
+          const done = i < current;
+          const now = i === current;
+          const tappable = !!nav && canRevisitStep(i, current);
+          return (
             <Text
+              key={step}
+              onPress={tappable ? () => nav!.goToStep(i) : undefined}
               style={[
                 styles.label,
                 isLight && styles.labelLight,
-                now && styles.labelNow,
-                now && isLight && styles.labelNowLight,
                 done && (isLight ? styles.labelDoneLight : styles.labelDone),
+                now && (isLight ? styles.labelNowLight : styles.labelNow),
               ]}
               numberOfLines={1}
             >
               {step}
             </Text>
-          </View>
-        );
-      })}
+          );
+        })}
+      </View>
     </View>
   );
 }
 
+const DOT = 24;
+
 const styles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
+  card: {
     alignSelf: 'stretch',
     backgroundColor: colors.cardBg,
     borderRadius: radius.lg,
     paddingVertical: spacing.sm + 2,
-    paddingHorizontal: spacing.xs,
+    paddingHorizontal: spacing.md,
   },
-  rowLight: {
+  cardLight: {
     backgroundColor: light.surface,
     borderWidth: 1,
     borderColor: light.hairline,
   },
-  step: {
-    flex: 1,
+  // The labels are five equal columns, so their centres sit at 10%, 30% … 90%.
+  // The track spans 10%–90% and each dot takes no layout width (negative
+  // margins), so the four equal lines put every dot on a label's centre.
+  track: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-end',
-    gap: 4,
+    marginHorizontal: '10%',
+    height: DOT + 4,
+  },
+  dotWrap: {
+    marginHorizontal: -DOT / 2,
+    zIndex: 1,
+  },
+  line: {
+    flex: 1,
+    height: 2,
+    borderRadius: 1,
+    marginHorizontal: DOT / 2 + 3,
+  },
+  dot: {
+    width: DOT,
+    height: DOT,
+    borderRadius: DOT / 2,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dotDone: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  dotNow: {
+    backgroundColor: colors.primaryLight,
+    borderColor: colors.primary,
+    transform: [{ scale: 1.15 }],
+  },
+  dotText: {
+    fontFamily: fontFamily.semibold,
+    fontSize: 11,
+  },
+  dotTextNow: {
+    fontFamily: fontFamily.bold,
+    color: colors.primaryDark,
+  },
+  labels: {
+    flexDirection: 'row',
+    marginTop: 6,
   },
   label: {
+    flex: 1,
+    textAlign: 'center',
     fontFamily: fontFamily.medium,
     fontSize: 10,
     color: colors.textLight,
+  },
+  labelLight: {
+    color: light.textLight,
+  },
+  labelDone: {
+    color: colors.textMid,
+  },
+  labelDoneLight: {
+    color: light.textMid,
   },
   labelNow: {
     fontFamily: fontFamily.bold,
     fontSize: 11,
     color: colors.primaryDark,
   },
-  labelDone: {
-    color: colors.textMid,
-  },
-  labelLight: {
-    color: light.textLight,
-  },
   labelNowLight: {
+    fontFamily: fontFamily.bold,
+    fontSize: 11,
     color: light.link,
-  },
-  labelDoneLight: {
-    color: light.textMid,
   },
 });

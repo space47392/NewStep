@@ -23,8 +23,9 @@ type Props = {
 };
 
 export default function ChooseUsernameScreen({ onComplete }: Props) {
-  const { user, refreshUsername } = useAuth();
-  const [input, setInput] = useState('');
+  const { user, username, refreshUsername } = useAuth();
+  // Set when the student came back from a later step to change it.
+  const [input, setInput] = useState(username ?? '');
   const [status, setStatus] = useState<Status>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -36,6 +37,12 @@ export default function ChooseUsernameScreen({ onComplete }: Props) {
     const normalized = normalizeUsername(input);
     if (!normalized) {
       setStatus('idle');
+      setErrorMessage(null);
+      return;
+    }
+
+    if (normalized === username) {
+      setStatus('available');
       setErrorMessage(null);
       return;
     }
@@ -62,7 +69,7 @@ export default function ChooseUsernameScreen({ onComplete }: Props) {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [input]);
+  }, [input, username]);
 
   const handleSubmit = async () => {
     if (!user || status !== 'available') return;
@@ -70,8 +77,10 @@ export default function ChooseUsernameScreen({ onComplete }: Props) {
     setSaving(true);
     try {
       const normalized = normalizeUsername(input);
-      await setMyUsername(user.id, normalized);
-      await refreshUsername();
+      if (normalized !== username) {
+        await setMyUsername(user.id, normalized);
+        await refreshUsername();
+      }
       onComplete?.();
     } catch (err) {
       const message = describeError(err, 'Could not save username.');

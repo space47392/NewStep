@@ -2,24 +2,19 @@ import { useState } from 'react';
 import { FlatList, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { clampDay, daysInMonth, formatBirthday, MONTHS, type Birthday } from '../lib/age';
 import { colors, spacing, radius, fontSize, fontFamily, light } from '../constants/theme';
 
-// Birth month + year for the sign-up age check. Deliberately neutral: every
-// year is listed (not just old-enough ones) and nothing hints at the answer.
-// The value never leaves the device — only "old enough or not" is used.
+// Birthday for the sign-up age check: month, day and year. Deliberately
+// neutral: every year is listed (not just old-enough ones) and nothing hints
+// at the answer. The value never leaves the device (see lib/age.ts).
 
-export type Birthday = { month: number; year: number }; // month 0–11
-
-export const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-
-// Whole months lived, counting the birth month as not yet complete — so
-// someone whose 13th birthday is later this month waits until next month.
-export function isAtLeast(b: Birthday, years: number, now = new Date()): boolean {
-  const months = (now.getFullYear() - b.year) * 12 + (now.getMonth() - b.month);
-  return months > years * 12;
-}
+export type { Birthday };
 
 type Props = { value: Birthday | null; onChange: (b: Birthday) => void };
+
+// Any leap year, so Feb 29 can be picked before a year is.
+const LEAP_YEAR = 2024;
 
 export default function BirthdayField({ value, onChange }: Props) {
   const insets = useSafeAreaInsets();
@@ -27,11 +22,26 @@ export default function BirthdayField({ value, onChange }: Props) {
   const thisYear = new Date().getFullYear();
   const years = Array.from({ length: 100 }, (_, i) => thisYear - i);
   const [month, setMonth] = useState<number | null>(value?.month ?? null);
+  const [day, setDay] = useState<number | null>(value?.day ?? null);
   const [year, setYear] = useState<number | null>(value?.year ?? null);
 
+  // Days in the chosen month (all 31 until a month is picked).
+  const dayCount = month === null ? 31 : daysInMonth(year ?? LEAP_YEAR, month);
+  const days = Array.from({ length: dayCount }, (_, i) => i + 1);
+
+  const pickMonth = (m: number) => {
+    setMonth(m);
+    if (day !== null) setDay(clampDay(year ?? LEAP_YEAR, m, day));
+  };
+  const pickYear = (y: number) => {
+    setYear(y);
+    if (day !== null && month !== null) setDay(clampDay(y, month, day));
+  };
+
+  const ready = month !== null && day !== null && year !== null;
   const done = () => {
-    if (month === null || year === null) return;
-    onChange({ month, year });
+    if (!ready) return;
+    onChange({ year: year!, month: month!, day: day! });
     setOpen(false);
   };
 
@@ -39,7 +49,7 @@ export default function BirthdayField({ value, onChange }: Props) {
     <>
       <TouchableOpacity style={styles.field} onPress={() => setOpen(true)} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel="Birthday">
         <Ionicons name="gift-outline" size={18} color={light.textLight} style={styles.icon} />
-        <Text style={[styles.fieldText, !value && styles.placeholder]}>{value ? `${MONTHS[value.month]} ${value.year}` : 'Month and year'}</Text>
+        <Text style={[styles.fieldText, !value && styles.placeholder]}>{value ? formatBirthday(value) : 'Month, day and year'}</Text>
         <Ionicons name="chevron-down" size={16} color={light.textLight} />
       </TouchableOpacity>
 
@@ -51,12 +61,22 @@ export default function BirthdayField({ value, onChange }: Props) {
             <Text style={styles.title}>When's your birthday?</Text>
             <View style={styles.columns}>
               <FlatList
-                style={styles.column}
+                style={[styles.column, styles.monthColumn]}
                 data={MONTHS}
                 keyExtractor={(m) => m}
                 renderItem={({ item, index }) => (
-                  <TouchableOpacity style={[styles.option, month === index && styles.optionOn]} onPress={() => setMonth(index)}>
+                  <TouchableOpacity style={[styles.option, month === index && styles.optionOn]} onPress={() => pickMonth(index)} accessibilityState={{ selected: month === index }}>
                     <Text style={[styles.optionText, month === index && styles.optionTextOn]}>{item}</Text>
+                  </TouchableOpacity>
+                )}
+              />
+              <FlatList
+                style={styles.column}
+                data={days}
+                keyExtractor={(d) => String(d)}
+                renderItem={({ item }) => (
+                  <TouchableOpacity style={[styles.option, day === item && styles.optionOn]} onPress={() => setDay(item)} accessibilityState={{ selected: day === item }}>
+                    <Text style={[styles.optionText, styles.center, day === item && styles.optionTextOn]}>{item}</Text>
                   </TouchableOpacity>
                 )}
               />
@@ -65,13 +85,13 @@ export default function BirthdayField({ value, onChange }: Props) {
                 data={years}
                 keyExtractor={(y) => String(y)}
                 renderItem={({ item }) => (
-                  <TouchableOpacity style={[styles.option, year === item && styles.optionOn]} onPress={() => setYear(item)}>
-                    <Text style={[styles.optionText, year === item && styles.optionTextOn]}>{item}</Text>
+                  <TouchableOpacity style={[styles.option, year === item && styles.optionOn]} onPress={() => pickYear(item)} accessibilityState={{ selected: year === item }}>
+                    <Text style={[styles.optionText, styles.center, year === item && styles.optionTextOn]}>{item}</Text>
                   </TouchableOpacity>
                 )}
               />
             </View>
-            <TouchableOpacity style={[styles.done, (month === null || year === null) && styles.doneOff]} onPress={done} disabled={month === null || year === null}>
+            <TouchableOpacity style={[styles.done, !ready && styles.doneOff]} onPress={done} disabled={!ready}>
               <Text style={styles.doneText}>Done</Text>
             </TouchableOpacity>
           </View>
@@ -143,6 +163,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: light.hairline,
   },
+  monthColumn: {
+    flex: 1.6,
+  },
   option: {
     paddingVertical: 12,
     paddingHorizontal: spacing.md,
@@ -154,6 +177,9 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     fontSize: fontSize.md,
     color: light.textMid,
+  },
+  center: {
+    textAlign: 'center',
   },
   optionTextOn: {
     fontFamily: fontFamily.semibold,

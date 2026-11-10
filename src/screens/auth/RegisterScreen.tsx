@@ -11,7 +11,8 @@ import PrimaryButton from '../../components/PrimaryButton';
 import OnboardingSteps from '../../components/OnboardingSteps';
 import FadeInView from '../../components/FadeInView';
 import AppLogo from '../../components/AppLogo';
-import BirthdayField, { Birthday, isAtLeast } from '../../components/BirthdayField';
+import BirthdayField from '../../components/BirthdayField';
+import { isAtLeast, type Birthday } from '../../lib/age';
 import { LEGAL_UPDATED, MIN_AGE } from '../../constants/legal';
 import { colors, spacing, radius, fontSize, fontFamily, light } from '../../constants/theme';
 import { AuthStackParamList } from '../../types';
@@ -77,7 +78,7 @@ export default function RegisterScreen({ navigation }: Props) {
 
     registeringRef.current = true;
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email: email.trim(),
       password,
       options: {
@@ -98,6 +99,10 @@ export default function RegisterScreen({ navigation }: Props) {
       warmAlert('Sign up failed', error.message);
       return;
     }
+
+    // With "Confirm email" off, sign-up signs in straight away and the
+    // navigator moves on to the username step: nothing to say here.
+    if (data.session) return;
 
     warmAlert(
       'Check your email',
@@ -148,7 +153,7 @@ export default function RegisterScreen({ navigation }: Props) {
           <Text style={styles.label}>Email</Text>
           <IconInput tone="light"
             icon="mail-outline"
-            placeholder="you@school.edu"
+            placeholder="you@example.com"
             value={email}
             onChangeText={setEmail}
             autoCapitalize="none"

@@ -105,6 +105,7 @@ production; later files depend on tables and functions from earlier ones.
 | 79 | `school_access_pending.sql` | students waiting on verification can read their school guide |
 | 80 | `school_vouches.sql` | two verified classmates can confirm a new student |
 | 81 | `calls.sql` | voice calls between students who have talked |
+| 82 | `notification_actor_cascade_fix.sql` | lets the dashboard delete accounts (notification guard vs. cascade) |
 
 **Skip:**
 - `chat_deleted_participant_schema.sql`. It was replaced by files 50 and 51.

@@ -190,6 +190,7 @@ export default function SettingsScreen() {
           {/* Push permission lives with the phone, so this opens NewStep's
               page in the phone's own settings. */}
           <Row icon="notifications-outline" label="Notifications" onPress={() => navigation.navigate('NotificationSettings')} />
+          <Row icon="people-outline" label="Your school & vouching" onPress={() => navigation.navigate('VerifySchool')} />
           <Row icon="bookmark-outline" label="Saved posts" onPress={() => navigation.navigate('SavedPosts')} last />
         </Group>
 

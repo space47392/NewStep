@@ -5,11 +5,14 @@ export type SchoolIdRequest = { status: 'pending' | 'approved' | 'rejected'; not
 
 export type SchoolVerification = {
   verified: boolean;
-  method: 'email' | 'student_id' | 'grandfathered' | null;
+  method: 'email' | 'student_id' | 'grandfathered' | 'vouch' | null;
   pending_school_id: string | null;
   pending_school_name: string | null;
   // Whether we know this school's email domain (so the email route works).
   pending_school_has_email: boolean;
+  // Classmates who confirmed so far, and how many it takes.
+  vouches?: number;
+  vouches_needed?: number;
   request: SchoolIdRequest | null;
 };
 
@@ -50,4 +53,23 @@ export function verificationStage(v: SchoolVerification | null): VerificationSta
   if (v.request?.status === 'pending') return 'id_pending';
   if (v.request?.status === 'rejected') return 'id_rejected';
   return 'needs_verifying';
+}
+
+// Vouch codes (school_vouches.sql): no 0/O or 1/I, so they're easy to read out.
+export const VOUCH_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+export const VOUCH_CODE_LENGTH = 6;
+
+// Uppercases and keeps only characters a code can have (spaces, dashes and
+// the lookalikes 0/O/1/I are dropped).
+export function cleanVouchCode(input: string): string {
+  return input
+    .toUpperCase()
+    .split('')
+    .filter((c) => VOUCH_ALPHABET.includes(c))
+    .join('')
+    .slice(0, VOUCH_CODE_LENGTH);
+}
+
+export function vouchProgress(v: SchoolVerification | null): { have: number; need: number } {
+  return { have: v?.vouches ?? 0, need: v?.vouches_needed ?? 2 };
 }

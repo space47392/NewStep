@@ -13,7 +13,9 @@ import IconInput from '../../components/IconInput';
 import PrimaryButton from '../../components/PrimaryButton';
 import FadeInView from '../../components/FadeInView';
 import ErrorState from '../../components/ErrorState';
-import { cleanCode, looksLikeEmail, verificationStage, type SchoolVerification } from '../../lib/schoolVerification';
+import { cleanCode, looksLikeEmail, verificationStage, vouchProgress, type SchoolVerification } from '../../lib/schoolVerification';
+import VouchCodeCard from '../../components/verify/VouchCodeCard';
+import VouchForClassmate from '../../components/verify/VouchForClassmate';
 import {
   confirmSchoolEmailCode,
   emailMatchesMySchool,
@@ -25,9 +27,10 @@ import { errorMessage } from '../../lib/errors';
 import { colors, spacing, radius, fontSize, fontFamily, typography } from '../../constants/theme';
 import { MainStackParamList } from '../../types';
 
-// Proving you go to the school you picked, so only real classmates see its
-// guide, sky, lanterns and buddies. School email first; a student ID photo
-// (checked by a moderator, then deleted) when there's no school email.
+// Proving you go to the school you picked, so only real classmates reach
+// each other. Three ways, most automatic first: a school email code, two
+// verified classmates vouching, or (last resort) a photo a moderator checks
+// and then deletes. Verified students vouch for newcomers here too.
 export default function VerifySchoolScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
   const insets = useSafeAreaInsets();
@@ -155,14 +158,14 @@ export default function VerifySchoolScreen() {
           <View style={[styles.card, styles.doneCard]}>
             <Text style={styles.doneEmoji}>✅</Text>
             <Text style={styles.cardTitle}>All set</Text>
-            <PrimaryButton title="Back" variant="outline" size="sm" onPress={() => navigation.goBack()} style={styles.doneButton} />
           </View>
         ) : null}
+        {loaded && stage === 'verified' ? <VouchForClassmate /> : null}
 
         {loaded && stage === 'id_pending' ? (
           <View style={[styles.card, styles.noticeCard]}>
             <Text style={styles.cardTitle}>⏳ Your photo is with a moderator</Text>
-            <Text style={styles.cardBody}>Usually within a day. You can also use a school email below if you have one.</Text>
+            <Text style={styles.cardBody}>This can take a few days. Classmates vouching below is usually faster.</Text>
           </View>
         ) : null}
 
@@ -214,17 +217,22 @@ export default function VerifySchoolScreen() {
                     </>
                   )
                 ) : (
-                  <Text style={styles.cardBody}>We don't have {school}'s email yet, so use your student ID below for now.</Text>
+                  <Text style={styles.cardBody}>We don't have {school}'s email yet, so ask classmates below for now.</Text>
                 )}
                 {emailError ? <Text style={styles.error}>{emailError}</Text> : null}
               </View>
             </FadeInView>
 
+            <FadeInView delay={60}>
+              <Text style={styles.sectionLabel}>No school email? Ask two classmates</Text>
+              <VouchCodeCard schoolName={school} {...vouchProgress(status)} />
+            </FadeInView>
+
             <FadeInView delay={80}>
-              <Text style={styles.sectionLabel}>No school email? Use a photo</Text>
+              <Text style={styles.sectionLabel}>Can't reach classmates yet? Send a photo</Text>
               <View style={styles.card}>
                 <Text style={styles.cardBody}>
-                  Your <Text style={styles.strong}>student ID, class schedule or enrollment letter</Text> works. Just new? Your schedule is fine. A moderator checks that it shows {school}, then the photo is <Text style={styles.strong}>deleted right away</Text>. Only the moderator sees it. Feel free to cover ID numbers.
+                  Your <Text style={styles.strong}>student ID, class schedule or enrollment letter</Text> works. Just new? Your schedule is fine. A person checks that it shows {school}, so it can take a few days. The photo is <Text style={styles.strong}>deleted right away</Text> after. Only the moderator sees it. Feel free to cover ID numbers.
                 </Text>
                 {busy === 'photo' ? (
                   <ActivityIndicator color={colors.primaryDark} style={{ marginVertical: spacing.md }} />
@@ -310,9 +318,6 @@ const styles = StyleSheet.create({
   },
   doneEmoji: {
     fontSize: 36,
-  },
-  doneButton: {
-    marginTop: spacing.xs,
   },
   cardTitle: {
     fontFamily: fontFamily.semibold,

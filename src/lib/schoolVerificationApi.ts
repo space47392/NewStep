@@ -103,3 +103,32 @@ export async function reviewStudentId(requestId: string, approve: boolean, note?
   if (error) throw error;
   if (path) await supabase.storage.from(BUCKET).remove([path as string]).catch(() => {});
 }
+
+// --- Classmates vouch -------------------------------------------------------
+
+export async function fetchMyVouchCode(): Promise<string> {
+  const { data, error } = await supabase.rpc('my_vouch_code');
+  if (error) throw error;
+  return data as string;
+}
+
+export type VouchPreview = {
+  full_name: string | null;
+  username: string | null;
+  avatar_url: string | null;
+  school_name: string;
+  already_vouched: boolean;
+};
+
+export async function previewVouch(code: string): Promise<VouchPreview> {
+  const { data, error } = await supabase.rpc('preview_vouch', { p_code: code });
+  if (error) throw error;
+  return data as VouchPreview;
+}
+
+// 'verified' when this vouch was the one that got them in.
+export async function vouchForClassmate(code: string): Promise<'verified' | 'vouched'> {
+  const { data, error } = await supabase.rpc('vouch_for_classmate', { p_code: code });
+  if (error) throw error;
+  return data as 'verified' | 'vouched';
+}

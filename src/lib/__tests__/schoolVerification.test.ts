@@ -1,6 +1,6 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { cleanCode, emailDomain, emailMatchesDomains, looksLikeEmail, verificationStage, type SchoolVerification } from '../schoolVerification';
+import { cleanVouchCode, VOUCH_ALPHABET, VOUCH_CODE_LENGTH, vouchProgress, cleanCode, emailDomain, emailMatchesDomains, looksLikeEmail, verificationStage, type SchoolVerification } from '../schoolVerification';
 
 describe('school email domains', () => {
   it('reads the domain, ignoring case and spaces', () => {
@@ -54,5 +54,27 @@ describe('verificationStage', () => {
   it('treats no profile or no school as no school', () => {
     expect(verificationStage(null)).toBe('no_school');
     expect(verificationStage(base)).toBe('no_school');
+  });
+});
+
+describe('vouch codes', () => {
+  it('use the same alphabet as my_vouch_code() in the SQL', () => {
+    const sql = readFileSync(join(__dirname, '../../../supabase/school_vouches.sql'), 'utf8');
+    expect(sql).toContain(`v_alphabet text := '${VOUCH_ALPHABET}'`);
+    expect(sql).toContain(`generate_series(1, ${VOUCH_CODE_LENGTH})`);
+  });
+
+  it('never use lookalike characters', () => {
+    for (const c of '0O1I') expect(VOUCH_ALPHABET).not.toContain(c);
+  });
+
+  it('cleans what a student types', () => {
+    expect(cleanVouchCode(' ab-c 2d9x7 ')).toBe('ABC2D9');
+    expect(cleanVouchCode('o0i1KQ')).toBe('KQ');
+  });
+
+  it('counts progress towards two vouches', () => {
+    expect(vouchProgress(null)).toEqual({ have: 0, need: 2 });
+    expect(vouchProgress({ verified: false, method: null, pending_school_id: 's', pending_school_name: null, pending_school_has_email: false, request: null, vouches: 1, vouches_needed: 2 })).toEqual({ have: 1, need: 2 });
   });
 });
